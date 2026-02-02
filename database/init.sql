@@ -165,6 +165,27 @@ CREATE TABLE IF NOT EXISTS market_plugins (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Plugin Database Registry Table (tracks plugin database namespaces)
+-- Each plugin gets a unique prefix for isolated database tables
+CREATE TABLE IF NOT EXISTS plugin_database_registry (
+    id BIGSERIAL PRIMARY KEY,
+    plugin_id VARCHAR(100) NOT NULL UNIQUE,
+    db_prefix VARCHAR(50) NOT NULL UNIQUE,
+    initial_version VARCHAR(50),
+    current_version VARCHAR(50),
+    schema_version INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    enabled BOOLEAN NOT NULL DEFAULT true
+);
+
+COMMENT ON TABLE plugin_database_registry IS 'Tracks plugin database namespaces and schema versions';
+COMMENT ON COLUMN plugin_database_registry.plugin_id IS 'Unique plugin identifier from PluginInfo.name';
+COMMENT ON COLUMN plugin_database_registry.db_prefix IS 'Unique table prefix for this plugin (format: p_{uuid}_)';
+COMMENT ON COLUMN plugin_database_registry.initial_version IS 'Plugin version when first registered';
+COMMENT ON COLUMN plugin_database_registry.current_version IS 'Current plugin version';
+COMMENT ON COLUMN plugin_database_registry.schema_version IS 'Current database schema version for migrations';
+
 -- ============================================
 -- Subscription Tables
 -- ============================================
@@ -209,6 +230,10 @@ CREATE INDEX IF NOT EXISTS idx_market_plugins_category ON market_plugins(categor
 CREATE INDEX IF NOT EXISTS idx_market_plugins_downloads ON market_plugins(downloads DESC);
 CREATE INDEX IF NOT EXISTS idx_market_plugins_license_type ON market_plugins(license_type);
 CREATE INDEX IF NOT EXISTS idx_market_plugins_commercial ON market_plugins(is_commercial);
+
+-- Plugin database registry indexes
+CREATE INDEX IF NOT EXISTS idx_plugin_db_registry_plugin_id ON plugin_database_registry(plugin_id);
+CREATE INDEX IF NOT EXISTS idx_plugin_db_registry_db_prefix ON plugin_database_registry(db_prefix);
 
 -- Subscription indexes
 CREATE INDEX IF NOT EXISTS idx_subscriptions_target ON subscriptions(target_id, subscription_type);

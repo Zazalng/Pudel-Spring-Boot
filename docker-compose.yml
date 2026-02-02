@@ -91,9 +91,9 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-http://localhost/auth/callback}
 
-      # Security
-      JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH}
-      JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH}
+      # Security (RSA keys mounted via volume)
+      JWT_PRIVATE_KEY_PATH: /app/keys/private.key
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.key
       JWT_EXPIRATION: ${JWT_EXPIRATION:-604800000}
 
       # CORS
@@ -113,8 +113,19 @@ services:
 
       # JVM
       JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}
+
+      # Plugin Configuration
+      PUDEL_PLUGIN_DIRECTORY: /app/plugins
+      PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY: ${PLUGIN_AUTO_DISCOVERY:-true}
+      PUDEL_PLUGIN_ENABLE_AUTO_LOAD: ${PLUGIN_AUTO_LOAD:-true}
     volumes:
+      # Bind mount for plugins - allows live plugin updates from host
+      # On host: ./plugins directory, In container: /app/plugins
+      # You can drop new .jar files into ./plugins and they will be auto-detected
       - ./plugins:/app/plugins
+      # RSA keys for JWT - read-only mount
+      # Keys must be generated on host: keys/private.key and keys/public.key
+      - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
     ports:
       - "${SERVER_PORT:-8080}:8080"
@@ -165,4 +176,3 @@ volumes:
     driver: local
   pudel_logs:
     driver: local
-

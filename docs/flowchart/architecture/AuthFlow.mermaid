@@ -3,15 +3,26 @@ sequenceDiagram
     participant Vue as Vue Frontend
     participant Discord as Discord OAuth
     participant Backend as Spring Boot
+    participant JWT as JwtUtil (RSA)
 
     User->>Vue: Click "Login with Discord"
     Vue->>Discord: Redirect to OAuth URL
     User->>Discord: Authorize Application
     Discord-->>Vue: Callback with Auth Code
-    Vue->>Backend: POST /auth/login (Auth Code)
+    Vue->>Backend: POST /api/auth/discord/callback
+    Note over Vue,Backend: {code, redirectUri}
     Backend->>Discord: Exchange Code for Token
-    Discord-->>Backend: Access Token + User Info
-    Backend->>Backend: Generate JWT
+    Discord-->>Backend: Access Token + Refresh Token
+    Backend->>Discord: GET /users/@me
+    Discord-->>Backend: User Info (id, username, avatar)
+    Backend->>Backend: Create/Update User in DB
+    Backend->>JWT: Generate RSA-signed JWT
+    JWT-->>Backend: JWT Token
     Backend-->>Vue: Return JWT Token
 
-    note right of Vue: Store JWT for API requests
+    Note over Vue: Store JWT in localStorage
+
+    Vue->>Backend: GET /api/guilds (Bearer JWT)
+    Backend->>JWT: Validate JWT Signature
+    JWT-->>Backend: User Claims
+    Backend-->>Vue: Guild List

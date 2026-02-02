@@ -94,9 +94,9 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-http://localhost/auth/callback}
 
-      # Security
-      JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH}
-      JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH}
+      # Security (RSA keys mounted via volume)
+      JWT_PRIVATE_KEY_PATH: /app/keys/private.key
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.key
       JWT_EXPIRATION: ${JWT_EXPIRATION:-604800000}
 
       # CORS
@@ -116,9 +116,18 @@ services:
 
       # JVM
       JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}
+
+      # Plugin Configuration
+      PUDEL_PLUGIN_DIRECTORY: /app/plugins
+      PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY: ${PLUGIN_AUTO_DISCOVERY:-true}
+      PUDEL_PLUGIN_ENABLE_AUTO_LOAD: ${PLUGIN_AUTO_LOAD:-true}
     volumes:
       - pudel_src:/app/src
-      - pudel_plugins:/app/plugins
+      # Bind mount for plugins - allows live plugin updates from host
+      # Drop new .jar files into ./plugins on host and they will be auto-detected
+      - ./plugins:/app/plugins
+      # RSA keys for JWT - read-only mount
+      - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
     ports:
       - "${SERVER_PORT:-8080}:8080"
@@ -135,8 +144,6 @@ volumes:
   ollama_data:
     driver: local
   pudel_src:
-    driver: local
-  pudel_plugins:
     driver: local
   pudel_logs:
     driver: local

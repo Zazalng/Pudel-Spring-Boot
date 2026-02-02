@@ -2,32 +2,46 @@ graph LR
 subgraph "Pudel Project Structure"
 direction LR
 
-Core(pudel-core) --> |Dependency| API(pudel-api)
-Core <-->|Dependency| Model(pudel-model)
+Core(pudel-core) --> |uses| API(pudel-api)
+Core --> |uses| Model(pudel-model)
 
-subgraph "pudel-api (PDK)"
-P1[PudelPlugin]
-P2[command/ ]
-P3[event/ ]
-P4[audio/ ]
+subgraph "pudel-api (PDK - MIT)"
+    direction TB
+    P1[PudelPlugin.java]
+    P2[PluginContext.java]
+    P3[command/ ]
+    P4[interaction/ ]
+    P5[event/ ]
+    P6[audio/ ]
+    P7[agent/ ]
+    P8[database/ ]
 end
 
-subgraph "pudel-model (AI)"
-M1[PudelModelService]
-M2[OllamaClient]
-M3[DiscordSyntaxProcessor]
-M4[analyzer/ ]
+subgraph "pudel-model (AI - AGPL)"
+    direction TB
+    M1[PudelModelService]
+    M2[ollama/OllamaClient]
+    M3[embedding/OllamaEmbeddingService]
+    M4[analyzer/TextAnalyzerService]
+    M5[agent/PudelAgentService]
+    M6[agent/PudelAgentTools]
 end
 
-subgraph "pudel-core (Application)"
-C1[brain/ Personality & Memory]
-C2[discord/ JDA Handling]
-C3[service/ Business Logic]
-C4[plugin/ Manager]
+subgraph "pudel-core (Application - AGPL)"
+    direction TB
+    C1[brain/PudelBrain]
+    C2[brain/memory/MemoryManager]
+    C3[brain/personality/PersonalityEngine]
+    C4[brain/context/PassiveContextProcessor]
+    C5[command/CommandRegistry]
+    C6[interaction/InteractionManagerImpl]
+    C7[discord/DiscordEventListener]
+    C8[service/ChatbotService]
+    C9[plugin/PluginContextImpl]
 end
 
 subgraph "database"
-D1[init.sql]
-D2[migrations/ ]
+    D1[init.sql]
+    D2[migrations/ ]
 end
 end

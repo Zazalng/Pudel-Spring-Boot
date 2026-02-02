@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant User
+    participant Discord
+    participant Listener as InteractionEventListener
+    participant Manager as InteractionManagerImpl
+    participant Builtin as Built-in Slash Commands
+    participant Plugin as Plugin Slash Commands
+    participant Other as Modal/Button/Menu
+
+    User->>Discord: /command [options]
+    Discord->>Listener: SlashCommandInteractionEvent
+    Listener->>Manager: Route Interaction
+
+    alt Slash Command
+        Manager->>Manager: Find Handler by Command Name
+        alt Built-in Command
+            Manager->>Builtin: /settings, /ai, /channel, /command
+            Builtin-->>User: Ephemeral Reply
+        else Plugin Command
+            Manager->>Plugin: Plugin-registered command
+            Plugin-->>User: Reply
+        end
+    else Button/Modal/SelectMenu
+        Manager->>Other: Handle Component Interaction
+        Other-->>User: Reply/Update
+    end

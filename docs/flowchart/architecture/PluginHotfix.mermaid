@@ -1,17 +1,31 @@
 graph TD
-    Start(Start Watcher Service) -->|Every 60s| Scan[Scan /plugins directory]
+    Start(PluginWatcherService Start) -->|Every 60s| Scan[Scan /plugins directory]
     Scan --> Compute[Compute SHA256 Hashes]
     Compute --> Check{Change Detected?}
 
     Check -- No --> Wait[Wait next cycle]
+    Wait --> Scan
+
     Check -- Yes --> Type{Change Type}
 
-    Type -- New JAR --> Copy[Copy to Temp]
+    Type -- New JAR --> Copy[Copy to Temp Directory]
     Copy --> Load[Load Plugin]
+    Load --> Register[Register Commands/Listeners]
 
-    Type -- Hash Changed --> Status{Is Enabled?}
+    Type -- Hash Changed --> Status{Is Plugin Enabled?}
     Status -- No --> UpdateNow[Apply Update Immediately]
+    UpdateNow --> Reload[Reload Plugin]
 
     Status -- Yes --> Queue[Queue Update]
     Queue --> Warn[Warn Admins every 1 min]
-    Warn --> Action[Wait for Disable/Restart]
+    Warn --> Action{Admin Action?}
+    Action -- Disable --> UpdateNow
+    Action -- Restart --> UpdateNow
+    Action -- None --> Warn
+
+    Type -- JAR Removed --> Unload[Unload Plugin]
+    Unload --> Cleanup[Cleanup Temp Files]
+
+    style Start fill:#afa,stroke:#333
+    style Warn fill:#ffa,stroke:#333
+    style UpdateNow fill:#aff,stroke:#333

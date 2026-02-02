@@ -1,8 +1,9 @@
 # Pudel
-![Maven Central (TBA)](https://img.shields.io/maven-central/v/{}label=Maven%20Central)
+![GitHub Release](https://img.shields.io/github/v/release/World-Standard-Group/Pudel-Spring-Boot?label=Release)
+![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-available-blue)
 ![Java](https://img.shields.io/badge/JDK-25-green)
 ![License](https://img.shields.io/github/license/World-Standard-Group/Pudel-Spring-Boot)
-[![Javadoc](https://img.shields.io/badge/javadoc-latest-blue.svg)](https://world-standard-group.github.io/Pudel-Spring-Boot/latest/)
+![Javadoc](https://img.shields.io/badge/javadoc-latest-blue.svg)](https://world-standard-group.github.io/Pudel-Spring-Boot/)
 
 **Pudel** is a modular, AI-powered Discord bot framework built on **Java 25**, **Spring Boot 4**, and **JDA 6**, designed to operate as a long-running service (SaaS-style) with strong separation between core functionality and third-party plugins.
 
@@ -144,7 +145,7 @@ pudel:
 ollama run phi3:mini
 
 # Start Pudel
-java -jar pudel-core/target/pudel-core-1.0.0.jar --spring.profiles.active=local
+java -jar pudel-core/target/pudel-core-1.1.0.jar --spring.profiles.active=local
 ```
 
 ### 5. Dashboard (Optional)
@@ -182,11 +183,22 @@ Visit `http://localhost:5173` for the web dashboard.
 
 Plugins are built against the **MIT-licensed `pudel-api`** module:
 
+**Add GitHub Packages Repository:**
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/World-Standard-Group/Pudel-Spring-Boot</url>
+    </repository>
+</repositories>
+```
+
+**Add Dependency:**
 ```xml
 <dependency>
-    <groupId>worldstandard.group</groupId>
+    <groupId>group.worldstandard</groupId>
     <artifactId>pudel-api</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -220,14 +232,10 @@ See [pudel-api/README.md](pudel-api/README.md) for comprehensive documentation.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
+| Document                                                       | Description                  |
+|----------------------------------------------------------------|------------------------------|
 | [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md) | System architecture overview |
-| [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) | REST API reference |
-| [pudel-api/README.md](pudel-api/README.md) | Plugin Development Kit guide |
-| [docs/DAVE_PROTOCOL.md](docs/DAVE_PROTOCOL.md) | Voice encryption (DAVE) guide |
-| [docs/SUBSCRIPTION_SYSTEM.md](docs/SUBSCRIPTION_SYSTEM.md) | Subscription tiers |
-| [vue/public/docs/](vue/public/docs/) | User documentation (Wiki) |
+| [Documents](docs)                                              | Overview Docs                |
 
 ---
 
@@ -255,7 +263,7 @@ See [pudel-api/README.md](pudel-api/README.md) for comprehensive documentation.
 ```dockerfile
 FROM eclipse-temurin:25-jdk
 WORKDIR /app
-COPY pudel-core/target/pudel-core-1.0.0.jar app.jar
+COPY pudel-core/target/pudel-core-1.1.0.jar app.jar
 COPY plugins/ plugins/
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
@@ -272,7 +280,7 @@ After=network.target postgresql.service
 Type=simple
 User=pudel
 WorkingDirectory=/opt/pudel
-ExecStart=/usr/bin/java -jar pudel-core-1.0.0.jar
+ExecStart=/usr/bin/java -jar pudel-core-1.1.0.jar
 Restart=always
 Environment=DISCORD_BOT_TOKEN=your_token
 Environment=SPRING_PROFILES_ACTIVE=production
@@ -318,13 +326,13 @@ For users of the official Pudel instance:
 
 - **Discord**: [Pudel Support Server (TBA)](https://discord.gg/pudel)
 - **Issues**: [GitHub Issues](https://github.com/World-Standard-Group/Pudel-Spring-Boot/issues)
-- **Documentation**: [Wiki (TBA)]()
+- **Documentation**: [Wiki](https://worldstandard.group/wiki)
 
 ---
 
 ## Status
 
-**Version**: 1.0.0 (Stable)
+**Version**: 1.1.0 (Stable)
 
 The plugin boundary and licensing model are considered **stable**. APIs are production-ready.
 

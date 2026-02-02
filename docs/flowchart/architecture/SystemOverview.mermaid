@@ -1,12 +1,16 @@
 graph TD
     subgraph "Client Side"
-        Vue[Vue Frontend]
+        Vue[Vue Frontend<br/>Dashboard/Wiki]
     end
 
     subgraph "Server Side (Spring Boot)"
         API[Spring Boot API<br/>pudel-core]
-        Plugins[Plugin System]
+        Plugins[Plugin System<br/>Hot-Reload]
+        Interaction[Interaction Manager<br/>Slash Commands]
+        Brain[PudelBrain<br/>AI Processing]
         API --- Plugins
+        API --- Interaction
+        API --- Brain
     end
 
     subgraph "Data Storage"
@@ -16,17 +20,18 @@ graph TD
     end
 
     subgraph "External Services"
-        Discord[Discord API<br/>Gateway + REST]
+        Discord[Discord API<br/>JDA 6 Gateway + REST]
         Ollama[Ollama LLM<br/>Local Model]
     end
 
-%% Connections
+    %% Connections
     Vue <-->|REST / JWT| API
     API <-->|JPA / JDBC| DB
     API <-->|JDA 6| Discord
-    API <-->|HTTP / LangChain4j| Ollama
+    Brain <-->|LangChain4j| Ollama
 
     style API fill:#f9f,stroke:#333,stroke-width:2px
     style Vue fill:#ccf,stroke:#333
     style Discord fill:#7289da,stroke:#333,color:#fff
     style Ollama fill:#fff,stroke:#333
+    style Brain fill:#ffc,stroke:#333

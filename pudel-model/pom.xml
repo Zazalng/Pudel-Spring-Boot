@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>worldstandard.group</groupId>
+        <groupId>group.worldstandard</groupId>
         <artifactId>pudel</artifactId>
-        <version>1.0.0</version>
+        <version>1.1.0</version>
     </parent>
 
     <artifactId>pudel-model</artifactId>
@@ -42,6 +42,8 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Skip deployment to Maven Central - internal module only -->
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencies>

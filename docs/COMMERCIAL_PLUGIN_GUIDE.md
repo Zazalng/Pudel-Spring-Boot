@@ -51,10 +51,10 @@ Create a new Maven/Gradle project and add the PDK dependency:
 ```java
 package com.yourcompany.myplugin;
 
-import worldstandard.group.pudel.api.PluginContext;
-import worldstandard.group.pudel.api.PluginInfo;
-import worldstandard.group.pudel.api.PudelPlugin;
-import worldstandard.group.pudel.api.command.CommandContext;
+import group.worldstandard.pudel.api.PluginContext;
+import group.worldstandard.pudel.api.PluginInfo;
+import group.worldstandard.pudel.api.PudelPlugin;
+import command.group.worldstandard.pudel.api.CommandContext;
 
 @PluginInfo(
     name = "MyCommercialPlugin",
@@ -205,9 +205,9 @@ public void onEnable(PluginContext context) {
 ### Q: What if I modify pudel-core?
 **A:** Modifications to pudel-core (not pudel-api) are subject to AGPL v3 and must be open source. The Plugin Exception does NOT apply to core modifications.
 
-### Q: What counts as "only using pudel-api interfaces"?
+### Q: What counts as "using pudel-api interfaces"?
 **A:** Your plugin should:
-- Import only from `worldstandard.group.pudel.api.*`
+- Import from `group.worldstandard.pudel.api.*`
 - Not copy/include source code from `pudel-core`
 - Be loaded through Pudel's plugin loading mechanism
 - Interact with the core only through the public API

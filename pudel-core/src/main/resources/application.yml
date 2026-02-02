@@ -39,9 +39,12 @@ pudel:
   database:
     schema-name: public
   plugin:
-    directory: plugins
-    enable-auto-discovery: true
-    enable-auto-load: true
+    directory: ${PUDEL_PLUGIN_DIRECTORY:plugins}
+    enable-auto-discovery: ${PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY:true}
+    enable-auto-load: ${PUDEL_PLUGIN_ENABLE_AUTO_LOAD:true}
+    # Retry settings for failed plugins
+    retry-interval-ms: ${PUDEL_PLUGIN_RETRY_INTERVAL:30000}
+    max-retry-attempts: ${PUDEL_PLUGIN_MAX_RETRIES:3}
   jwt:
     private-key-path: ${JWT_PRIVATE_KEY_PATH:keys/private.key}
     public-key-path: ${JWT_PUBLIC_KEY_PATH:keys/public.key}
@@ -137,6 +140,12 @@ pudel:
       minMessageLength: 20
       trackUrlMentions: true
       trackDatesMentions: true
+      # Queue management to prevent overload
+      maxQueueSize: 100
+      maxMessageAgeMs: 60000
+      processingIntervalMs: 500
+      batchSize: 3
+      llmTimeoutSeconds: 30
     embedding:
       enabled: true
       dimension: 384

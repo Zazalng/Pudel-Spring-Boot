@@ -1,0 +1,53 @@
+flowchart LR
+    subgraph "Text Commands (Prefix-based)"
+        direction TB
+        T1["!help - Show help"]
+        T2["!ping - Check latency"]
+        T3["!settings - View + Wizard"]
+        T4["!ai - AI config + Wizard"]
+    end
+
+    subgraph "Slash Commands (Discord Native)"
+        direction TB
+        S1["/settings - Guild settings"]
+        S2["/ai - AI settings"]
+        S3["/channel - Channel management"]
+        S4["/command - Command management"]
+    end
+
+    subgraph "Text Best For"
+        TB1[Interactive Wizards]
+        TB2[Multi-line Input]
+        TB3[Quick Access]
+    end
+
+    subgraph "Slash Best For"
+        SB1[Simple Toggles]
+        SB2[Ephemeral Responses]
+        SB3[Autocomplete]
+        SB4[Mobile-friendly]
+    end
+
+    T1 --> TB1
+    T2 --> TB3
+    T3 --> TB1
+    T3 --> TB2
+    T4 --> TB1
+    T4 --> TB2
+
+    S1 --> SB1
+    S1 --> SB2
+    S2 --> SB1
+    S2 --> SB3
+    S3 --> SB2
+    S4 --> SB3
+    S4 --> SB4
+
+    style T1 fill:#ffc,stroke:#333
+    style T2 fill:#ffc,stroke:#333
+    style T3 fill:#ffc,stroke:#333
+    style T4 fill:#ffc,stroke:#333
+    style S1 fill:#cfc,stroke:#333
+    style S2 fill:#cfc,stroke:#333
+    style S3 fill:#cfc,stroke:#333
+    style S4 fill:#cfc,stroke:#333

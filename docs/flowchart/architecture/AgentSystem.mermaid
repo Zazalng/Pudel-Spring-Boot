@@ -1,0 +1,44 @@
+flowchart TD
+    Input[User Message] --> Intent{Data Management Intent?}
+
+    Intent -->|Yes| Agent[PudelAgentService]
+    Intent -->|No| Brain[PudelBrain Normal Chat]
+
+    subgraph "Agent System"
+        Agent --> Tools[Tool Selection]
+
+        subgraph "Built-in Tools (PudelAgentTools)"
+            T1[createTable]
+            T2[listTables]
+            T3[storeData]
+            T4[searchData]
+            T5[remember/recall]
+            T6[deleteTable]
+        end
+
+        subgraph "Plugin Tools (AgentToolRegistry)"
+            PT1["@AgentTool annotated"]
+            PT2[Custom tools]
+        end
+
+        Tools --> T1
+        Tools --> T2
+        Tools --> T3
+        Tools --> T4
+        Tools --> T5
+        Tools --> T6
+        Tools --> PT1
+        Tools --> PT2
+    end
+
+    T1 --> Executor[AgentDataExecutor]
+    T2 --> Executor
+    T3 --> Executor
+    T4 --> Executor
+    T5 --> Executor
+    T6 --> Executor
+
+    Executor --> DB[(guild_$id.agent_* tables)]
+
+    Agent --> Response[Natural Language Response]
+    Brain --> Response

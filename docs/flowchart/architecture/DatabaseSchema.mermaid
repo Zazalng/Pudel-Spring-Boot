@@ -6,39 +6,113 @@ erDiagram
     USERS ||--|{ SUBSCRIPTIONS : has
 
     USERS {
-        uuid id PK
+        varchar id PK
         string username
-        string discord_id
+        string discriminator
+        string avatar
+        string access_token
+        timestamp created_at
     }
 
     GUILDS {
-        uuid id PK
-        string discord_guild_id
+        varchar id PK
         string name
+        string icon
+        string owner_id
+        timestamp joined_at
+    }
+
+    GUILD_SETTINGS {
+        bigint id PK
+        varchar guild_id FK
+        varchar prefix
+        int verbosity
+        float cooldown
+        varchar log_channel
+        varchar bot_channel
+        text biography
+        text personality
+        text preferences
+        text dialogue_style
+        varchar nickname
+        varchar language
+        varchar response_length
+        varchar formality
+        varchar emote_usage
+        text quirks
+        text topics_interest
+        text topics_avoid
+        boolean ai_enabled
+        text system_prompt_prefix
+        text ignored_channels
+        text disabled_commands
+    }
+
+    SUBSCRIPTIONS {
+        bigint id PK
+        varchar target_id
+        string subscription_type
+        string tier
+        timestamp expires_at
+    }
+
+    PLUGIN_METADATA {
+        varchar name PK
+        string version
+        string author
+        boolean enabled
+        text config_json
+    }
+
+    PLUGIN_DATABASE_REGISTRY {
+        bigint id PK
+        varchar plugin_name
+        varchar table_name
+        varchar schema_name
     }
 
 %% Per-Guild Schema Representation
     GUILDS ||--|{ DIALOGUE_HISTORY : "Schema: guild_{id}"
     GUILDS ||--|{ MEMORY : "Schema: guild_{id}"
+    GUILDS ||--|{ USER_PREFERENCES : "Schema: guild_{id}"
+    GUILDS ||--|{ AGENT_TABLES : "Schema: guild_{id}"
 
     DIALOGUE_HISTORY {
         bigint id PK
-        string user_id
-        string channel_id
+        varchar user_id
+        varchar channel_id
         text message_content
+        varchar role
+        timestamp created_at
+    }
+
+    MEMORY {
+        bigint id PK
+        varchar key
+        text value
+        varchar category
+        bigint created_by
         timestamp created_at
     }
 
     MEMORY ||--|| MEMORY_EMBEDDINGS : "has vector"
 
-    MEMORY {
-        bigint id PK
-        string key
-        text value
-        string category
-    }
-
     MEMORY_EMBEDDINGS {
+        bigint id PK
         bigint memory_id FK
         vector embedding
+    }
+
+    USER_PREFERENCES {
+        bigint id PK
+        varchar user_id
+        varchar preferred_name
+        text custom_settings
+    }
+
+    AGENT_TABLES {
+        varchar table_name PK
+        text description
+        bigint created_by
+        timestamp created_at
     }

@@ -1,0 +1,29 @@
+flowchart TD
+    Input[All Channel Messages] --> Track[Track Conversation]
+
+    subgraph "PassiveContextProcessor"
+        Track --> Window[Rolling Window Buffer]
+        Window --> Queue[Async Processing Queue]
+        Queue --> Process[Process Context]
+
+        subgraph "Context Data"
+            Process --> Users[Active Users]
+            Process --> Topics[Discussion Topics]
+            Process --> Tone[Conversation Tone]
+            Process --> Recent[Recent Messages]
+        end
+    end
+
+    Users --> Store[Store in Memory]
+    Topics --> Store
+    Tone --> Store
+    Recent --> Store
+
+    Store --> Available[Context Available]
+
+    Trigger[User Triggers Pudel] --> Available
+    Available --> Brain[PudelBrain]
+    Brain --> Response[Contextual Response]
+
+    style Available fill:#afa,stroke:#333
+    style Response fill:#aff,stroke:#333

@@ -1,19 +1,31 @@
 flowchart TD
     Input[User Message] --> Analyzer[TextAnalyzerService]
-    subgraph Analysis
+
+    subgraph Analysis ["LangChain4j Analysis"]
         Analyzer --> Intent[Intent Detection]
         Analyzer --> Sentiment[Sentiment Analysis]
+        Analyzer --> Language[Language Detection]
+        Analyzer --> Entities[Entity Extraction]
     end
 
     Analysis --> MemManager[MemoryManager]
 
     subgraph "Memory & Context"
-        MemManager -->|Retrieve| PG[(PostgreSQL + pgvector)]
-        PG -->|Semantic Context| MemManager
+        MemManager -->|Retrieve Relevant| PG[(PostgreSQL + pgvector)]
+        PG -->|Semantic Search| MemManager
+        Passive[PassiveContextProcessor] -->|Channel Context| MemManager
     end
 
     MemManager --> Persona[PersonalityEngine]
-    Persona -->|Apply Traits/Guild Config| PromptBuilder[ResponseGenerator]
 
+    subgraph "Personality Configuration"
+        Persona --> Bio[Biography]
+        Persona --> Traits[Personality Traits]
+        Persona --> Style[Dialogue Style]
+        Persona --> Quirks[Quirks]
+        Persona --> Lang[Language Setting]
+    end
+
+    Persona -->|Apply Traits| PromptBuilder[ResponseGenerator]
     PromptBuilder -->|Context + Prompt| LLM[Ollama LLM]
     LLM --> Output[Bot Response]

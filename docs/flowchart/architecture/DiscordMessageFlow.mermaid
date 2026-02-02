@@ -2,21 +2,33 @@ sequenceDiagram
     participant User
     participant Discord
     participant Listener as DiscordEventListener
-    participant Router as Command Router
-    participant CmdExec as CommandExec Service
+    participant Router as Route Message
+    participant CmdExec as CommandExecutionService
+    participant Registry as CommandRegistry
     participant Chatbot as ChatbotService
+    participant Agent as PudelAgentService
     participant Brain as PudelBrain
 
     User->>Discord: Sends Message
     Discord->>Listener: Event Dispatch
-    Listener->>Router: Is it a command?
+    Listener->>Router: Route Message
 
-    alt Yes (Command)
+    alt Prefix Command (!command)
         Router->>CmdExec: Execute Command
-        CmdExec->>CmdExec: Run Built-in/Plugin Logic
-        CmdExec-->>User: Command Response
-    else No (Chat)
+        CmdExec->>Registry: Get Handler
+        Registry->>Registry: Built-in / Plugin Command
+        Registry-->>User: Command Response
+    else @mention (alternative)
+        Router->>CmdExec: Execute Command
+        CmdExec->>Registry: Get Handler
+        Registry-->>User: Command Response
+    else AI Chat (trigger)
         Router->>Chatbot: Process AI Chat
-        Chatbot->>Brain: Invoke LangChain4j
-        Brain-->>User: AI Response
+        alt Agent Mode (data intent)
+            Chatbot->>Agent: Invoke Agent
+            Agent-->>User: Agent Response
+        else Normal Chat
+            Chatbot->>Brain: Invoke LangChain4j
+            Brain-->>User: AI Response
+        end
     end

@@ -161,3 +161,102 @@ Agent operations count against the guild/user's storage capacity:
 
 See [SUBSCRIPTION_SYSTEM.md](./SUBSCRIPTION_SYSTEM.md) for tier limits.
 
+## Plugin Tools API
+
+Plugins can extend the agent's capabilities by registering custom tools.
+
+### Overview
+
+The Agent Tools API allows plugins to:
+- Register custom tools that the AI agent can use
+- Respond to user requests with specialized functionality
+- Access guild/user context when executing tools
+
+### Creating a Tool Provider
+
+```java
+public class MyTools implements AgentToolProvider {
+    
+    @AgentTool(
+        name = "my_tool",
+        description = "Description shown to the AI agent",
+        keywords = {"keyword1", "keyword2"}
+    )
+    public String myTool(AgentToolContext context, String param1, int param2) {
+        // Tool implementation
+        return "Tool result";
+    }
+}
+```
+
+### Registering Tools
+
+In your plugin's `onEnable`:
+
+```java
+@Override
+public void onEnable(PluginContext context) {
+    context.getAgentToolRegistry().registerProvider(
+        getPluginInfo().getName(),
+        new MyTools()
+    );
+}
+```
+
+### @AgentTool Annotation Options
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | String | Tool name (defaults to method name) |
+| `description` | String | Description for the AI (required) |
+| `keywords` | String[] | Keywords to help match user intent |
+| `guildOnly` | boolean | Only available in guild channels |
+| `dmOnly` | boolean | Only available in DMs |
+| `permission` | ToolPermission | Required permission level |
+| `priority` | int | Higher priority = preferred when multiple match |
+
+### Tool Method Signature
+
+Tool methods must:
+1. Return `String` (the result shown to the user)
+2. Have `AgentToolContext` as the first parameter
+3. Use only simple types for other parameters (String, int, long, double, boolean)
+
+### AgentToolContext
+
+Provides context about the execution environment:
+
+```java
+public interface AgentToolContext {
+    long getTargetId();        // Guild ID or User ID
+    boolean isGuild();         // True if in guild channel
+    long getRequestingUserId(); // User who triggered the agent
+    long getGuildId();         // Guild ID (0 if DM)
+    Map<String, Object> getContextData(); // Additional data
+}
+```
+
+### Example: Weather Plugin
+
+See `examples/WeatherToolsPlugin.java` for a complete example.
+
+### How It Works
+
+1. Plugin registers tools via `AgentToolRegistry`
+2. When agent mode is triggered, plugin tools are included
+3. The AI agent decides which tools to use based on:
+   - Tool descriptions
+   - Keywords
+   - User's message
+4. Tools are executed and results returned to the AI
+5. AI formulates response including tool results
+
+### Best Practices
+
+1. **Clear Descriptions**: Write descriptions that help the AI understand when to use the tool
+2. **Useful Keywords**: Include keywords users might naturally use
+3. **Handle Errors**: Return helpful error messages, don't throw exceptions
+4. **Be Concise**: Return formatted but concise results
+5. **Respect Context**: Use `guildOnly`/`dmOnly` for context-specific tools
+
+

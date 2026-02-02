@@ -12,15 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     git \
     ca-certificates \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Eclipse Temurin JDK 25 (or latest EA version)
-# Note: Adjust version as needed when JDK 25 GA releases
+# Install Eclipse Temurin JDK 25
 ARG JDK_VERSION=25
 RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /etc/apt/trusted.gpg.d/adoptium.gpg \
     && echo "deb https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/adoptium.list \
     && apt-get update \
-    && apt-get install -y temurin-${JDK_VERSION}-jdk || apt-get install -y temurin-24-jdk \
+    && apt-get install -y temurin-${JDK_VERSION}-jdk \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Maven
@@ -48,7 +48,7 @@ COPY . .
 RUN mvn clean package -DskipTests -pl pudel-core -am
 
 # Stage 2: Runtime Stage
-FROM ubuntu:24.04 AS runtime
+FROM eclipse-temurin:25-jre AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
@@ -62,14 +62,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Eclipse Temurin JRE 25
-ARG JDK_VERSION=25
-RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /etc/apt/trusted.gpg.d/adoptium.gpg \
-    && echo "deb https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/adoptium.list \
-    && apt-get update \
-    && apt-get install -y temurin-${JDK_VERSION}-jre || apt-get install -y temurin-24-jre \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create non-root user for security
 RUN groupadd -r pudel && useradd -r -g pudel pudel
 
@@ -79,9 +71,13 @@ WORKDIR /app
 # Copy the built JAR from builder stage
 COPY --from=builder /app/pudel-core/target/*.jar app.jar
 
-# Create directories for plugins and data
-RUN mkdir -p /app/plugins /app/data /app/logs \
+# Create directories for plugins, data, logs, and keys
+# Keys directory will be mounted at runtime for RSA private/public keys
+RUN mkdir -p /app/plugins /app/data /app/logs /app/keys \
     && chown -R pudel:pudel /app
+
+# Define volumes for persistent data and keys
+VOLUME ["/app/plugins", "/app/data", "/app/logs", "/app/keys"]
 
 # Switch to non-root user
 USER pudel
@@ -104,9 +100,9 @@ ENV DISCORD_CLIENT_ID=
 ENV DISCORD_CLIENT_SECRET=
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 
-# JWT Configuration
-ENV JWT_PRIVATE_KEY_PATH=keys/private.key
-ENV JWT_PUBLIC_KEY_PATH=keys/public.key
+# JWT Configuration (keys mounted via volume)
+ENV JWT_PRIVATE_KEY_PATH=/app/keys/private.key
+ENV JWT_PUBLIC_KEY_PATH=/app/keys/public.key
 ENV JWT_EXPIRATION=604800000
 
 # CORS Configuration

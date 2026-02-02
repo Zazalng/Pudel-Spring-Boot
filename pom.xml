@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>worldstandard.group</groupId>
+    <groupId>group.worldstandard</groupId>
     <artifactId>pudel</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
 
     <name>Pudel</name>
@@ -36,14 +36,6 @@
         <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot.git</url>
     </scm>
 
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/World-Standard-Group/Pudel-Spring-Boot</url>
-        </repository>
-    </distributionManagement>
-
     <modules>
         <module>pudel-core</module>
         <module>pudel-api</module>
@@ -56,6 +48,9 @@
         <spring.boot.version>4.1.0-M1</spring.boot.version>
         <jda.version>6.3.0</jda.version>
         <logback.version>1.4.11</logback.version>
+        <pudel.version>1.1.0</pudel.version>
+        <!-- Skip deployment to Maven Central - only pudel-api should be published -->
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencyManagement>

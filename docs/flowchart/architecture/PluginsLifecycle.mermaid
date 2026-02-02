@@ -1,14 +1,19 @@
 stateDiagram-v2
-    [*] --> Loaded: load()
+    [*] --> Loaded: load JAR
 
     state Loaded {
         [*] --> Initialized: initialize()
     }
 
-    Loaded --> Enabled: enable (onEnable)
-    Enabled --> Disabled: disable (onDisable)
-    Disabled --> Enabled: enable (onEnable)
+    Loaded --> Enabled: onEnable()
+    Enabled --> Disabled: onDisable()
+    Disabled --> Enabled: onEnable()
 
     Disabled --> Unloaded: unload
     Enabled --> Unloaded: shutdown()
     Unloaded --> [*]
+
+    note right of Loaded: JAR discovered in /plugins
+    note right of Enabled: Commands & Listeners active
+    note right of Disabled: Can be re-enabled
+    note right of Unloaded: Complete cleanup
