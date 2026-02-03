@@ -52,7 +52,7 @@ FROM eclipse-temurin:25-jre AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
-LABEL version="1.0.0"
+LABEL version="2.0.0"
 
 # Install required runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -99,10 +99,11 @@ ENV DISCORD_BOT_TOKEN=
 ENV DISCORD_CLIENT_ID=
 ENV DISCORD_CLIENT_SECRET=
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
+ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)
-ENV JWT_PRIVATE_KEY_PATH=/app/keys/private.key
-ENV JWT_PUBLIC_KEY_PATH=/app/keys/public.key
+ENV JWT_PRIVATE_KEY_PATH=/app/keys/pv.key
+ENV JWT_PUBLIC_KEY_PATH=/app/keys/pb.key
 ENV JWT_EXPIRATION=604800000
 
 # CORS Configuration

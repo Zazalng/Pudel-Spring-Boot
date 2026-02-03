@@ -1,53 +1,97 @@
-flowchart LR
-    subgraph "Text Commands (Prefix-based)"
-        direction TB
-        T1["!help - Show help"]
-        T2["!ping - Check latency"]
-        T3["!settings - View + Wizard"]
-        T4["!ai - AI config + Wizard"]
+%% Pudel Command System v2.0.0
+%% Annotation-Based Commands
+
+flowchart TD
+    subgraph Input["📨 User Input"]
+        SLASH[/"User types /command"/]
+        TEXT[/"User types !command"/]
+        BUTTON[/"User clicks button"/]
+        MODAL[/"User submits modal"/]
+        SELECT[/"User selects option"/]
     end
 
-    subgraph "Slash Commands (Discord Native)"
-        direction TB
-        S1["/settings - Guild settings"]
-        S2["/ai - AI settings"]
-        S3["/channel - Channel management"]
-        S4["/command - Command management"]
+    subgraph SlashFlow["⚡ Slash Command Flow"]
+        SLASH_LISTENER["InteractionEventListener"]
+        SLASH_MANAGER["InteractionManagerImpl<br/>(lookup handler)"]
+        SLASH_BUILTIN["BuiltinCommands<br/>@SlashCommand"]
+        SLASH_PLUGIN["Plugin Class<br/>@SlashCommand"]
     end
 
-    subgraph "Text Best For"
-        TB1[Interactive Wizards]
-        TB2[Multi-line Input]
-        TB3[Quick Access]
+    subgraph TextFlow["📝 Text Command Flow"]
+        TEXT_LISTENER["DiscordEventListener"]
+        TEXT_EXEC["CommandExecutionService"]
+        TEXT_REGISTRY["CommandRegistry<br/>(lookup handler)"]
+        TEXT_BUILTIN["BuiltinCommands<br/>@TextCommand"]
+        TEXT_PLUGIN["Plugin Class<br/>@TextCommand"]
     end
 
-    subgraph "Slash Best For"
-        SB1[Simple Toggles]
-        SB2[Ephemeral Responses]
-        SB3[Autocomplete]
-        SB4[Mobile-friendly]
+    subgraph InteractionFlow["🔘 Interaction Flow"]
+        INTERACT_LISTENER["InteractionEventListener"]
+        INTERACT_MANAGER["InteractionManagerImpl"]
+        BUTTON_HANDLER["@ButtonHandler"]
+        MODAL_HANDLER["@ModalHandler"]
+        SELECT_HANDLER["@SelectMenuHandler"]
     end
 
-    T1 --> TB1
-    T2 --> TB3
-    T3 --> TB1
-    T3 --> TB2
-    T4 --> TB1
-    T4 --> TB2
+    subgraph Registration["📋 Annotation Processing"]
+        PROCESSOR["PluginAnnotationProcessor"]
+        SCAN["Scan annotated methods"]
+        REGISTER["Register handlers"]
+        SYNC["syncCommands() to Discord"]
+    end
 
-    S1 --> SB1
-    S1 --> SB2
-    S2 --> SB1
-    S2 --> SB3
-    S3 --> SB2
-    S4 --> SB3
-    S4 --> SB4
+    subgraph Response["💬 Response"]
+        REPLY["Reply to user"]
+        EPHEMERAL["Ephemeral<br/>(private)"]
+        PUBLIC["Public<br/>message"]
+    end
 
-    style T1 fill:#ffc,stroke:#333
-    style T2 fill:#ffc,stroke:#333
-    style T3 fill:#ffc,stroke:#333
-    style T4 fill:#ffc,stroke:#333
-    style S1 fill:#cfc,stroke:#333
-    style S2 fill:#cfc,stroke:#333
-    style S3 fill:#cfc,stroke:#333
-    style S4 fill:#cfc,stroke:#333
+    %% Slash flow
+    SLASH --> SLASH_LISTENER
+    SLASH_LISTENER --> SLASH_MANAGER
+    SLASH_MANAGER --> SLASH_BUILTIN
+    SLASH_MANAGER --> SLASH_PLUGIN
+
+    %% Text flow
+    TEXT --> TEXT_LISTENER
+    TEXT_LISTENER --> TEXT_EXEC
+    TEXT_EXEC --> TEXT_REGISTRY
+    TEXT_REGISTRY --> TEXT_BUILTIN
+    TEXT_REGISTRY --> TEXT_PLUGIN
+
+    %% Interaction flow
+    BUTTON --> INTERACT_LISTENER
+    MODAL --> INTERACT_LISTENER
+    SELECT --> INTERACT_LISTENER
+    INTERACT_LISTENER --> INTERACT_MANAGER
+    INTERACT_MANAGER --> BUTTON_HANDLER
+    INTERACT_MANAGER --> MODAL_HANDLER
+    INTERACT_MANAGER --> SELECT_HANDLER
+
+    %% Registration (happens at enable time)
+    PROCESSOR --> SCAN
+    SCAN --> REGISTER
+    REGISTER --> SYNC
+
+    %% All handlers lead to response
+    SLASH_BUILTIN --> REPLY
+    SLASH_PLUGIN --> REPLY
+    TEXT_BUILTIN --> REPLY
+    TEXT_PLUGIN --> REPLY
+    BUTTON_HANDLER --> REPLY
+    MODAL_HANDLER --> REPLY
+    SELECT_HANDLER --> REPLY
+
+    REPLY --> EPHEMERAL
+    REPLY --> PUBLIC
+
+    %% Styling
+    classDef input fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    classDef handler fill:#2d5a3d,stroke:#4CAF50,color:#fff
+    classDef system fill:#3d3d5a,stroke:#9c27b0,color:#fff
+    classDef response fill:#5a4d3d,stroke:#ff9800,color:#fff
+
+    class SLASH,TEXT,BUTTON,MODAL,SELECT input
+    class SLASH_BUILTIN,SLASH_PLUGIN,TEXT_BUILTIN,TEXT_PLUGIN,BUTTON_HANDLER,MODAL_HANDLER,SELECT_HANDLER handler
+    class SLASH_LISTENER,SLASH_MANAGER,TEXT_LISTENER,TEXT_EXEC,TEXT_REGISTRY,INTERACT_LISTENER,INTERACT_MANAGER,PROCESSOR,SCAN,REGISTER,SYNC system
+    class REPLY,EPHEMERAL,PUBLIC response

@@ -92,8 +92,10 @@ services:
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-http://localhost/auth/callback}
 
       # Security (RSA keys mounted via volume)
-      JWT_PRIVATE_KEY_PATH: /app/keys/private.key
-      JWT_PUBLIC_KEY_PATH: /app/keys/public.key
+      # The paths in .env are relative (e.g., keys/private.key)
+      # Docker maps ./keys to /app/keys, so we extract just the filename
+      JWT_PRIVATE_KEY_PATH: /app/keys/${JWT_PRIVATE_KEY_FILE:-pv.key}
+      JWT_PUBLIC_KEY_PATH: /app/keys/${JWT_PUBLIC_KEY_FILE:-pb.key}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-604800000}
 
       # CORS
@@ -111,20 +113,24 @@ services:
       # Server
       SERVER_PORT: ${SERVER_PORT:-8080}
 
-      # JVM
-      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}
+      # JVM (note: value must be quoted in .env file if it contains spaces)
+      JAVA_OPTS: "${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}"
 
       # Plugin Configuration
       PUDEL_PLUGIN_DIRECTORY: /app/plugins
       PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY: ${PLUGIN_AUTO_DISCOVERY:-true}
       PUDEL_PLUGIN_ENABLE_AUTO_LOAD: ${PLUGIN_AUTO_LOAD:-true}
+
+      # Admin Configuration
+      # Set your Discord user ID here to become the initial OWNER
+      PUDEL_ADMIN_INITIAL_OWNER: ${PUDEL_ADMIN_INITIAL_OWNER:-}
     volumes:
       # Bind mount for plugins - allows live plugin updates from host
       # On host: ./plugins directory, In container: /app/plugins
       # You can drop new .jar files into ./plugins and they will be auto-detected
       - ./plugins:/app/plugins
       # RSA keys for JWT - read-only mount
-      # Keys must be generated on host: keys/private.key and keys/public.key
+      # Keys: keys/pv.key (private) and keys/pb.key (public)
       - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
     ports:

@@ -14,18 +14,18 @@
  */
 package group.worldstandard.pudel.core.interaction.builtin;
 
+import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
+import group.worldstandard.pudel.core.plugin.PluginContextFactory;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
-import group.worldstandard.pudel.core.interaction.InteractionManagerImpl;
-
-import java.util.List;
 
 /**
  * Registers all built-in slash commands for Pudel core functionality.
- * These commands replace the deprecated standalone text commands.
+ * <p>
+ * Uses the same annotation processor as plugins, demonstrating that
+ * the core follows the same patterns as the plugin API.
  */
 @Component
 public class BuiltinSlashCommandRegistrar {
@@ -33,35 +33,32 @@ public class BuiltinSlashCommandRegistrar {
     private static final Logger logger = LoggerFactory.getLogger(BuiltinSlashCommandRegistrar.class);
     private static final String BUILTIN_PLUGIN_ID = "pudel-core";
 
-    private final InteractionManagerImpl interactionManager;
-    private final List<SlashCommandHandler> slashCommandHandlers;
+    private final PluginAnnotationProcessor annotationProcessor;
+    private final PluginContextFactory pluginContextFactory;
+    private final BuiltinCommands builtinCommands;
 
-    public BuiltinSlashCommandRegistrar(InteractionManagerImpl interactionManager,
-                                        SettingsSlashCommand settingsSlashCommand,
-                                        AISlashCommand aiSlashCommand,
-                                        ChannelSlashCommand channelSlashCommand,
-                                        CommandManageSlashCommand commandManageSlashCommand) {
-        this.interactionManager = interactionManager;
-        this.slashCommandHandlers = List.of(
-                settingsSlashCommand,
-                aiSlashCommand,
-                channelSlashCommand,
-                commandManageSlashCommand
-        );
+    public BuiltinSlashCommandRegistrar(PluginAnnotationProcessor annotationProcessor,
+                                        PluginContextFactory pluginContextFactory,
+                                        BuiltinCommands builtinCommands) {
+        this.annotationProcessor = annotationProcessor;
+        this.pluginContextFactory = pluginContextFactory;
+        this.builtinCommands = builtinCommands;
     }
 
     @PostConstruct
     public void registerBuiltinCommands() {
-        logger.info("Registering built-in slash commands...");
+        logger.info("Registering built-in slash commands using annotation processor...");
 
-        int registered = 0;
-        for (SlashCommandHandler handler : slashCommandHandlers) {
-            if (interactionManager.registerSlashCommand(BUILTIN_PLUGIN_ID, handler)) {
-                registered++;
-                logger.debug("Registered slash command: /{}", handler.getCommandData().getName());
-            }
-        }
+        // Use the same annotation processor as plugins
+        int registered = annotationProcessor.processAndRegister(
+                BUILTIN_PLUGIN_ID,
+                builtinCommands,
+                pluginContextFactory.getContext(BUILTIN_PLUGIN_ID)
+        );
 
-        logger.info("Registered {} built-in slash commands", registered);
+        logger.info("Registered {} built-in commands via annotations", registered);
+
+        // Sync to Discord
+        annotationProcessor.syncCommands();
     }
 }

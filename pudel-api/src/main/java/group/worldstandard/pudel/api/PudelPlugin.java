@@ -18,81 +18,81 @@
  */
 package group.worldstandard.pudel.api;
 
+import group.worldstandard.pudel.api.annotation.Plugin;
+
 /**
- * Base interface for all Pudel plugins.
- * Plugins must implement this interface to be recognized and loaded by the plugin system.
- *
- * <h2>Quick Start - Minimal Plugin:</h2>
+ * @deprecated This interface is deprecated and will be removed in the next major version.
+ * <p>
+ * Use the annotation-based approach instead:
  * <pre>{@code
- * public class MyPlugin implements PudelPlugin {
- *     @Override
- *     public PluginInfo getPluginInfo() {
- *         return new PluginInfo("MyPlugin", "1.0", "Author", "Description");
+ * @Plugin(
+ *     name = "MyPlugin",
+ *     version = "1.0.0",
+ *     author = "Author",
+ *     description = "Description"
+ * )
+ * public class MyPlugin {
+ *
+ *     @SlashCommand(name = "ping", description = "Pong!")
+ *     public void ping(SlashCommandInteractionEvent event) {
+ *         event.reply("Pong!").queue();
  *     }
  *
- *     @Override
+ *     @OnEnable
  *     public void onEnable(PluginContext ctx) {
- *         ctx.registerCommand("hello", c -> c.reply("Hello!"));
+ *         ctx.log("info", "Enabled!");
+ *     }
+ *
+ *     @OnDisable
+ *     public void onDisable(PluginContext ctx) {
+ *         ctx.log("info", "Disabled!");
+ *     }
+ *
+ *     @OnShutdown
+ *     public boolean shutdown(PluginContext ctx) {
+ *         // Cleanup resources
+ *         return true; // or false to force-kill
  *     }
  * }
  * }</pre>
  *
- * <p>All lifecycle methods have default empty implementations except {@link #getPluginInfo()}.
- * Only override the methods you need.</p>
- *
- * @see SimplePlugin For an even simpler approach using annotations
+ * @see Plugin The new annotation-based plugin marker
  */
+@Deprecated(since = "2.0.0", forRemoval = true)
 public interface PudelPlugin {
 
     /**
-     * Gets the plugin information.
-     * This is the only required method.
-     *
-     * @return plugin metadata
+     * @deprecated Use {@link Plugin#name()} annotation instead.
      */
+    @Deprecated(since = "2.0.0", forRemoval = true)
     PluginInfo getPluginInfo();
 
     /**
-     * Initializes the plugin.
-     * Called when the plugin is first loaded, before enable.
-     * Use this for one-time setup (database connections, heavy resources).
-     *
-     * @param context the plugin context containing access to bot services
+     * @deprecated This method is no longer called. Use {@code @OnEnable} annotation instead.
      */
+    @Deprecated(since = "2.0.0", forRemoval = true)
     default void initialize(PluginContext context) {
-        // Default: no initialization needed
     }
 
     /**
-     * Called when the plugin is enabled at runtime.
-     * Register commands, listeners, and start services here.
-     *
-     * @param context the plugin context
+     * @deprecated Use {@code @OnEnable} annotation instead.
      */
+    @Deprecated(since = "2.0.0", forRemoval = true)
     default void onEnable(PluginContext context) {
-        // Default: no enable logic
     }
 
     /**
-     * Called when the plugin is disabled at runtime.
-     * Unregister commands and pause services here.
-     * Plugin may be re-enabled later.
-     *
-     * @param context the plugin context
+     * @deprecated Use {@code @OnDisable} annotation instead.
      */
+    @Deprecated(since = "2.0.0", forRemoval = true)
     default void onDisable(PluginContext context) {
-        // Default: no disable logic
     }
 
     /**
-     * Called when the plugin is being unloaded.
-     * Clean up all resources here (close connections, stop threads).
-     * Plugin will NOT be re-enabled after this.
-     *
-     * @param context the plugin context
+     * @deprecated Use {@code @OnShutdown} annotation instead.
+     * The new annotation supports returning boolean to indicate success.
      */
+    @Deprecated(since = "2.0.0", forRemoval = true)
     default void shutdown(PluginContext context) {
-        // Default: no cleanup needed
     }
 }
-

@@ -16,67 +16,68 @@
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
  */
-package group.worldstandard.pudel.api;
+package group.worldstandard.pudel.api.annotation;
 
-import group.worldstandard.pudel.api.annotation.Plugin;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * @deprecated This class is deprecated and will be removed in the next major version.
- * <p>
- * Use the annotation-based approach instead:
+ * Marks a class as a Pudel plugin.
+ * Similar to Spring's @Controller or @Service annotations.
+ *
+ * <h2>Example:</h2>
  * <pre>{@code
  * @Plugin(
  *     name = "MyPlugin",
  *     version = "1.0.0",
- *     author = "Author",
- *     description = "Description"
+ *     author = "Developer",
+ *     description = "A sample plugin"
  * )
  * public class MyPlugin {
  *
- *     @SlashCommand(name = "ping", description = "Pong!")
+ *     @SlashCommand(name = "ping", description = "Check bot latency")
  *     public void ping(SlashCommandInteractionEvent event) {
  *         event.reply("Pong!").queue();
  *     }
  *
  *     @TextCommand("hello")
  *     public void hello(CommandContext ctx) {
- *         ctx.reply("Hello!");
- *     }
- *
- *     @OnEnable
- *     public void onEnable(PluginContext ctx) {
- *         ctx.log("info", "Enabled!");
+ *         ctx.reply("Hello, " + ctx.getUser().getName() + "!");
  *     }
  * }
  * }</pre>
  *
- * @see Plugin The new annotation-based plugin marker
+ * <p>The core will automatically:</p>
+ * <ul>
+ *   <li>Discover annotated methods</li>
+ *   <li>Register commands on enable</li>
+ *   <li>Unregister commands on disable</li>
+ *   <li>Sync slash commands to Discord</li>
+ * </ul>
  */
-@Deprecated(since = "2.0.0", forRemoval = true)
-public abstract class SimplePlugin implements PudelPlugin {
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Plugin {
 
-    private final PluginInfo info;
+    /**
+     * Plugin name (required).
+     */
+    String name();
 
-    @Deprecated
-    protected SimplePlugin(String name, String version, String author, String description) {
-        this.info = new PluginInfo(name, version, author, description);
-    }
+    /**
+     * Plugin version.
+     */
+    String version() default "1.0.0";
 
-    @Override
-    @Deprecated
-    public final PluginInfo getPluginInfo() {
-        return info;
-    }
+    /**
+     * Plugin author.
+     */
+    String author() default "";
 
-    @Override
-    @Deprecated
-    public void onEnable(PluginContext context) {
-        // Deprecated - use @OnEnable annotation
-    }
-
-    @Override
-    @Deprecated
-    public void onDisable(PluginContext context) {
-        // Deprecated - use @OnDisable annotation
-    }
+    /**
+     * Plugin description.
+     */
+    String description() default "";
 }

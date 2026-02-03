@@ -1,34 +1,60 @@
+%% Pudel Discord Message Flow v2.0.0
+
 sequenceDiagram
-    participant User
-    participant Discord
+    participant User as Discord User
+    participant Discord as Discord Gateway
+    participant JDA as JDA 6
     participant Listener as DiscordEventListener
-    participant Router as Route Message
-    participant CmdExec as CommandExecutionService
-    participant Registry as CommandRegistry
-    participant Chatbot as ChatbotService
-    participant Agent as PudelAgentService
+    participant Router as Message Router
+    participant Prefix as Text Command
+    participant AI as AI Chat
     participant Brain as PudelBrain
 
-    User->>Discord: Sends Message
-    Discord->>Listener: Event Dispatch
-    Listener->>Router: Route Message
+    Note over User,Brain: Message Routing Flow
 
-    alt Prefix Command (!command)
-        Router->>CmdExec: Execute Command
-        CmdExec->>Registry: Get Handler
-        Registry->>Registry: Built-in / Plugin Command
-        Registry-->>User: Command Response
-    else @mention (alternative)
-        Router->>CmdExec: Execute Command
-        CmdExec->>Registry: Get Handler
-        Registry-->>User: Command Response
-    else AI Chat (trigger)
-        Router->>Chatbot: Process AI Chat
-        alt Agent Mode (data intent)
-            Chatbot->>Agent: Invoke Agent
-            Agent-->>User: Agent Response
-        else Normal Chat
-            Chatbot->>Brain: Invoke LangChain4j
-            Brain-->>User: AI Response
+    User->>Discord: Send message
+    Discord->>JDA: MessageReceivedEvent
+    JDA->>Listener: onMessageReceived()
+
+    Listener->>Listener: Check if bot message
+    Listener->>Listener: Check if ignored channel
+
+    Listener->>Router: Route message
+
+    alt Has Command Prefix (!)
+        Router->>Prefix: CommandExecutionService
+        Prefix->>Prefix: Parse command & args
+        Prefix->>Prefix: Check permissions
+        Prefix->>Prefix: Check cooldown
+
+        alt Built-in Command
+            Prefix->>Prefix: Execute @TextCommand handler
+        else Plugin Command
+            Prefix->>Prefix: Execute plugin @TextCommand
         end
+
+        Prefix->>Discord: Send response
+
+    else Mention or AI Trigger
+        Router->>AI: ChatbotService
+        AI->>AI: Check AI enabled
+
+        alt AI Enabled
+            AI->>Brain: PudelBrain.process()
+            Brain->>Brain: Analyze intent
+            Brain->>Brain: Retrieve memory
+            Brain->>Brain: Apply personality
+            Brain->>Brain: Generate response (Ollama)
+            Brain-->>AI: Response text
+            AI->>Discord: Send AI response
+        else AI Disabled
+            Note over AI: No response
+        end
+
+    else Regular Message
+        Router->>AI: PassiveContextProcessor
+        AI->>AI: Store context (async)
+        Note over AI: No direct response
     end
+
+    Discord->>User: Display response

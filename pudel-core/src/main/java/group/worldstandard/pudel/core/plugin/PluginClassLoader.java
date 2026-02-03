@@ -14,14 +14,18 @@
  */
 package group.worldstandard.pudel.core.plugin;
 
+import group.worldstandard.pudel.api.PluginInfo;
+import group.worldstandard.pudel.api.PudelPlugin;
+import group.worldstandard.pudel.api.annotation.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import group.worldstandard.pudel.api.PudelPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.*;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
@@ -29,14 +33,44 @@ import java.util.jar.JarFile;
 
 /**
  * Loads and manages plugins from JAR files.
+ * <p>
+ * Supports both legacy {@link PudelPlugin} interface (deprecated) and
+ * new annotation-based plugins using {@link Plugin}.
+ * <p>
+ * Features:
+ * <ul>
+ *   <li>Hot-reload detection via file hash monitoring</li>
+ *   <li>Annotation-based plugin discovery</li>
+ *   <li>Graceful class loader cleanup</li>
+ *   <li>File watcher for plugin updates</li>
+ * </ul>
  */
+@SuppressWarnings({"deprecation", "removal"}) // Supporting legacy PudelPlugin for backward compatibility
 public class PluginClassLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginClassLoader.class);
 
     private final File pluginsDirectory;
-    private final Map<String, PudelPlugin> loadedPlugins = new ConcurrentHashMap<>();
+
+    // Plugin instances: name -> instance
+    private final Map<String, Object> loadedPlugins = new ConcurrentHashMap<>();
+
+    // Plugin info: name -> PluginInfo
+    private final Map<String, PluginInfo> pluginInfos = new ConcurrentHashMap<>();
+
+    // Class loaders: name -> URLClassLoader
     private final Map<String, URLClassLoader> classLoaders = new ConcurrentHashMap<>();
+
+    // JAR file mapping: name -> File
+    private final Map<String, File> jarFiles = new ConcurrentHashMap<>();
+
+    // File hashes for hot-reload detection: name -> hash
+    private final Map<String, String> fileHashes = new ConcurrentHashMap<>();
+
+    // File watcher for plugin directory
+    private WatchService watchService;
+    private Thread watcherThread;
+    private volatile boolean watcherRunning = false;
 
     public PluginClassLoader(File pluginsDirectory) {
         this.pluginsDirectory = pluginsDirectory;
@@ -49,10 +83,12 @@ public class PluginClassLoader {
 
     /**
      * Load a plugin from a JAR file.
+     * Supports both @Plugin annotated classes and legacy PudelPlugin interface.
+     *
      * @param jarFile the JAR file to load
-     * @return the loaded plugin or null if failed
+     * @return the plugin info or null if failed
      */
-    public PudelPlugin loadPlugin(File jarFile) {
+    public PluginInfo loadPlugin(File jarFile) {
         if (!jarFile.exists() || !jarFile.getName().endsWith(".jar")) {
             logger.warn("Invalid JAR file: {}", jarFile.getAbsolutePath());
             return null;
@@ -62,54 +98,83 @@ public class PluginClassLoader {
         String pluginName = null;
 
         try {
+            // Calculate file hash for hot-reload detection
+            String fileHash = calculateFileHash(jarFile);
+
+            // Find main class
             String mainClassName = findMainClass(jarFile);
             if (mainClassName == null) {
-                logger.error("Could not find main plugin class in {}", jarFile.getName());
+                logger.error("Could not find plugin class in {}", jarFile.getName());
                 return null;
             }
 
-            // 1. Create the ClassLoader
+            // Create ClassLoader
             classLoader = new URLClassLoader(
                     new URL[]{jarFile.toURI().toURL()},
                     Thread.currentThread().getContextClassLoader()
             );
 
-            // 2. Load and Verify
+            // Load main class
             Class<?> mainClass = classLoader.loadClass(mainClassName);
-            if (!PudelPlugin.class.isAssignableFrom(mainClass)) {
-                logger.error("Main class {} does not implement PudelPlugin", mainClassName);
+
+            // Extract plugin info and create instance
+            PluginInfo info;
+            Object instance;
+
+            // Check for @Plugin annotation first (new way)
+            Plugin pluginAnnotation = mainClass.getAnnotation(Plugin.class);
+            if (pluginAnnotation != null) {
+                info = new PluginInfo(
+                        pluginAnnotation.name(),
+                        pluginAnnotation.version(),
+                        pluginAnnotation.author(),
+                        pluginAnnotation.description()
+                );
+                instance = mainClass.getDeclaredConstructor().newInstance();
+                pluginName = info.getName();
+
+                logger.info("Loaded annotation-based plugin: {} v{}", pluginName, info.getVersion());
+            }
+            // Fall back to legacy PudelPlugin interface (deprecated)
+            else if (PudelPlugin.class.isAssignableFrom(mainClass)) {
+                logger.warn("Plugin {} uses deprecated PudelPlugin interface. " +
+                           "Migrate to @Plugin annotation.", jarFile.getName());
+
+                PudelPlugin legacyPlugin = (PudelPlugin) mainClass.getDeclaredConstructor().newInstance();
+                info = legacyPlugin.getPluginInfo();
+                instance = legacyPlugin;
+                pluginName = info.getName();
+            }
+            else {
+                logger.error("Class {} is not a valid plugin (no @Plugin or PudelPlugin)", mainClassName);
                 classLoader.close();
                 return null;
             }
 
-            // 3. Instantiate
-            PudelPlugin plugin = (PudelPlugin) mainClass.getDeclaredConstructor().newInstance();
-
-            // 4. Register
-            pluginName = plugin.getPluginInfo().getName();
-
-            // Safety: Check if plugin with same name already exists
+            // Check if already loaded
             if (loadedPlugins.containsKey(pluginName)) {
-                logger.warn("Plugin {} is already loaded. Skipping.", pluginName);
+                logger.warn("Plugin {} is already loaded. Use reload to update.", pluginName);
                 classLoader.close();
-                return loadedPlugins.get(pluginName);
+                return pluginInfos.get(pluginName);
             }
 
+            // Register plugin
             classLoaders.put(pluginName, classLoader);
-            loadedPlugins.put(pluginName, plugin);
+            loadedPlugins.put(pluginName, instance);
+            pluginInfos.put(pluginName, info);
+            jarFiles.put(pluginName, jarFile);
+            fileHashes.put(pluginName, fileHash);
 
-            logger.info("Successfully loaded plugin: {} v{}", pluginName, plugin.getPluginInfo().getVersion());
-            return plugin;
+            logger.info("Successfully loaded plugin: {} v{} by {}",
+                       pluginName, info.getVersion(), info.getAuthor());
+            return info;
 
         } catch (Exception e) {
             logger.error("Failed to load plugin from {}: {}", jarFile.getName(), e.getMessage(), e);
 
-            // CLEANUP LOGIC:
-            // If we have a plugin name, use the existing unload method
             if (pluginName != null) {
                 unloadPlugin(pluginName);
             } else if (classLoader != null) {
-                // If it failed before we even got a name, just close the loader
                 try {
                     classLoader.close();
                 } catch (IOException ioEx) {
@@ -122,80 +187,92 @@ public class PluginClassLoader {
 
     /**
      * Find the main plugin class in a JAR file.
-     * Reads from MANIFEST.MF entry "Plugin-Main" or falls back to plugin.yml or class scanning.
-     * @param jarFile the JAR file to inspect
-     * @return the main class name or null if not found
+     * Checks: MANIFEST.MF Plugin-Main → plugin.yml main: → @Plugin annotated class
      */
     private String findMainClass(File jarFile) {
-        logger.info("Searching for plugin main class in: {}", jarFile.getName());
+        logger.debug("Searching for plugin main class in: {}", jarFile.getName());
 
         try (JarFile jar = new JarFile(jarFile)) {
-            // First, try to read from MANIFEST.MF
+            // 1. Check MANIFEST.MF for Plugin-Main
             java.util.jar.Manifest manifest = jar.getManifest();
             if (manifest != null) {
-                java.util.jar.Attributes attributes = manifest.getMainAttributes();
-                String pluginMain = attributes.getValue("Plugin-Main");
+                String pluginMain = manifest.getMainAttributes().getValue("Plugin-Main");
                 if (pluginMain != null && !pluginMain.isEmpty()) {
-                    logger.info("Found Plugin-Main in manifest: {}", pluginMain);
+                    logger.debug("Found Plugin-Main in manifest: {}", pluginMain);
                     return pluginMain;
                 }
-                logger.debug("No Plugin-Main in manifest, checking plugin.yml");
-            } else {
-                logger.debug("No manifest found in JAR");
             }
 
-            // Second, try to read from plugin.yml
+            // 2. Check plugin.yml
             JarEntry pluginYml = jar.getJarEntry("plugin.yml");
             if (pluginYml != null) {
-                logger.debug("Found plugin.yml, parsing...");
                 try (java.io.BufferedReader reader = new java.io.BufferedReader(
                         new java.io.InputStreamReader(jar.getInputStream(pluginYml)))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (line.startsWith("main:")) {
                             String mainClass = line.substring(5).trim();
-                            logger.info("Found main class in plugin.yml: {}", mainClass);
+                            logger.debug("Found main class in plugin.yml: {}", mainClass);
                             return mainClass;
                         }
                     }
                 }
-                logger.warn("plugin.yml found but no 'main:' entry");
             }
 
-            // Third, scan for classes with plugin naming patterns (fallback)
-            logger.info("Scanning JAR for PudelPlugin implementations...");
-            java.util.List<String> candidateClasses = new java.util.ArrayList<>();
+            // 3. Scan for @Plugin annotated classes
+            URLClassLoader tempLoader = new URLClassLoader(
+                    new URL[]{jarFile.toURI().toURL()},
+                    Thread.currentThread().getContextClassLoader()
+            );
 
+            try {
+                for (Enumeration<JarEntry> entries = jar.entries(); entries.hasMoreElements(); ) {
+                    JarEntry entry = entries.nextElement();
+
+                    if (entry.getName().endsWith(".class") && !entry.getName().contains("$")) {
+                        String className = entry.getName()
+                                .replace("/", ".")
+                                .replace(".class", "");
+
+                        try {
+                            Class<?> clazz = tempLoader.loadClass(className);
+                            if (clazz.isAnnotationPresent(Plugin.class)) {
+                                logger.debug("Found @Plugin annotated class: {}", className);
+                                tempLoader.close();
+                                return className;
+                            }
+                        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+                            // Skip classes that can't be loaded
+                        }
+                    }
+                }
+            } finally {
+                tempLoader.close();
+            }
+
+            // 4. Fall back to naming patterns
+            List<String> candidates = new ArrayList<>();
             for (Enumeration<JarEntry> entries = jar.entries(); entries.hasMoreElements(); ) {
                 JarEntry entry = entries.nextElement();
-
                 if (entry.getName().endsWith(".class") && !entry.getName().contains("$")) {
-                    String className = entry.getName()
-                            .replace("/", ".")
-                            .replace(".class", "");
-
-                    // Look for classes with common plugin naming patterns
+                    String className = entry.getName().replace("/", ".").replace(".class", "");
                     String simpleName = className.substring(className.lastIndexOf('.') + 1);
+
                     if (simpleName.endsWith("Plugin") || simpleName.endsWith("Bundle") ||
                         simpleName.equals("Main") || simpleName.equals("PluginMain")) {
-                        logger.debug("Found candidate plugin class: {}", className);
-                        candidateClasses.add(className);
+                        candidates.add(className);
                     }
                 }
             }
 
-            if (!candidateClasses.isEmpty()) {
-                // Prefer classes with "Bundle" or "Default" in name
-                for (String className : candidateClasses) {
+            if (!candidates.isEmpty()) {
+                // Prefer Bundle/Default names
+                for (String className : candidates) {
                     if (className.contains("Bundle") || className.contains("Default")) {
-                        logger.info("Selected plugin class (priority match): {}", className);
                         return className;
                     }
                 }
-                // Return first candidate if no priority match
-                String selected = candidateClasses.getFirst();
-                logger.info("Selected plugin class (first match): {}", selected);
-                return selected;
+                return candidates.get(0);
             }
 
             logger.warn("No plugin class found in JAR: {}", jarFile.getName());
@@ -207,16 +284,57 @@ public class PluginClassLoader {
     }
 
     /**
-     * Unload a plugin.
-     * @param pluginName the plugin name
+     * Calculate SHA-256 hash of a file for hot-reload detection.
+     */
+    private String calculateFileHash(File file) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] fileBytes = Files.readAllBytes(file.toPath());
+            byte[] hashBytes = digest.digest(fileBytes);
+
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            logger.error("Failed to calculate file hash: {}", e.getMessage());
+            return UUID.randomUUID().toString();
+        }
+    }
+
+    /**
+     * Check if a plugin JAR file has been updated (for hot-reload).
+     */
+    public boolean hasPluginUpdated(String pluginName) {
+        File jarFile = jarFiles.get(pluginName);
+        String oldHash = fileHashes.get(pluginName);
+
+        if (jarFile == null || oldHash == null || !jarFile.exists()) {
+            return false;
+        }
+
+        String newHash = calculateFileHash(jarFile);
+        return !oldHash.equals(newHash);
+    }
+
+    /**
+     * Unload a plugin and release resources.
      */
     public void unloadPlugin(String pluginName) {
         loadedPlugins.remove(pluginName);
+        pluginInfos.remove(pluginName);
+        jarFiles.remove(pluginName);
+        fileHashes.remove(pluginName);
 
         URLClassLoader classLoader = classLoaders.remove(pluginName);
         if (classLoader != null) {
             try {
                 classLoader.close();
+
+                // Force garbage collection to release file handles
+                System.gc();
+
                 logger.info("Plugin unloaded: {}", pluginName);
             } catch (IOException e) {
                 logger.error("Error closing class loader for plugin {}: {}", pluginName, e.getMessage());
@@ -225,61 +343,157 @@ public class PluginClassLoader {
     }
 
     /**
+     * Force unload a plugin after shutdown timeout.
+     * Used when @OnShutdown returns false or throws an exception.
+     */
+    public void forceUnloadPlugin(String pluginName) {
+        logger.warn("Force unloading plugin: {}", pluginName);
+        unloadPlugin(pluginName);
+
+        // Additional cleanup attempts
+        for (int i = 0; i < 3; i++) {
+            System.gc();
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+
+    /**
+     * Start watching the plugins directory for changes.
+     */
+    public void startWatcher(PluginUpdateCallback callback) {
+        if (watcherRunning) {
+            return;
+        }
+
+        try {
+            watchService = FileSystems.getDefault().newWatchService();
+            pluginsDirectory.toPath().register(watchService,
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_DELETE);
+
+            watcherRunning = true;
+            watcherThread = new Thread(() -> {
+                logger.info("Plugin directory watcher started");
+
+                while (watcherRunning) {
+                    try {
+                        WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+                        if (key == null) continue;
+
+                        for (WatchEvent<?> event : key.pollEvents()) {
+                            Path filename = (Path) event.context();
+                            if (filename.toString().endsWith(".jar")) {
+                                File jarFile = new File(pluginsDirectory, filename.toString());
+
+                                if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
+                                    logger.info("New plugin detected: {}", filename);
+                                    callback.onPluginAdded(jarFile);
+                                } else if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
+                                    logger.info("Plugin modified: {}", filename);
+                                    callback.onPluginModified(jarFile);
+                                } else if (event.kind() == StandardWatchEventKinds.ENTRY_DELETE) {
+                                    logger.info("Plugin removed: {}", filename);
+                                    callback.onPluginRemoved(filename.toString());
+                                }
+                            }
+                        }
+                        key.reset();
+                    } catch (ClosedWatchServiceException e) {
+                        // Watch service was closed, exit gracefully
+                        logger.debug("Watch service closed, stopping watcher");
+                        break;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+
+                logger.info("Plugin directory watcher stopped");
+            }, "plugin-watcher");
+
+            watcherThread.setDaemon(true);
+            watcherThread.start();
+
+        } catch (IOException e) {
+            logger.error("Failed to start plugin watcher: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Stop watching the plugins directory.
+     */
+    public void stopWatcher() {
+        watcherRunning = false;
+
+        if (watchService != null) {
+            try {
+                watchService.close();
+            } catch (IOException e) {
+                logger.error("Error closing watch service: {}", e.getMessage());
+            }
+        }
+
+        if (watcherThread != null) {
+            watcherThread.interrupt();
+        }
+    }
+
+    /**
      * Close all class loaders. Call during shutdown.
      */
     public void closeAllClassLoaders() {
         logger.info("Closing all plugin class loaders...");
+        stopWatcher();
+
         List<String> pluginNames = new ArrayList<>(classLoaders.keySet());
-
         for (String pluginName : pluginNames) {
-            URLClassLoader classLoader = classLoaders.remove(pluginName);
-            loadedPlugins.remove(pluginName);
-
-            if (classLoader != null) {
-                try {
-                    classLoader.close();
-                    logger.debug("Closed class loader for plugin: {}", pluginName);
-                } catch (IOException e) {
-                    logger.error("Error closing class loader for plugin {}: {}", pluginName, e.getMessage());
-                }
-            }
+            unloadPlugin(pluginName);
         }
 
         logger.info("All plugin class loaders closed");
     }
 
-    /**
-     * Get a loaded plugin.
-     * @param pluginName the plugin name
-     * @return the plugin or null if not found
-     */
-    public PudelPlugin getPlugin(String pluginName) {
+    // Getters
+
+    public Object getPluginInstance(String pluginName) {
         return loadedPlugins.get(pluginName);
     }
 
-    /**
-     * Get all loaded plugins.
-     * @return map of loaded plugins
-     */
-    public Map<String, PudelPlugin> getAllPlugins() {
+    public PluginInfo getPluginInfo(String pluginName) {
+        return pluginInfos.get(pluginName);
+    }
+
+    @Deprecated
+    public PudelPlugin getPlugin(String pluginName) {
+        Object instance = loadedPlugins.get(pluginName);
+        return instance instanceof PudelPlugin ? (PudelPlugin) instance : null;
+    }
+
+    public Map<String, Object> getAllPlugins() {
         return new HashMap<>(loadedPlugins);
     }
 
-    /**
-     * Check if a plugin is loaded.
-     * @param pluginName the plugin name
-     * @return true if loaded
-     */
     public boolean isPluginLoaded(String pluginName) {
         return loadedPlugins.containsKey(pluginName);
     }
 
-    /**
-     * Get the plugins directory.
-     * @return the plugins directory
-     */
     public File getPluginsDirectory() {
         return pluginsDirectory;
+    }
+
+    /**
+     * Callback interface for plugin directory watcher.
+     */
+    public interface PluginUpdateCallback {
+        void onPluginAdded(File jarFile);
+        void onPluginModified(File jarFile);
+        void onPluginRemoved(String jarFileName);
     }
 }
 

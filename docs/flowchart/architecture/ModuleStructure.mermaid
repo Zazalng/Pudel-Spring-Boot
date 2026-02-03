@@ -1,47 +1,96 @@
-graph LR
-subgraph "Pudel Project Structure"
-direction LR
+%% Pudel Module Structure v2.0.0
 
-Core(pudel-core) --> |uses| API(pudel-api)
-Core --> |uses| Model(pudel-model)
+flowchart TD
+    subgraph API["pudel-api (MIT License)"]
+        direction TB
+        ANNOTATION["📌 annotation/<br/>@Plugin, @SlashCommand,<br/>@TextCommand, @OnEnable,<br/>@OnDisable, @OnShutdown"]
+        CONTEXT["PluginContext"]
+        INFO["PluginInfo"]
+        DEPRECATED["⚠️ DEPRECATED<br/>PudelPlugin, SimplePlugin"]
+        CMD_API["command/<br/>CommandContext"]
+        INTERACT_API["interaction/<br/>InteractionManager"]
+        EVENT_API["event/<br/>EventListener"]
+        AUDIO_API["audio/<br/>VoiceManager"]
+        AGENT_API["agent/<br/>AgentToolRegistry"]
+        DB_API["database/<br/>PluginDatabaseManager"]
+    end
 
-subgraph "pudel-api (PDK - MIT)"
-    direction TB
-    P1[PudelPlugin.java]
-    P2[PluginContext.java]
-    P3[command/ ]
-    P4[interaction/ ]
-    P5[event/ ]
-    P6[audio/ ]
-    P7[agent/ ]
-    P8[database/ ]
-end
+    subgraph MODEL["pudel-model (AGPL-3.0)"]
+        direction TB
+        OLLAMA["ollama/<br/>OllamaClient"]
+        EMBED["embedding/<br/>EmbeddingService"]
+        ANALYZER["analyzer/<br/>TextAnalyzerService"]
+        AGENT_MODEL["agent/<br/>PudelAgentService"]
+    end
 
-subgraph "pudel-model (AI - AGPL)"
-    direction TB
-    M1[PudelModelService]
-    M2[ollama/OllamaClient]
-    M3[embedding/OllamaEmbeddingService]
-    M4[analyzer/TextAnalyzerService]
-    M5[agent/PudelAgentService]
-    M6[agent/PudelAgentTools]
-end
+    subgraph CORE["pudel-core (AGPL-3.0)"]
+        direction TB
+        MAIN["Pudel.java<br/>(Entry Point)"]
 
-subgraph "pudel-core (Application - AGPL)"
-    direction TB
-    C1[brain/PudelBrain]
-    C2[brain/memory/MemoryManager]
-    C3[brain/personality/PersonalityEngine]
-    C4[brain/context/PassiveContextProcessor]
-    C5[command/CommandRegistry]
-    C6[interaction/InteractionManagerImpl]
-    C7[discord/DiscordEventListener]
-    C8[service/ChatbotService]
-    C9[plugin/PluginContextImpl]
-end
+        subgraph PluginSystem["🆕 Plugin System (v2.0.0)"]
+            CLASSLOADER["PluginClassLoader<br/>(JAR + hot-reload)"]
+            PROCESSOR["PluginAnnotationProcessor<br/>(scan annotations)"]
+            PLUGIN_SVC["PluginService<br/>(lifecycle)"]
+            WATCHER["PluginWatcherService<br/>(file watcher)"]
+        end
 
-subgraph "database"
-    D1[init.sql]
-    D2[migrations/ ]
-end
-end
+        subgraph Interaction["Interaction"]
+            INTERACT_IMPL["InteractionManagerImpl"]
+            BUILTIN["BuiltinCommands<br/>(@Plugin-based)"]
+            REGISTRAR["BuiltinSlashCommandRegistrar"]
+        end
+
+        subgraph Brain["Brain"]
+            BRAIN["PudelBrain"]
+            MEMORY["MemoryManager"]
+            PERSONALITY["PersonalityEngine"]
+            RESPONSE["ResponseGenerator"]
+        end
+
+        subgraph Services["Services"]
+            CHATBOT["ChatbotService"]
+            CMD_EXEC["CommandExecutionService"]
+            GUILD_SVC["GuildInitializationService"]
+        end
+    end
+
+    subgraph External["External"]
+        DISCORD["Discord<br/>(JDA 6)"]
+        POSTGRES["PostgreSQL<br/>+ pgvector"]
+        OLLAMA_EXT["Ollama<br/>(LLM)"]
+    end
+
+    %% API Dependencies
+    ANNOTATION --> CONTEXT
+    CONTEXT --> CMD_API
+    CONTEXT --> INTERACT_API
+    CONTEXT --> EVENT_API
+    CONTEXT --> DB_API
+
+    %% Core uses API
+    CLASSLOADER --> ANNOTATION
+    PROCESSOR --> ANNOTATION
+    BUILTIN --> ANNOTATION
+
+    %% Core uses Model
+    BRAIN --> ANALYZER
+    BRAIN --> EMBED
+    CHATBOT --> AGENT_MODEL
+
+    %% External connections
+    CORE --> DISCORD
+    CORE --> POSTGRES
+    MODEL --> OLLAMA_EXT
+
+    %% Styling
+    classDef api fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef model fill:#7b1fa2,stroke:#4a148c,color:#fff
+    classDef core fill:#2e7d32,stroke:#1b5e20,color:#fff
+    classDef external fill:#f57c00,stroke:#e65100,color:#fff
+    classDef deprecated fill:#d32f2f,stroke:#b71c1c,color:#fff
+
+    class ANNOTATION,CONTEXT,INFO,CMD_API,INTERACT_API,EVENT_API,AUDIO_API,AGENT_API,DB_API api
+    class OLLAMA,EMBED,ANALYZER,AGENT_MODEL model
+    class MAIN,CLASSLOADER,PROCESSOR,PLUGIN_SVC,WATCHER,INTERACT_IMPL,BUILTIN,REGISTRAR,BRAIN,MEMORY,PERSONALITY,RESPONSE,CHATBOT,CMD_EXEC,GUILD_SVC core
+    class DISCORD,POSTGRES,OLLAMA_EXT external
+    class DEPRECATED deprecated

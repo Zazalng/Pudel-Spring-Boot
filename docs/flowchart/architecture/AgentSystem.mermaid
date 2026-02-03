@@ -1,44 +1,84 @@
+%% Pudel Agent System v2.0.0
+
 flowchart TD
-    Input[User Message] --> Intent{Data Management Intent?}
-
-    Intent -->|Yes| Agent[PudelAgentService]
-    Intent -->|No| Brain[PudelBrain Normal Chat]
-
-    subgraph "Agent System"
-        Agent --> Tools[Tool Selection]
-
-        subgraph "Built-in Tools (PudelAgentTools)"
-            T1[createTable]
-            T2[listTables]
-            T3[storeData]
-            T4[searchData]
-            T5[remember/recall]
-            T6[deleteTable]
-        end
-
-        subgraph "Plugin Tools (AgentToolRegistry)"
-            PT1["@AgentTool annotated"]
-            PT2[Custom tools]
-        end
-
-        Tools --> T1
-        Tools --> T2
-        Tools --> T3
-        Tools --> T4
-        Tools --> T5
-        Tools --> T6
-        Tools --> PT1
-        Tools --> PT2
+    subgraph Input["📨 User Request"]
+        MESSAGE[/"Natural language request<br/>'Create a table for my notes'"/]
     end
 
-    T1 --> Executor[AgentDataExecutor]
-    T2 --> Executor
-    T3 --> Executor
-    T4 --> Executor
-    T5 --> Executor
-    T6 --> Executor
+    subgraph Analysis["🔍 Intent Analysis"]
+        INTENT["TextAnalyzerService"]
+        DETECT{"Data management<br/>intent detected?"}
+    end
 
-    Executor --> DB[(guild_$id.agent_* tables)]
+    subgraph Agent["🤖 Agent Service"]
+        AGENT_SVC["PudelAgentService<br/>(LangChain4j AI Service)"]
+        TOOLS["Available Tools"]
+    end
 
-    Agent --> Response[Natural Language Response]
-    Brain --> Response
+    subgraph BuiltinTools["🔧 Built-in Agent Tools"]
+        CREATE["createTable<br/>Create new data table"]
+        STORE["storeData<br/>Save data to table"]
+        SEARCH["searchData<br/>Query table data"]
+        UPDATE["updateData<br/>Update existing data"]
+        DELETE["deleteData<br/>Remove data"]
+        REMEMBER["remember<br/>Quick fact storage"]
+        RECALL["recall<br/>Retrieve facts"]
+    end
+
+    subgraph PluginTools["🔌 Plugin Agent Tools"]
+        PLUGIN_TOOL1["Custom Tool 1<br/>(via @AgentTool)"]
+        PLUGIN_TOOL2["Custom Tool 2<br/>(via @AgentTool)"]
+    end
+
+    subgraph Executor["💾 Data Executor"]
+        EXECUTOR["AgentDataExecutor"]
+        SCHEMA["guild_{id} schema"]
+        TABLES["agent_* tables"]
+    end
+
+    subgraph Response["📤 Response"]
+        RESULT[/"Operation result<br/>'Table created successfully!'"/]
+    end
+
+    %% Flow
+    MESSAGE --> INTENT
+    INTENT --> DETECT
+
+    DETECT -->|"No"| RESULT
+    DETECT -->|"Yes"| AGENT_SVC
+
+    AGENT_SVC --> TOOLS
+    TOOLS --> BuiltinTools
+    TOOLS --> PluginTools
+
+    CREATE --> EXECUTOR
+    STORE --> EXECUTOR
+    SEARCH --> EXECUTOR
+    UPDATE --> EXECUTOR
+    DELETE --> EXECUTOR
+    REMEMBER --> EXECUTOR
+    RECALL --> EXECUTOR
+
+    PLUGIN_TOOL1 --> EXECUTOR
+    PLUGIN_TOOL2 --> EXECUTOR
+
+    EXECUTOR --> SCHEMA
+    SCHEMA --> TABLES
+    TABLES --> RESULT
+
+    %% Styling
+    classDef input fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef analysis fill:#7b1fa2,stroke:#4a148c,color:#fff
+    classDef agent fill:#00796b,stroke:#004d40,color:#fff
+    classDef builtin fill:#2e7d32,stroke:#1b5e20,color:#fff
+    classDef plugin fill:#f57c00,stroke:#e65100,color:#fff
+    classDef executor fill:#455a64,stroke:#263238,color:#fff
+    classDef response fill:#c62828,stroke:#b71c1c,color:#fff
+
+    class MESSAGE input
+    class INTENT,DETECT analysis
+    class AGENT_SVC,TOOLS agent
+    class CREATE,STORE,SEARCH,UPDATE,DELETE,REMEMBER,RECALL builtin
+    class PLUGIN_TOOL1,PLUGIN_TOOL2 plugin
+    class EXECUTOR,SCHEMA,TABLES executor
+    class RESULT response

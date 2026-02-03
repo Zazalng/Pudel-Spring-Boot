@@ -25,11 +25,9 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    if ! docker compose version &> /dev/null; then
-        echo -e "${RED}Error: Docker Compose is not installed. Please install Docker Compose first.${NC}"
-        exit 1
-    fi
+if ! command -v docker compose &> /dev/null; then
+    echo -e "${RED}Error: Docker Compose is not installed. Please install Docker Compose first.${NC}"
+    exit 1
 fi
 
 # Create .env file if it doesn't exist
@@ -48,6 +46,19 @@ if grep -q "your_discord_bot_token_here" .env; then
     exit 1
 fi
 
+# Load environment variables (filter out JAVA_OPTS which contains spaces)
+while IFS='=' read -r key value; do
+    # Skip comments and empty lines
+    [[ "$key" =~ ^#.*$ ]] && continue
+    [[ -z "$key" ]] && continue
+    # Skip JAVA_OPTS (has spaces that break shell)
+    [[ "$key" == "JAVA_OPTS" ]] && continue
+    # Export the variable (strip quotes if present)
+    value="${value%\"}"
+    value="${value#\"}"
+    export "$key=$value"
+done < .env
+
 echo -e "\n${YELLOW}[1/4] Pulling required Docker images...${NC}"
 docker-compose pull postgres ollama
 
@@ -63,7 +74,7 @@ sleep 10
 # Start Ollama if enabled
 if grep -q "OLLAMA_ENABLED=true" .env; then
     echo -e "\n${YELLOW}Starting Ollama service...${NC}"
-    docker-compose up -d ollama
+    docker compose up -d ollama
 
     echo -e "${BLUE}Waiting for Ollama to be ready...${NC}"
     sleep 10
@@ -73,24 +84,24 @@ if grep -q "OLLAMA_ENABLED=true" .env; then
     EMBEDDING_MODEL=$(grep "EMBEDDING_MODEL=" .env | cut -d'=' -f2)
 
     echo -e "\n${YELLOW}Pulling Ollama models...${NC}"
-    docker-compose exec -T ollama ollama pull ${OLLAMA_MODEL:-qwen3:8b} || true
-    docker-compose exec -T ollama ollama pull ${EMBEDDING_MODEL:-qwen3-embedding:8b} || true
+    docker compose exec -T ollama ollama pull ${OLLAMA_MODEL:-qwen3:8b} || true
+    docker compose exec -T ollama ollama pull ${EMBEDDING_MODEL:-qwen3-embedding:8b} || true
 fi
 
 echo -e "\n${YELLOW}[4/4] Starting Pudel Bot...${NC}"
-docker-compose up -d pudel
+docker compose up -d pudel
 
 echo -e "\n${GREEN}=========================================${NC}"
 echo -e "${GREEN}   Setup completed successfully!         ${NC}"
 echo -e "${GREEN}=========================================${NC}"
 
 echo -e "\n${BLUE}Container Status:${NC}"
-docker-compose ps
+docker compose ps
 
 echo -e "\n${BLUE}Useful commands:${NC}"
-echo -e "  View logs:     ${YELLOW}docker-compose logs -f pudel${NC}"
-echo -e "  Stop all:      ${YELLOW}docker-compose down${NC}"
-echo -e "  Restart:       ${YELLOW}docker-compose restart pudel${NC}"
+echo -e "  View logs:     ${YELLOW}docker compose logs -f pudel${NC}"
+echo -e "  Stop all:      ${YELLOW}docker compose down${NC}"
+echo -e "  Restart:       ${YELLOW}docker compose restart pudel${NC}"
 echo -e "  Update:        ${YELLOW}./scripts/update.sh${NC}"
 
 echo -e "\n${BLUE}The bot should be online shortly! Check logs for status.${NC}"

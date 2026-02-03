@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import group.worldstandard.pudel.api.PudelPlugin;
+import group.worldstandard.pudel.api.PluginInfo;
 import group.worldstandard.pudel.core.config.plugins.PluginProperties;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.plugin.PluginClassLoader;
@@ -581,9 +581,9 @@ public class PluginWatcherService {
             Files.copy(newJarFile.toPath(), newTempCopy, StandardCopyOption.REPLACE_EXISTING);
 
             // Load from temp copy
-            PudelPlugin plugin = pluginClassLoader.loadPlugin(newTempCopy.toFile());
+            PluginInfo pluginInfo = pluginClassLoader.loadPlugin(newTempCopy.toFile());
 
-            if (plugin != null) {
+            if (pluginInfo != null) {
                 jarHashes.put(pluginName, newHash);
                 jarToPlugin.put(newJarFile.getName(), pluginName);
                 pendingUpdates.remove(pluginName);
@@ -638,17 +638,17 @@ public class PluginWatcherService {
             Files.copy(jarFile.toPath(), tempCopy, StandardCopyOption.REPLACE_EXISTING);
 
             // Load from temp copy
-            PudelPlugin plugin = pluginClassLoader.loadPlugin(tempCopy.toFile());
+            PluginInfo pluginInfo = pluginClassLoader.loadPlugin(tempCopy.toFile());
 
-            if (plugin != null) {
-                String pluginName = plugin.getPluginInfo().getName();
+            if (pluginInfo != null) {
+                String pluginName = pluginInfo.getName();
                 jarHashes.put(pluginName, hash);
                 jarToPlugin.put(jarFile.getName(), pluginName);
 
                 // Remove from failed list if it was there
                 failedJars.remove(jarFile.getName());
 
-                logger.info("New plugin discovered: {} v{}", pluginName, plugin.getPluginInfo().getVersion());
+                logger.info("New plugin discovered: {} v{}", pluginName, pluginInfo.getVersion());
             } else {
                 // Plugin load returned null - track as failed
                 trackFailedJar(jarFile.getName(), hash, "Plugin load returned null");

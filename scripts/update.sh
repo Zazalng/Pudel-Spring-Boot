@@ -18,9 +18,22 @@ echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}   Pudel Discord Bot - Update Script    ${NC}"
 echo -e "${BLUE}=========================================${NC}"
 
-# Load environment variables
+# Load environment variables (filter out JAVA_OPTS which contains spaces)
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    # Only load simple key=value pairs needed by this script
+    # JAVA_OPTS is used by Docker/Java, not needed here
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^#.*$ ]] && continue
+        [[ -z "$key" ]] && continue
+        # Skip JAVA_OPTS (has spaces that break shell)
+        [[ "$key" == "JAVA_OPTS" ]] && continue
+        # Strip quotes if present
+        value="${value%\"}"
+        value="${value#\"}"
+        # Export the variable
+        export "$key=$value"
+    done < .env
 fi
 
 GIT_BRANCH=${GIT_BRANCH:-main}
@@ -45,20 +58,20 @@ echo -e "\n${YELLOW}[2/5] Pulling latest changes...${NC}"
 git pull origin ${GIT_BRANCH}
 
 echo -e "\n${YELLOW}[3/5] Stopping current containers...${NC}"
-docker-compose down
+docker compose down
 
 echo -e "\n${YELLOW}[4/5] Rebuilding Docker images...${NC}"
-docker-compose build --no-cache pudel
+docker compose build --no-cache pudel
 
 echo -e "\n${YELLOW}[5/5] Starting containers...${NC}"
-docker-compose up -d
+docker compose up -d
 
 echo -e "\n${GREEN}=========================================${NC}"
 echo -e "${GREEN}   Update completed successfully!        ${NC}"
 echo -e "${GREEN}=========================================${NC}"
 
 echo -e "\n${BLUE}Checking container status...${NC}"
-docker-compose ps
+docker compose ps
 
-echo -e "\n${BLUE}To view logs, run: docker-compose logs -f pudel${NC}"
+echo -e "\n${BLUE}To view logs, run: docker compose logs -f pudel${NC}"
 

@@ -1,31 +1,80 @@
-graph TD
-    Start(PluginWatcherService Start) -->|Every 60s| Scan[Scan /plugins directory]
-    Scan --> Compute[Compute SHA256 Hashes]
-    Compute --> Check{Change Detected?}
+%% Pudel Plugin Hot-Reload v2.0.0
 
-    Check -- No --> Wait[Wait next cycle]
-    Wait --> Scan
+flowchart TD
+    subgraph FileSystem["📁 File System"]
+        PLUGINS_DIR[/"plugins/ directory"/]
+        JAR_NEW["new-plugin.jar"]
+        JAR_MODIFY["existing-plugin.jar<br/>(modified)"]
+        JAR_DELETE["removed-plugin.jar<br/>(deleted)"]
+    end
 
-    Check -- Yes --> Type{Change Type}
+    subgraph Watcher["👁️ PluginClassLoader.startWatcher()"]
+        WATCH["WatchService"]
+        POLL["poll() every 1 second"]
+    end
 
-    Type -- New JAR --> Copy[Copy to Temp Directory]
-    Copy --> Load[Load Plugin]
-    Load --> Register[Register Commands/Listeners]
+    subgraph Events["📨 File Events"]
+        CREATE["ENTRY_CREATE"]
+        MODIFY["ENTRY_MODIFY"]
+        DELETE["ENTRY_DELETE"]
+    end
 
-    Type -- Hash Changed --> Status{Is Plugin Enabled?}
-    Status -- No --> UpdateNow[Apply Update Immediately]
-    UpdateNow --> Reload[Reload Plugin]
+    subgraph Callbacks["🔄 PluginService Callbacks"]
+        ON_ADD["onPluginAdded()"]
+        ON_MOD["onPluginModified()"]
+        ON_REM["onPluginRemoved()"]
+    end
 
-    Status -- Yes --> Queue[Queue Update]
-    Queue --> Warn[Warn Admins every 1 min]
-    Warn --> Action{Admin Action?}
-    Action -- Disable --> UpdateNow
-    Action -- Restart --> UpdateNow
-    Action -- None --> Warn
+    subgraph Actions["⚡ Actions"]
+        LOAD["loadAndInitialize()<br/>• Copy to temp<br/>• Load JAR<br/>• Create instance"]
 
-    Type -- JAR Removed --> Unload[Unload Plugin]
-    Unload --> Cleanup[Cleanup Temp Files]
+        RELOAD["Hot-Reload<br/>• Save enabled state<br/>• unloadPlugin()<br/>• loadAndInitialize()<br/>• Re-enable if was enabled"]
 
-    style Start fill:#afa,stroke:#333
-    style Warn fill:#ffa,stroke:#333
-    style UpdateNow fill:#aff,stroke:#333
+        UNLOAD["unloadPlugin()<br/>• Call @OnShutdown<br/>• Unregister handlers<br/>• Close ClassLoader"]
+    end
+
+    subgraph Sync["🔄 Discord Sync"]
+        SYNC_ADD["syncCommands()<br/>(add new)"]
+        SYNC_UPDATE["syncCommands()<br/>(update)"]
+        SYNC_REMOVE["syncCommands()<br/>(remove)"]
+    end
+
+    %% File system connections
+    PLUGINS_DIR --> WATCH
+    JAR_NEW --> CREATE
+    JAR_MODIFY --> MODIFY
+    JAR_DELETE --> DELETE
+
+    %% Watcher loop
+    WATCH --> POLL
+    POLL --> Events
+
+    %% Events to callbacks
+    CREATE --> ON_ADD
+    MODIFY --> ON_MOD
+    DELETE --> ON_REM
+
+    %% Callbacks to actions
+    ON_ADD --> LOAD
+    ON_MOD --> RELOAD
+    ON_REM --> UNLOAD
+
+    %% Actions to sync
+    LOAD --> SYNC_ADD
+    RELOAD --> SYNC_UPDATE
+    UNLOAD --> SYNC_REMOVE
+
+    %% Styling
+    classDef file fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    classDef watcher fill:#5a3d5a,stroke:#9c27b0,color:#fff
+    classDef event fill:#3d5a3d,stroke:#4CAF50,color:#fff
+    classDef callback fill:#5a4d3d,stroke:#ff9800,color:#fff
+    classDef action fill:#3d3d5a,stroke:#2196F3,color:#fff
+    classDef sync fill:#5a3d3d,stroke:#f44336,color:#fff
+
+    class PLUGINS_DIR,JAR_NEW,JAR_MODIFY,JAR_DELETE file
+    class WATCH,POLL watcher
+    class CREATE,MODIFY,DELETE event
+    class ON_ADD,ON_MOD,ON_REM callback
+    class LOAD,RELOAD,UNLOAD action
+    class SYNC_ADD,SYNC_UPDATE,SYNC_REMOVE sync

@@ -1,37 +1,103 @@
-graph TD
-    subgraph "Client Side"
-        Vue[Vue Frontend<br/>Dashboard/Wiki]
+%% Pudel System Overview v2.0.0
+
+flowchart TB
+    subgraph Users["👥 Users"]
+        DISCORD_USER["Discord User"]
+        ADMIN["Server Admin"]
+        DEVELOPER["Plugin Developer"]
     end
 
-    subgraph "Server Side (Spring Boot)"
-        API[Spring Boot API<br/>pudel-core]
-        Plugins[Plugin System<br/>Hot-Reload]
-        Interaction[Interaction Manager<br/>Slash Commands]
-        Brain[PudelBrain<br/>AI Processing]
-        API --- Plugins
-        API --- Interaction
-        API --- Brain
+    subgraph Discord["🎮 Discord"]
+        DG["Discord Gateway"]
+        SLASH["Slash Commands"]
+        TEXT["Text Commands"]
+        INTERACT["Buttons/Modals/Selects"]
     end
 
-    subgraph "Data Storage"
-        DB[(PostgreSQL)]
-        Vector[pgvector Extension]
-        DB -.- Vector
+    subgraph Pudel["🐩 Pudel v2.0.0"]
+        subgraph Core["pudel-core"]
+            JDA["JDA 6<br/>(Discord API)"]
+            SPRING["Spring Boot 4"]
+
+            subgraph PluginSys["Annotation-Based Plugin System"]
+                LOADER["PluginClassLoader"]
+                PROCESSOR["AnnotationProcessor"]
+                SERVICE["PluginService"]
+            end
+
+            subgraph Commands["Command System"]
+                BUILTIN["BuiltinCommands<br/>@Plugin"]
+                INTERACT_MGR["InteractionManager"]
+                CMD_REG["CommandRegistry"]
+            end
+
+            subgraph Brain["AI Brain"]
+                BRAIN["PudelBrain"]
+                MEMORY["MemoryManager"]
+            end
+        end
+
+        subgraph Model["pudel-model"]
+            OLLAMA_CLIENT["OllamaClient"]
+            ANALYZER["TextAnalyzer"]
+            AGENT["AgentService"]
+        end
+
+        subgraph API["pudel-api (MIT)"]
+            ANNOTATIONS["@Plugin<br/>@SlashCommand<br/>@TextCommand<br/>@OnEnable<br/>@OnShutdown"]
+        end
+
+        subgraph Plugins["External Plugins"]
+            PLUGIN1["Music Plugin<br/>@Plugin"]
+            PLUGIN2["Moderation Plugin<br/>@Plugin"]
+            PLUGIN3["Custom Plugin<br/>@Plugin"]
+        end
     end
 
-    subgraph "External Services"
-        Discord[Discord API<br/>JDA 6 Gateway + REST]
-        Ollama[Ollama LLM<br/>Local Model]
+    subgraph Infrastructure["🏗️ Infrastructure"]
+        DB[(PostgreSQL<br/>+ pgvector)]
+        LLM["Ollama<br/>(Local LLM)"]
     end
 
-    %% Connections
-    Vue <-->|REST / JWT| API
-    API <-->|JPA / JDBC| DB
-    API <-->|JDA 6| Discord
-    Brain <-->|LangChain4j| Ollama
+    %% User flows
+    DISCORD_USER --> DG
+    ADMIN --> DG
+    DEVELOPER -->|"Create JAR"| Plugins
 
-    style API fill:#f9f,stroke:#333,stroke-width:2px
-    style Vue fill:#ccf,stroke:#333
-    style Discord fill:#7289da,stroke:#333,color:#fff
-    style Ollama fill:#fff,stroke:#333
-    style Brain fill:#ffc,stroke:#333
+    %% Discord to Pudel
+    DG --> JDA
+    SLASH --> INTERACT_MGR
+    TEXT --> CMD_REG
+    INTERACT --> INTERACT_MGR
+
+    %% Plugin system
+    LOADER --> PROCESSOR
+    PROCESSOR --> SERVICE
+    Plugins --> LOADER
+    ANNOTATIONS --> Plugins
+
+    %% Commands
+    BUILTIN --> INTERACT_MGR
+    SERVICE --> Commands
+
+    %% AI flow
+    Brain --> Model
+    OLLAMA_CLIENT --> LLM
+    MEMORY --> DB
+
+    %% Styling
+    classDef user fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef discord fill:#5865F2,stroke:#4752C4,color:#fff
+    classDef core fill:#2e7d32,stroke:#1b5e20,color:#fff
+    classDef model fill:#7b1fa2,stroke:#4a148c,color:#fff
+    classDef api fill:#00796b,stroke:#004d40,color:#fff
+    classDef plugin fill:#f57c00,stroke:#e65100,color:#fff
+    classDef infra fill:#455a64,stroke:#263238,color:#fff
+
+    class DISCORD_USER,ADMIN,DEVELOPER user
+    class DG,SLASH,TEXT,INTERACT discord
+    class JDA,SPRING,LOADER,PROCESSOR,SERVICE,BUILTIN,INTERACT_MGR,CMD_REG,BRAIN,MEMORY core
+    class OLLAMA_CLIENT,ANALYZER,AGENT model
+    class ANNOTATIONS api
+    class PLUGIN1,PLUGIN2,PLUGIN3 plugin
+    class DB,LLM infra

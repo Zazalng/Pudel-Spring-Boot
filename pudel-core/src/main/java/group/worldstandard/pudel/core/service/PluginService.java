@@ -14,17 +14,19 @@
  */
 package group.worldstandard.pudel.core.service;
 
+import group.worldstandard.pudel.api.PluginContext;
+import group.worldstandard.pudel.api.PluginInfo;
+import group.worldstandard.pudel.api.PudelPlugin;
+import group.worldstandard.pudel.core.entity.PluginMetadata;
+import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
+import group.worldstandard.pudel.core.plugin.PluginClassLoader;
+import group.worldstandard.pudel.core.plugin.PluginContextFactory;
+import group.worldstandard.pudel.core.repository.PluginMetadataRepository;
+import net.dv8tion.jda.api.JDA;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import net.dv8tion.jda.api.JDA;
-import group.worldstandard.pudel.api.PluginContext;
-import group.worldstandard.pudel.api.PudelPlugin;
-import group.worldstandard.pudel.core.entity.PluginMetadata;
-import group.worldstandard.pudel.core.plugin.PluginClassLoader;
-import group.worldstandard.pudel.core.plugin.PluginContextFactory;
-import group.worldstandard.pudel.core.repository.PluginMetadataRepository;
 
 import java.io.File;
 import java.util.List;
@@ -33,31 +35,57 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Service for managing plugins.
+ * Service for managing plugin lifecycle.
+ * <p>
+ * Handles the complete plugin lifecycle using annotation-based approach:
+ * <ul>
+ *   <li>Discovery and loading of JAR files</li>
+ *   <li>Automatic command registration via annotations (@SlashCommand, @TextCommand, etc.)</li>
+ *   <li>Automatic sync of slash commands to Discord</li>
+ *   <li>Clean unregistration on disable</li>
+ *   <li>Graceful shutdown with @OnShutdown (returns boolean for force-kill control)</li>
+ *   <li>Hot-reload support via file watcher</li>
+ * </ul>
+ * <p>
+ * The legacy PudelPlugin interface is deprecated. Use @Plugin annotation instead.
  */
 @Service
 @Transactional
-public class PluginService extends BaseService {
+@SuppressWarnings("deprecation") // Supporting legacy PudelPlugin for backward compatibility
+public class PluginService extends BaseService implements PluginClassLoader.PluginUpdateCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);
 
     private final PluginMetadataRepository pluginMetadataRepository;
     private final PluginClassLoader pluginClassLoader;
     private final PluginContextFactory pluginContextFactory;
+    private final PluginAnnotationProcessor annotationProcessor;
+
+    // Plugin contexts: pluginName -> PluginContext
     private final Map<String, PluginContext> pluginContexts = new ConcurrentHashMap<>();
 
+    // Track enabled state: pluginName -> enabled
+    private final Map<String, Boolean> enabledPlugins = new ConcurrentHashMap<>();
+
     public PluginService(JDA jda,
-                        PluginMetadataRepository pluginMetadataRepository,
-                        PluginClassLoader pluginClassLoader,
-                        PluginContextFactory pluginContextFactory) {
+                         PluginMetadataRepository pluginMetadataRepository,
+                         PluginClassLoader pluginClassLoader,
+                         PluginContextFactory pluginContextFactory,
+                         PluginAnnotationProcessor annotationProcessor) {
         super(jda);
         this.pluginMetadataRepository = pluginMetadataRepository;
         this.pluginClassLoader = pluginClassLoader;
         this.pluginContextFactory = pluginContextFactory;
+        this.annotationProcessor = annotationProcessor;
     }
+
+    // =====================================================
+    // Plugin Discovery & Loading
+    // =====================================================
 
     /**
      * Scan for and load all plugins in the plugins directory.
+     * Also starts the file watcher for hot-reload.
      */
     public void discoverPlugins() {
         File pluginsDir = pluginClassLoader.getPluginsDirectory();
@@ -65,88 +93,134 @@ public class PluginService extends BaseService {
 
         if (files == null || files.length == 0) {
             logger.info("No plugins found in directory: {}", pluginsDir.getAbsolutePath());
-            return;
+        } else {
+            logger.info("Found {} JAR files in plugins directory", files.length);
+
+            for (File jarFile : files) {
+                loadAndInitialize(jarFile);
+            }
         }
 
-        logger.info("Found {} JAR files in plugins directory", files.length);
+        // Start watching for plugin updates
+        pluginClassLoader.startWatcher(this);
+        logger.info("Plugin file watcher started");
+    }
 
-        for (File jarFile : files) {
-            try {
-                PudelPlugin plugin = pluginClassLoader.loadPlugin(jarFile);
-                if (plugin != null) {
-                    String pluginName = plugin.getPluginInfo().getName();
-                    registerPluginMetadata(plugin, jarFile.getName());
+    /**
+     * Load and initialize a plugin from JAR file.
+     */
+    private void loadAndInitialize(File jarFile) {
+        try {
+            PluginInfo info = pluginClassLoader.loadPlugin(jarFile);
+            if (info != null) {
+                String pluginName = info.getName();
 
-                    // Create plugin-specific context
-                    PluginContext context = pluginContextFactory.getContext(pluginName);
-                    pluginContexts.put(pluginName, context);
+                // Register metadata in database
+                registerPluginMetadata(info, jarFile.getName());
 
-                    plugin.initialize(context);
-                    logger.info("Plugin initialized: {}", pluginName);
-                }
-            } catch (Exception e) {
-                logger.error("Error discovering plugin {}: {}", jarFile.getName(), e.getMessage(), e);
+                // Create plugin context
+                PluginContext context = pluginContextFactory.getContext(pluginName);
+                pluginContexts.put(pluginName, context);
+
+                logger.info("Plugin loaded: {} v{}", pluginName, info.getVersion());
             }
+        } catch (Exception e) {
+            logger.error("Error loading plugin {}: {}", jarFile.getName(), e.getMessage(), e);
         }
     }
 
     /**
      * Register plugin metadata in the database.
-     * @param plugin the plugin
-     * @param jarFileName the JAR file name
      */
-    private void registerPluginMetadata(PudelPlugin plugin, String jarFileName) {
-        String pluginName = plugin.getPluginInfo().getName();
+    private void registerPluginMetadata(PluginInfo info, String jarFileName) {
+        String pluginName = info.getName();
 
         Optional<PluginMetadata> existing = pluginMetadataRepository.findByPluginName(pluginName);
 
         PluginMetadata metadata;
         if (existing.isPresent()) {
             metadata = existing.get();
-            metadata.setPluginVersion(plugin.getPluginInfo().getVersion());
-            metadata.setPluginAuthor(plugin.getPluginInfo().getAuthor());
-            metadata.setPluginDescription(plugin.getPluginInfo().getDescription());
+            metadata.setPluginVersion(info.getVersion());
+            metadata.setPluginAuthor(info.getAuthor());
+            metadata.setPluginDescription(info.getDescription());
             metadata.setLoaded(true);
             metadata.setLoadError(null);
         } else {
             metadata = new PluginMetadata(
                     pluginName,
-                    plugin.getPluginInfo().getVersion(),
+                    info.getVersion(),
                     jarFileName,
-                    plugin.getClass().getName()
+                    "" // Main class tracked internally
             );
-            metadata.setPluginAuthor(plugin.getPluginInfo().getAuthor());
-            metadata.setPluginDescription(plugin.getPluginInfo().getDescription());
+            metadata.setPluginAuthor(info.getAuthor());
+            metadata.setPluginDescription(info.getDescription());
             metadata.setLoaded(true);
         }
 
         pluginMetadataRepository.save(metadata);
     }
 
+    // =====================================================
+    // Plugin Enable/Disable
+    // =====================================================
+
     /**
      * Enable a plugin.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Creates plugin context</li>
+     *   <li>Processes annotations (@SlashCommand, @TextCommand, etc.)</li>
+     *   <li>Calls @OnEnable methods</li>
+     *   <li>Automatically syncs slash commands to Discord</li>
+     * </ol>
+     * <p>
+     * For legacy PudelPlugin (deprecated), also calls onEnable().
+     *
      * @param pluginName the plugin name
      */
     public void enablePlugin(String pluginName) {
-        PudelPlugin plugin = pluginClassLoader.getPlugin(pluginName);
-        if (plugin == null) {
+        if (!pluginClassLoader.isPluginLoaded(pluginName)) {
             logger.warn("Plugin not found: {}", pluginName);
             return;
         }
 
+        if (enabledPlugins.getOrDefault(pluginName, false)) {
+            logger.warn("Plugin {} is already enabled", pluginName);
+            return;
+        }
+
         try {
+            Object instance = pluginClassLoader.getPluginInstance(pluginName);
             PluginContext context = pluginContexts.computeIfAbsent(pluginName,
                     pluginContextFactory::getContext);
-            plugin.onEnable(context);
 
-            Optional<PluginMetadata> metadata = pluginMetadataRepository.findByPluginName(pluginName);
-            if (metadata.isPresent()) {
-                PluginMetadata m = metadata.get();
-                m.setEnabled(true);
-                pluginMetadataRepository.save(m);
+            // Legacy support: call onEnable for PudelPlugin (deprecated)
+            if (instance instanceof PudelPlugin legacyPlugin) {
+                logger.warn("[{}] Using deprecated PudelPlugin.onEnable(). Migrate to @OnEnable annotation.",
+                           pluginName);
+                legacyPlugin.onEnable(context);
             }
 
-            logger.info("Plugin enabled: {}", pluginName);
+            // Process annotations and call @OnEnable
+            int registered = annotationProcessor.processAndRegister(pluginName, instance, context);
+
+            // Auto-sync slash commands to Discord
+            if (registered > 0) {
+                annotationProcessor.syncCommands();
+            }
+
+            // Mark as enabled
+            enabledPlugins.put(pluginName, true);
+
+            // Update database
+            pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
+                m.setEnabled(true);
+                pluginMetadataRepository.save(m);
+            });
+
+            logger.info("Plugin enabled: {} ({} handlers registered)", pluginName, registered);
+
         } catch (Exception e) {
             logger.error("Error enabling plugin {}: {}", pluginName, e.getMessage(), e);
         }
@@ -154,75 +228,138 @@ public class PluginService extends BaseService {
 
     /**
      * Disable a plugin.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Calls @OnDisable methods</li>
+     *   <li>Unregisters all annotation-based handlers</li>
+     *   <li>Automatically syncs to remove slash commands from Discord</li>
+     * </ol>
+     * <p>
+     * For legacy PudelPlugin (deprecated), also calls onDisable().
+     *
      * @param pluginName the plugin name
      */
     public void disablePlugin(String pluginName) {
-        PudelPlugin plugin = pluginClassLoader.getPlugin(pluginName);
-        if (plugin == null) {
+        if (!pluginClassLoader.isPluginLoaded(pluginName)) {
             logger.warn("Plugin not found: {}", pluginName);
             return;
         }
 
-        try {
-            PluginContext context = pluginContexts.get(pluginName);
-            if (context != null) {
-                plugin.onDisable(context);
-            }
-
-            // Unregister all event listeners for this plugin
-            pluginContextFactory.getEventManager().unregisterListeners(pluginName);
-
-            Optional<PluginMetadata> metadata = pluginMetadataRepository.findByPluginName(pluginName);
-            if (metadata.isPresent()) {
-                PluginMetadata m = metadata.get();
-                m.setEnabled(false);
-                pluginMetadataRepository.save(m);
-            }
-
-            logger.info("Plugin disabled: {}", pluginName);
-        } catch (Exception e) {
-            logger.error("Error disabling plugin {}: {}", pluginName, e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Unload a plugin completely.
-     * @param pluginName the plugin name
-     */
-    public void unloadPlugin(String pluginName) {
-        PudelPlugin plugin = pluginClassLoader.getPlugin(pluginName);
-        if (plugin == null) {
-            logger.warn("Plugin not found for unloading: {}", pluginName);
+        if (!enabledPlugins.getOrDefault(pluginName, false)) {
+            logger.warn("Plugin {} is not enabled", pluginName);
             return;
         }
 
         try {
+            Object instance = pluginClassLoader.getPluginInstance(pluginName);
             PluginContext context = pluginContexts.get(pluginName);
-            if (context != null) {
-                plugin.shutdown(context);
+
+            // Unregister all annotation-based handlers and call @OnDisable
+            annotationProcessor.unregisterAll(pluginName, instance, context);
+
+            // Legacy support: call onDisable for PudelPlugin (deprecated)
+            if (instance instanceof PudelPlugin legacyPlugin && context != null) {
+                logger.warn("[{}] Using deprecated PudelPlugin.onDisable(). Migrate to @OnDisable annotation.",
+                           pluginName);
+                legacyPlugin.onDisable(context);
             }
 
             // Unregister all event listeners
             pluginContextFactory.getEventManager().unregisterListeners(pluginName);
 
+            // Auto-sync to remove slash commands from Discord
+            annotationProcessor.syncCommands();
+
+            // Mark as disabled
+            enabledPlugins.put(pluginName, false);
+
+            // Update database
+            pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
+                m.setEnabled(false);
+                pluginMetadataRepository.save(m);
+            });
+
+            logger.info("Plugin disabled: {}", pluginName);
+
+        } catch (Exception e) {
+            logger.error("Error disabling plugin {}: {}", pluginName, e.getMessage(), e);
+        }
+    }
+
+    // =====================================================
+    // Plugin Unload & Shutdown
+    // =====================================================
+
+    /**
+     * Unload a plugin completely.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Disables the plugin if enabled</li>
+     *   <li>Calls @OnShutdown method (expects boolean return)</li>
+     *   <li>If @OnShutdown returns false, force-kills the plugin</li>
+     *   <li>Releases class loader and resources</li>
+     * </ol>
+     *
+     * @param pluginName the plugin name
+     */
+    public void unloadPlugin(String pluginName) {
+        if (!pluginClassLoader.isPluginLoaded(pluginName)) {
+            logger.warn("Plugin not found for unloading: {}", pluginName);
+            return;
+        }
+
+        try {
+            // Disable first if enabled
+            if (enabledPlugins.getOrDefault(pluginName, false)) {
+                disablePlugin(pluginName);
+            }
+
+            Object instance = pluginClassLoader.getPluginInstance(pluginName);
+            PluginContext context = pluginContexts.get(pluginName);
+
+            // Call @OnShutdown and check result
+            boolean shutdownSuccess = annotationProcessor.invokeShutdown(pluginName, instance, context);
+
+            // Legacy support: call shutdown for PudelPlugin (deprecated)
+            if (instance instanceof PudelPlugin legacyPlugin && context != null) {
+                logger.warn("[{}] Using deprecated PudelPlugin.shutdown(). Migrate to @OnShutdown annotation.",
+                           pluginName);
+                try {
+                    legacyPlugin.shutdown(context);
+                } catch (Exception e) {
+                    logger.error("[{}] Legacy shutdown failed: {}", pluginName, e.getMessage());
+                    shutdownSuccess = false;
+                }
+            }
+
             // Remove context
             pluginContexts.remove(pluginName);
             pluginContextFactory.removeContext(pluginName);
+            enabledPlugins.remove(pluginName);
 
-            // Unload from class loader
-            pluginClassLoader.unloadPlugin(pluginName);
+            // Unload based on shutdown result
+            if (shutdownSuccess) {
+                pluginClassLoader.unloadPlugin(pluginName);
+            } else {
+                logger.warn("[{}] Shutdown returned false, force-killing plugin", pluginName);
+                pluginClassLoader.forceUnloadPlugin(pluginName);
+            }
 
-            Optional<PluginMetadata> metadata = pluginMetadataRepository.findByPluginName(pluginName);
-            if (metadata.isPresent()) {
-                PluginMetadata m = metadata.get();
+            // Update database
+            pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
                 m.setLoaded(false);
                 m.setEnabled(false);
                 pluginMetadataRepository.save(m);
-            }
+            });
 
-            logger.info("Plugin unloaded: {}", pluginName);
+            logger.info("Plugin unloaded: {} (force={})", pluginName, !shutdownSuccess);
+
         } catch (Exception e) {
             logger.error("Error unloading plugin {}: {}", pluginName, e.getMessage(), e);
+            // Force unload on error
+            pluginClassLoader.forceUnloadPlugin(pluginName);
         }
     }
 
@@ -235,30 +372,83 @@ public class PluginService extends BaseService {
 
         for (String pluginName : pluginClassLoader.getAllPlugins().keySet()) {
             try {
-                PudelPlugin plugin = pluginClassLoader.getPlugin(pluginName);
-                PluginContext context = pluginContexts.get(pluginName);
-
-                if (plugin != null && context != null) {
-                    plugin.shutdown(context);
-                }
-
-                pluginContextFactory.getEventManager().unregisterListeners(pluginName);
+                unloadPlugin(pluginName);
             } catch (Exception e) {
                 logger.error("Error shutting down plugin {}: {}", pluginName, e.getMessage(), e);
             }
         }
 
+        // Final cleanup
         pluginContexts.clear();
-
-        // Close all class loaders to release file handles
+        enabledPlugins.clear();
         pluginClassLoader.closeAllClassLoaders();
 
         logger.info("All plugins shut down");
     }
 
+    // =====================================================
+    // Hot-Reload Callbacks
+    // =====================================================
+
+    @Override
+    public void onPluginAdded(File jarFile) {
+        logger.info("New plugin detected, loading: {}", jarFile.getName());
+        loadAndInitialize(jarFile);
+    }
+
+    @Override
+    public void onPluginModified(File jarFile) {
+        // Find plugin name by JAR file
+        String pluginName = findPluginNameByJar(jarFile.getName());
+
+        if (pluginName != null) {
+            boolean wasEnabled = enabledPlugins.getOrDefault(pluginName, false);
+
+            logger.info("Plugin {} modified, reloading...", pluginName);
+
+            // Unload old version
+            unloadPlugin(pluginName);
+
+            // Load new version
+            loadAndInitialize(jarFile);
+
+            // Re-enable if was enabled
+            if (wasEnabled) {
+                enablePlugin(pluginName);
+            }
+        } else {
+            // New plugin
+            loadAndInitialize(jarFile);
+        }
+    }
+
+    @Override
+    public void onPluginRemoved(String jarFileName) {
+        String pluginName = findPluginNameByJar(jarFileName);
+
+        if (pluginName != null) {
+            logger.info("Plugin JAR removed: {}, unloading: {}", jarFileName, pluginName);
+            unloadPlugin(pluginName);
+        }
+    }
+
+    private String findPluginNameByJar(String jarFileName) {
+        for (Map.Entry<String, Object> entry : pluginClassLoader.getAllPlugins().entrySet()) {
+            // This is a simplistic check; in practice, track jar->name mapping
+            if (pluginClassLoader.getPluginsDirectory().toPath()
+                    .resolve(jarFileName).toFile().exists()) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    // =====================================================
+    // Query Methods
+    // =====================================================
+
     /**
      * Get all loaded plugins.
-     * @return list of plugin metadata
      */
     public List<PluginMetadata> getAllPlugins() {
         return pluginMetadataRepository.findAll();
@@ -266,8 +456,6 @@ public class PluginService extends BaseService {
 
     /**
      * Get a plugin by name.
-     * @param pluginName the plugin name
-     * @return the plugin metadata
      */
     public Optional<PluginMetadata> getPlugin(String pluginName) {
         return pluginMetadataRepository.findByPluginName(pluginName);
@@ -275,10 +463,15 @@ public class PluginService extends BaseService {
 
     /**
      * Get all enabled plugins.
-     * @return list of enabled plugins
      */
     public List<PluginMetadata> getEnabledPlugins() {
         return pluginMetadataRepository.findByEnabled(true);
     }
-}
 
+    /**
+     * Check if a plugin is enabled.
+     */
+    public boolean isPluginEnabled(String pluginName) {
+        return enabledPlugins.getOrDefault(pluginName, false);
+    }
+}

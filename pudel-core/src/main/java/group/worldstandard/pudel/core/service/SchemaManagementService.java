@@ -61,7 +61,7 @@ public class SchemaManagementService {
             }
 
             jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
-            logger.info("Created schema for guild {}: {}", guildId, schemaName);
+            logger.debug("Created schema for guild {}: {}", guildId, schemaName);
 
             createGuildTables(schemaName);
 
@@ -118,7 +118,7 @@ public class SchemaManagementService {
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_memory_key ON " + schemaName + ".memory(key)");
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_memory_category ON " + schemaName + ".memory(category)");
 
-            logger.info("Created tables for guild schema: {}", schemaName);
+            logger.debug("Created tables for guild schema: {}", schemaName);
 
         } catch (Exception e) {
             logger.error("Error creating tables for schema {}: {}", schemaName, e.getMessage(), e);

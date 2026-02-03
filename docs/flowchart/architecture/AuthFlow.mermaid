@@ -1,28 +1,62 @@
+%% Pudel Authentication Flow v2.0.0
+
 sequenceDiagram
-    participant User
+    participant User as User
     participant Vue as Vue Frontend
-    participant Discord as Discord OAuth
-    participant Backend as Spring Boot
-    participant JWT as JwtUtil (RSA)
+    participant API as Pudel API
+    participant JWT as JWT Util (RSA)
+    participant Discord as Discord OAuth2
+    participant DB as PostgreSQL
+
+    Note over User,DB: OAuth2 Login Flow
 
     User->>Vue: Click "Login with Discord"
-    Vue->>Discord: Redirect to OAuth URL
-    User->>Discord: Authorize Application
-    Discord-->>Vue: Callback with Auth Code
-    Vue->>Backend: POST /api/auth/discord/callback
-    Note over Vue,Backend: {code, redirectUri}
-    Backend->>Discord: Exchange Code for Token
-    Discord-->>Backend: Access Token + Refresh Token
-    Backend->>Discord: GET /users/@me
-    Discord-->>Backend: User Info (id, username, avatar)
-    Backend->>Backend: Create/Update User in DB
-    Backend->>JWT: Generate RSA-signed JWT
-    JWT-->>Backend: JWT Token
-    Backend-->>Vue: Return JWT Token
+    Vue->>Discord: Redirect to OAuth2 authorize
+    Discord->>User: Show consent screen
+    User->>Discord: Approve
+    Discord->>Vue: Redirect with code
 
-    Note over Vue: Store JWT in localStorage
+    Vue->>API: POST /api/auth/discord/callback
+    Note right of Vue: { code, redirectUri }
 
-    Vue->>Backend: GET /api/guilds (Bearer JWT)
-    Backend->>JWT: Validate JWT Signature
-    JWT-->>Backend: User Claims
-    Backend-->>Vue: Guild List
+    API->>Discord: Exchange code for tokens
+    Discord-->>API: access_token, refresh_token
+
+    API->>Discord: GET /users/@me
+    Discord-->>API: User info (id, username, avatar)
+
+    API->>DB: Find or create user
+    DB-->>API: User entity
+
+    API->>JWT: Generate JWT (RSA private key)
+    Note right of JWT: Claims: userId, discordId, roles
+    JWT-->>API: Signed JWT token
+
+    API-->>Vue: { token, user }
+    Vue->>Vue: Store token in localStorage
+
+    Note over User,DB: Authenticated API Requests
+
+    User->>Vue: View guilds
+    Vue->>API: GET /api/guilds
+    Note right of Vue: Authorization: Bearer <token>
+
+    API->>JWT: Validate JWT (RSA public key)
+    JWT-->>API: Valid / Invalid
+
+    alt Token Valid
+        API->>DB: Query user's guilds
+        DB-->>API: Guild list
+        API-->>Vue: { guilds: [...] }
+        Vue-->>User: Display guilds
+    else Token Invalid/Expired
+        API-->>Vue: 401 Unauthorized
+        Vue->>Vue: Redirect to login
+    end
+
+    Note over User,DB: Token Refresh
+
+    Vue->>API: POST /api/auth/refresh
+    Note right of Vue: { refreshToken }
+    API->>JWT: Generate new access token
+    API-->>Vue: { token: newToken }

@@ -50,7 +50,10 @@ import java.util.Map;
  * /ai agent - View agent capabilities info
  * /ai tables - View stored data tables
  * /ai memories - View stored memories
+ *
+ * @deprecated Use {@link BuiltinCommands} instead. This class will be removed in the next version.
  */
+@Deprecated(since = "2.0.0", forRemoval = true)
 @Component
 public class AISlashCommand implements SlashCommandHandler {
 
@@ -115,6 +118,12 @@ public class AISlashCommand implements SlashCommandHandler {
                         new SubcommandData("tables", "View stored data tables"),
                         new SubcommandData("memories", "View stored memories")
                 );
+    }
+
+    @Override
+    public boolean isGlobal() {
+        // Guild-specific commands register instantly, global commands take up to 1 hour
+        return false;
     }
 
     @Override

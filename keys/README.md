@@ -8,37 +8,39 @@ Run the following commands to generate the keys:
 
 ### Generate Private Key (PKCS#8 format)
 ```bash
-openssl genpkey -algorithm RSA -out private.key -pkeyopt rsa_keygen_bits:2048
+openssl genpkey -algorithm RSA -out pv.key -pkeyopt rsa_keygen_bits:2048
 ```
 
 ### Extract Public Key
 ```bash
-openssl rsa -pubout -in private.key -out public.key
+openssl rsa -pubout -in pv.key -out pb.key
 ```
 
 ## File Structure
 
 After generating, this directory should contain:
-- `private.key` - RSA private key (PKCS#8 PEM format) - **KEEP SECRET!**
-- `public.key` - RSA public key (X.509 PEM format)
+- `pv.key` - RSA private key (PKCS#8 PEM format) - **KEEP SECRET!**
+- `pb.key` - RSA public key (X.509 PEM format)
 
 ## Important Security Notes
 
 1. **Never commit private keys to version control!**
-2. Add `private.key` and `public.key` to your `.gitignore`
-3. Use environment variables `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH` to specify custom paths in production
+2. Add `pv.key` and `pb.key` to your `.gitignore`
+3. Use environment variables to specify custom paths in production
 4. Ensure proper file permissions (private key should be readable only by the application user)
 
 ## Configuration
 
 The application expects:
-- Default private key path: `keys/private.key` (local) or `/app/keys/private.key` (Docker)
-- Default public key path: `keys/public.key` (local) or `/app/keys/public.key` (Docker)
+- Default private key path: `keys/pv.key` (local) or `/app/keys/pv.key` (Docker)
+- Default public key path: `keys/pb.key` (local) or `/app/keys/pb.key` (Docker)
 
-Override with environment variables:
+Override with environment variables in `.env`:
 ```bash
-export JWT_PRIVATE_KEY_PATH=/secure/path/private.key
-export JWT_PUBLIC_KEY_PATH=/secure/path/public.key
+JWT_PRIVATE_KEY_FILE=pv.key
+JWT_PUBLIC_KEY_FILE=pb.key
+JWT_PRIVATE_KEY_PATH=keys/pv.key
+JWT_PUBLIC_KEY_PATH=keys/pb.key
 ```
 
 ## Docker Usage
@@ -51,8 +53,8 @@ services:
     volumes:
       - ./keys:/app/keys:ro  # Mount local keys directory (read-only for security)
     environment:
-      JWT_PRIVATE_KEY_PATH: /app/keys/private.key
-      JWT_PUBLIC_KEY_PATH: /app/keys/public.key
+      JWT_PRIVATE_KEY_PATH: /app/keys/${JWT_PRIVATE_KEY_FILE:-pv.key}
+      JWT_PUBLIC_KEY_PATH: /app/keys/${JWT_PUBLIC_KEY_FILE:-pb.key}
 ```
 
 ### Steps for Docker Deployment:
@@ -60,14 +62,14 @@ services:
 1. Generate keys locally in the `keys/` directory:
    ```bash
    cd keys
-   openssl genpkey -algorithm RSA -out private.key -pkeyopt rsa_keygen_bits:2048
-   openssl rsa -pubout -in private.key -out public.key
+   openssl genpkey -algorithm RSA -out pv.key -pkeyopt rsa_keygen_bits:2048
+   openssl rsa -pubout -in pv.key -out pb.key
    ```
 
 2. Ensure proper file permissions:
    ```bash
-   chmod 600 keys/private.key
-   chmod 644 keys/public.key
+   chmod 600 keys/pv.key
+   chmod 644 keys/pb.key
    ```
 
 3. Start Docker containers:

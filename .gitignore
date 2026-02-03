@@ -46,7 +46,7 @@ Thumbs.db
 !plugins/.gitkeep
 
 # Web App
-vue/
+Pudel-Vue/
 
 # Runtime
 *.jar

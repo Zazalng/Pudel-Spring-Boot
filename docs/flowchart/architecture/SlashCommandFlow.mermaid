@@ -1,26 +1,50 @@
+%% Pudel Slash Command Flow v2.0.0
+
 sequenceDiagram
-    participant User
-    participant Discord
+    participant User as Discord User
+    participant Discord as Discord API
+    participant JDA as JDA 6
     participant Listener as InteractionEventListener
     participant Manager as InteractionManagerImpl
-    participant Builtin as Built-in Slash Commands
-    participant Plugin as Plugin Slash Commands
-    participant Other as Modal/Button/Menu
+    participant Handler as @SlashCommand Handler
+    participant Brain as PudelBrain (optional)
+
+    Note over User,Brain: Slash Command Execution Flow
 
     User->>Discord: /command [options]
-    Discord->>Listener: SlashCommandInteractionEvent
-    Listener->>Manager: Route Interaction
+    Discord->>JDA: SlashCommandInteractionEvent
+    JDA->>Listener: onSlashCommandInteraction()
 
-    alt Slash Command
-        Manager->>Manager: Find Handler by Command Name
-        alt Built-in Command
-            Manager->>Builtin: /settings, /ai, /channel, /command
-            Builtin-->>User: Ephemeral Reply
-        else Plugin Command
-            Manager->>Plugin: Plugin-registered command
-            Plugin-->>User: Reply
+    Listener->>Manager: handleSlashCommand(event)
+    Manager->>Manager: Lookup registered handler<br/>(by command name)
+
+    alt Handler Found
+        Manager->>Handler: handle(event)
+
+        alt Simple Response
+            Handler->>Discord: event.reply("Response")
+            Discord->>User: Show response
+        else AI-Powered Response
+            Handler->>Brain: process(message)
+            Brain->>Brain: Analyze intent
+            Brain->>Brain: Apply personality
+            Brain-->>Handler: Generated response
+            Handler->>Discord: event.reply(response)
+            Discord->>User: Show AI response
+        else Deferred Response
+            Handler->>Discord: event.deferReply()
+            Discord->>User: "Bot is thinking..."
+            Handler->>Handler: Long operation
+            Handler->>Discord: event.getHook().editOriginal("Done!")
+            Discord->>User: Update message
         end
-    else Button/Modal/SelectMenu
-        Manager->>Other: Handle Component Interaction
-        Other-->>User: Reply/Update
+    else Handler Not Found
+        Manager->>Discord: event.reply("Unknown command").ephemeral()
+        Discord->>User: Show error (ephemeral)
+    end
+
+    Note over User,Brain: Registration (happens at plugin enable)
+
+    rect rgb(40, 60, 40)
+        Note right of Handler: @SlashCommand annotation<br/>automatically registered by<br/>PluginAnnotationProcessor
     end

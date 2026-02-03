@@ -1,19 +1,85 @@
-stateDiagram-v2
-    [*] --> Loaded: load JAR
+%% Pudel Plugin Lifecycle v2.0.0
+%% Annotation-Based Plugin System
 
-    state Loaded {
-        [*] --> Initialized: initialize()
-    }
+flowchart TD
+    subgraph Discovery["🔍 Plugin Discovery"]
+        JAR[/"📦 JAR File in plugins/"/]
+        MANIFEST["Read MANIFEST.MF<br/>or scan for @Plugin"]
+        CLASSLOADER["Create URLClassLoader"]
+        INSTANTIATE["Instantiate plugin class"]
+        EXTRACT["Extract PluginInfo from<br/>@Plugin annotation"]
+    end
 
-    Loaded --> Enabled: onEnable()
-    Enabled --> Disabled: onDisable()
-    Disabled --> Enabled: onEnable()
+    subgraph Loading["📥 Loading Phase"]
+        LOADED[["🔵 LOADED"]]
+    end
 
-    Disabled --> Unloaded: unload
-    Enabled --> Unloaded: shutdown()
-    Unloaded --> [*]
+    subgraph Enabling["▶️ Enable Phase"]
+        PROCESSOR["PluginAnnotationProcessor<br/>.processAndRegister()"]
+        SCAN_SLASH["Scan @SlashCommand"]
+        SCAN_TEXT["Scan @TextCommand"]
+        SCAN_INTERACT["Scan @ButtonHandler<br/>@ModalHandler<br/>@SelectMenuHandler"]
+        ON_ENABLE["Call @OnEnable methods"]
+        SYNC["Auto syncCommands()<br/>to Discord"]
+        ENABLED[["🟢 ENABLED"]]
+    end
 
-    note right of Loaded: JAR discovered in /plugins
-    note right of Enabled: Commands & Listeners active
-    note right of Disabled: Can be re-enabled
-    note right of Unloaded: Complete cleanup
+    subgraph Disabling["⏹️ Disable Phase"]
+        ON_DISABLE["Call @OnDisable methods"]
+        UNREGISTER["Unregister all handlers"]
+        SYNC_REMOVE["Auto syncCommands()<br/>to remove from Discord"]
+        DISABLED[["🟡 DISABLED"]]
+    end
+
+    subgraph Unloading["🗑️ Unload Phase"]
+        SHUTDOWN["Call @OnShutdown method"]
+        CHECK_RETURN{"Return value?"}
+        GRACEFUL["Graceful unload"]
+        FORCE["Force-kill<br/>(GC + cleanup)"]
+        CLOSE["Close URLClassLoader"]
+        UNLOADED[["⚫ UNLOADED"]]
+    end
+
+    %% Discovery flow
+    JAR --> MANIFEST
+    MANIFEST --> CLASSLOADER
+    CLASSLOADER --> INSTANTIATE
+    INSTANTIATE --> EXTRACT
+    EXTRACT --> LOADED
+
+    %% Enable flow
+    LOADED -->|"enablePlugin()"| PROCESSOR
+    PROCESSOR --> SCAN_SLASH
+    PROCESSOR --> SCAN_TEXT
+    PROCESSOR --> SCAN_INTERACT
+    SCAN_SLASH --> ON_ENABLE
+    SCAN_TEXT --> ON_ENABLE
+    SCAN_INTERACT --> ON_ENABLE
+    ON_ENABLE --> SYNC
+    SYNC --> ENABLED
+
+    %% Disable flow
+    ENABLED -->|"disablePlugin()"| ON_DISABLE
+    ON_DISABLE --> UNREGISTER
+    UNREGISTER --> SYNC_REMOVE
+    SYNC_REMOVE --> DISABLED
+
+    %% Unload flow
+    DISABLED -->|"unloadPlugin()"| SHUTDOWN
+    SHUTDOWN --> CHECK_RETURN
+    CHECK_RETURN -->|"true"| GRACEFUL
+    CHECK_RETURN -->|"false"| FORCE
+    GRACEFUL --> CLOSE
+    FORCE --> CLOSE
+    CLOSE --> UNLOADED
+
+    %% Styling
+    classDef phase fill:#1e3a5f,stroke:#4a90d9,color:#fff
+    classDef state fill:#2d5a3d,stroke:#4CAF50,color:#fff
+    classDef action fill:#3d3d5a,stroke:#9c27b0,color:#fff
+    classDef decision fill:#5a3d3d,stroke:#f44336,color:#fff
+
+    class JAR,MANIFEST,CLASSLOADER,INSTANTIATE,EXTRACT phase
+    class LOADED,ENABLED,DISABLED,UNLOADED state
+    class PROCESSOR,SCAN_SLASH,SCAN_TEXT,SCAN_INTERACT,ON_ENABLE,ON_DISABLE,SYNC,SYNC_REMOVE,UNREGISTER,SHUTDOWN,GRACEFUL,FORCE,CLOSE action
+    class CHECK_RETURN decision

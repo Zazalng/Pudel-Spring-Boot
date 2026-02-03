@@ -1,118 +1,136 @@
+%% Pudel Database Schema v2.0.0
+
 erDiagram
-%% Public Schema
-    USERS ||--|{ USER_GUILDS : joins
-    GUILDS ||--|{ USER_GUILDS : joins
-    GUILDS ||--|| GUILD_SETTINGS : has
-    USERS ||--|{ SUBSCRIPTIONS : has
+    %% Public Schema (Shared)
 
     USERS {
-        varchar id PK
+        bigint id PK
+        string discord_id UK
         string username
         string discriminator
-        string avatar
-        string access_token
+        string avatar_url
+        boolean is_bot
         timestamp created_at
-    }
-
-    GUILDS {
-        varchar id PK
-        string name
-        string icon
-        string owner_id
-        timestamp joined_at
+        timestamp updated_at
     }
 
     GUILD_SETTINGS {
         bigint id PK
-        varchar guild_id FK
-        varchar prefix
+        string guild_id UK
+        string prefix
         int verbosity
         float cooldown
-        varchar log_channel
-        varchar bot_channel
+        string log_channel
+        string bot_channel
         text biography
         text personality
         text preferences
         text dialogue_style
-        varchar nickname
-        varchar language
-        varchar response_length
-        varchar formality
-        varchar emote_usage
+        string nickname
+        string language
+        string response_length
+        string formality
+        string emote_usage
         text quirks
         text topics_interest
         text topics_avoid
-        boolean ai_enabled
         text system_prompt_prefix
-        text ignored_channels
         text disabled_commands
+        boolean ai_enabled
+        text ignored_channels
+        boolean schema_created
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    USER_GUILDS {
+        bigint id PK
+        bigint user_id FK
+        string guild_id
+        string nickname
+        boolean is_owner
+        boolean is_admin
+        timestamp joined_at
     }
 
     SUBSCRIPTIONS {
         bigint id PK
-        varchar target_id
-        string subscription_type
+        string subscriber_id UK
+        string subscriber_type
         string tier
+        timestamp started_at
         timestamp expires_at
+        boolean is_active
+        json features
     }
 
     PLUGIN_METADATA {
-        varchar name PK
+        bigint id PK
+        string plugin_id UK
+        string name
         string version
         string author
+        text description
         boolean enabled
-        text config_json
+        string jar_path
+        string main_class
+        timestamp loaded_at
+        timestamp updated_at
     }
 
-    PLUGIN_DATABASE_REGISTRY {
+    PLUGIN_KV_STORE {
         bigint id PK
-        varchar plugin_name
-        varchar table_name
-        varchar schema_name
-    }
-
-%% Per-Guild Schema Representation
-    GUILDS ||--|{ DIALOGUE_HISTORY : "Schema: guild_{id}"
-    GUILDS ||--|{ MEMORY : "Schema: guild_{id}"
-    GUILDS ||--|{ USER_PREFERENCES : "Schema: guild_{id}"
-    GUILDS ||--|{ AGENT_TABLES : "Schema: guild_{id}"
-
-    DIALOGUE_HISTORY {
-        bigint id PK
-        varchar user_id
-        varchar channel_id
-        text message_content
-        varchar role
-        timestamp created_at
-    }
-
-    MEMORY {
-        bigint id PK
-        varchar key
+        string plugin_id
+        string namespace
+        string key
         text value
-        varchar category
-        bigint created_by
         timestamp created_at
+        timestamp updated_at
     }
 
-    MEMORY ||--|| MEMORY_EMBEDDINGS : "has vector"
+    %% Guild Schema (Per-guild isolation: guild_{id})
+
+    CONVERSATION_HISTORY {
+        bigint id PK
+        string user_id
+        string channel_id
+        string role
+        text content
+        json metadata
+        timestamp created_at
+    }
 
     MEMORY_EMBEDDINGS {
         bigint id PK
-        bigint memory_id FK
+        string user_id
+        text content
         vector embedding
-    }
-
-    USER_PREFERENCES {
-        bigint id PK
-        varchar user_id
-        varchar preferred_name
-        text custom_settings
+        json metadata
+        float importance
+        timestamp created_at
+        timestamp last_accessed
     }
 
     AGENT_TABLES {
-        varchar table_name PK
+        bigint id PK
+        string table_name
         text description
-        bigint created_by
+        json schema
+        string created_by
         timestamp created_at
     }
+
+    PLUGIN_TABLES {
+        bigint id PK
+        string plugin_id
+        string table_name
+        json data
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    %% Relationships
+    USERS ||--o{ USER_GUILDS : has
+    GUILD_SETTINGS ||--o{ CONVERSATION_HISTORY : contains
+    GUILD_SETTINGS ||--o{ MEMORY_EMBEDDINGS : contains
+    PLUGIN_METADATA ||--o{ PLUGIN_KV_STORE : stores

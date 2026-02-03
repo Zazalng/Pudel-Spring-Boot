@@ -1,6 +1,12 @@
 spring:
   application:
     name: pudel-discord-bot
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+      file-size-threshold: 2KB
   jpa:
     hibernate:
       ddl-auto: update
@@ -46,11 +52,14 @@ pudel:
     retry-interval-ms: ${PUDEL_PLUGIN_RETRY_INTERVAL:30000}
     max-retry-attempts: ${PUDEL_PLUGIN_MAX_RETRIES:3}
   jwt:
-    private-key-path: ${JWT_PRIVATE_KEY_PATH:keys/private.key}
-    public-key-path: ${JWT_PUBLIC_KEY_PATH:keys/public.key}
+    private-key-path: ${JWT_PRIVATE_KEY_PATH:keys/pv.key}
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:keys/pb.key}
     expiration: ${JWT_EXPIRATION:604800000}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost}
+  admin:
+    # Initial owner Discord user ID - only used when no admins exist in database
+    initial-owner: ${PUDEL_ADMIN_INITIAL_OWNER:}
 
   # ===========================================
   # Subscription Tiers Configuration

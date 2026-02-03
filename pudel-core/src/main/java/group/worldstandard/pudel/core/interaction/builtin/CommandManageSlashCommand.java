@@ -41,7 +41,10 @@ import java.util.stream.Collectors;
  * /command enable <command> - Enable a disabled command
  * /command disable <command> - Disable a command
  * /command list - List all commands and their status
+ *
+ * @deprecated Use {@link BuiltinCommands} instead. This class will be removed in the next version.
  */
+@Deprecated(since = "2.0.0", forRemoval = true)
 @Component
 public class CommandManageSlashCommand implements SlashCommandHandler {
 
@@ -67,6 +70,12 @@ public class CommandManageSlashCommand implements SlashCommandHandler {
                                 .addOption(OptionType.STRING, "name", "Command name to disable", true),
                         new SubcommandData("list", "List all commands and their status")
                 );
+    }
+
+    @Override
+    public boolean isGlobal() {
+        // Guild-specific commands register instantly, global commands take up to 1 hour
+        return false;
     }
 
     @Override

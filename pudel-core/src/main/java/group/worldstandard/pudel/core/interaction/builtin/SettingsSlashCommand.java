@@ -43,7 +43,10 @@ import java.awt.Color;
  * /settings cooldown <seconds> - Set command cooldown
  * /settings logchannel [channel] - Set or clear log channel
  * /settings botchannel [channel] - Set or clear bot channel restriction
+ *
+ * @deprecated Use {@link BuiltinCommands} instead. This class will be removed in the next version.
  */
+@Deprecated(since = "2.0.0", forRemoval = true)
 @Component
 public class SettingsSlashCommand implements SlashCommandHandler {
 
@@ -75,6 +78,12 @@ public class SettingsSlashCommand implements SlashCommandHandler {
                         new SubcommandData("botchannel", "Restrict bot to a specific channel")
                                 .addOption(OptionType.CHANNEL, "channel", "Bot channel (leave empty for all channels)", false)
                 );
+    }
+
+    @Override
+    public boolean isGlobal() {
+        // Guild-specific commands register instantly, global commands take up to 1 hour
+        return false;
     }
 
     @Override

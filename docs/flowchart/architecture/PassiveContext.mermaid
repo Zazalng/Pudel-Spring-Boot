@@ -1,29 +1,75 @@
+%% Pudel Passive Context Processor v2.0.0
+
 flowchart TD
-    Input[All Channel Messages] --> Track[Track Conversation]
-
-    subgraph "PassiveContextProcessor"
-        Track --> Window[Rolling Window Buffer]
-        Window --> Queue[Async Processing Queue]
-        Queue --> Process[Process Context]
-
-        subgraph "Context Data"
-            Process --> Users[Active Users]
-            Process --> Topics[Discussion Topics]
-            Process --> Tone[Conversation Tone]
-            Process --> Recent[Recent Messages]
-        end
+    subgraph Input["📨 Message Stream"]
+        MSG1[/"Message 1"/]
+        MSG2[/"Message 2"/]
+        MSG3[/"Message 3"/]
+        MSG_N[/"..."/]
     end
 
-    Users --> Store[Store in Memory]
-    Topics --> Store
-    Tone --> Store
-    Recent --> Store
+    subgraph Queue["📋 Bounded Queue"]
+        QUEUE["BlockingQueue<br/>(capacity: 1000)"]
+        DEDUP["Deduplication<br/>(message ID check)"]
+    end
 
-    Store --> Available[Context Available]
+    subgraph Processor["⚙️ PassiveContextProcessor"]
+        THREAD["Background Thread"]
+        BATCH["Batch Processing<br/>(up to 10 messages)"]
+        TIMEOUT["Process Timeout<br/>(5 seconds)"]
+    end
 
-    Trigger[User Triggers Pudel] --> Available
-    Available --> Brain[PudelBrain]
-    Brain --> Response[Contextual Response]
+    subgraph Processing["🔄 Processing Pipeline"]
+        EXTRACT["Extract context<br/>(user, channel, content)"]
+        EMBED["Generate embeddings<br/>(Ollama)"]
+        STORE["Store in memory<br/>(pgvector)"]
+    end
 
-    style Available fill:#afa,stroke:#333
-    style Response fill:#aff,stroke:#333
+    subgraph Memory["🧠 Memory Storage"]
+        PGVECTOR["PostgreSQL + pgvector"]
+        SCHEMA["guild_{id}.memory_embeddings"]
+    end
+
+    subgraph Stats["📊 Statistics"]
+        RECEIVED["received: N"]
+        PROCESSED["processed: N"]
+        DROPPED["dropped: N"]
+        DEDUPLICATED["deduplicated: N"]
+    end
+
+    %% Flow
+    MSG1 --> QUEUE
+    MSG2 --> QUEUE
+    MSG3 --> QUEUE
+    MSG_N --> QUEUE
+
+    QUEUE --> DEDUP
+    DEDUP --> THREAD
+
+    THREAD --> BATCH
+    BATCH --> TIMEOUT
+
+    TIMEOUT -->|"timeout"| Stats
+    TIMEOUT -->|"ready"| EXTRACT
+
+    EXTRACT --> EMBED
+    EMBED --> STORE
+    STORE --> PGVECTOR
+    PGVECTOR --> SCHEMA
+
+    STORE --> Stats
+
+    %% Styling
+    classDef input fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef queue fill:#7b1fa2,stroke:#4a148c,color:#fff
+    classDef processor fill:#00796b,stroke:#004d40,color:#fff
+    classDef processing fill:#2e7d32,stroke:#1b5e20,color:#fff
+    classDef memory fill:#f57c00,stroke:#e65100,color:#fff
+    classDef stats fill:#455a64,stroke:#263238,color:#fff
+
+    class MSG1,MSG2,MSG3,MSG_N input
+    class QUEUE,DEDUP queue
+    class THREAD,BATCH,TIMEOUT processor
+    class EXTRACT,EMBED,STORE processing
+    class PGVECTOR,SCHEMA memory
+    class RECEIVED,PROCESSED,DROPPED,DEDUPLICATED stats

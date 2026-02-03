@@ -45,7 +45,9 @@ import java.util.stream.Collectors;
  * /channel listen [channel] - Set or clear listen channel
  * /channel list - List all ignored and listen channels
  * /channel clear - Clear all channel restrictions
+ * @deprecated Use {@link BuiltinCommands} instead. This class will be removed in the next version.
  */
+@Deprecated(since = "2.0.0", forRemoval = true)
 @Component
 public class ChannelSlashCommand implements SlashCommandHandler {
 
@@ -69,6 +71,12 @@ public class ChannelSlashCommand implements SlashCommandHandler {
                         new SubcommandData("list", "View channel configuration"),
                         new SubcommandData("clear", "Clear all channel restrictions")
                 );
+    }
+
+    @Override
+    public boolean isGlobal() {
+        // Guild-specific commands register instantly, global commands take up to 1 hour
+        return false;
     }
 
     @Override

@@ -1,31 +1,89 @@
+%% Pudel Brain Architecture v2.0.0
+
 flowchart TD
-    Input[User Message] --> Analyzer[TextAnalyzerService]
-
-    subgraph Analysis ["LangChain4j Analysis"]
-        Analyzer --> Intent[Intent Detection]
-        Analyzer --> Sentiment[Sentiment Analysis]
-        Analyzer --> Language[Language Detection]
-        Analyzer --> Entities[Entity Extraction]
+    subgraph Input["📨 Input"]
+        MESSAGE[/"User Message<br/>@Pudel how are you?"/]
     end
 
-    Analysis --> MemManager[MemoryManager]
-
-    subgraph "Memory & Context"
-        MemManager -->|Retrieve Relevant| PG[(PostgreSQL + pgvector)]
-        PG -->|Semantic Search| MemManager
-        Passive[PassiveContextProcessor] -->|Channel Context| MemManager
+    subgraph Analysis["🔍 Text Analysis"]
+        ANALYZER["TextAnalyzerService<br/>(LangChain4j)"]
+        INTENT["Intent Detection"]
+        SENTIMENT["Sentiment Analysis"]
+        ENTITIES["Entity Extraction"]
+        LANGUAGE["Language Detection"]
     end
 
-    MemManager --> Persona[PersonalityEngine]
-
-    subgraph "Personality Configuration"
-        Persona --> Bio[Biography]
-        Persona --> Traits[Personality Traits]
-        Persona --> Style[Dialogue Style]
-        Persona --> Quirks[Quirks]
-        Persona --> Lang[Language Setting]
+    subgraph Memory["🧠 Memory System"]
+        MEMORY_MGR["MemoryManager"]
+        EMBEDDINGS["Memory Embeddings<br/>(pgvector)"]
+        SEMANTIC["Semantic Search<br/>(IVFFlat)"]
+        CONTEXT["Relevant Context"]
     end
 
-    Persona -->|Apply Traits| PromptBuilder[ResponseGenerator]
-    PromptBuilder -->|Context + Prompt| LLM[Ollama LLM]
-    LLM --> Output[Bot Response]
+    subgraph Personality["👤 Personality Engine"]
+        PERSONALITY_ENGINE["PersonalityEngine"]
+        GUILD_SETTINGS["Guild Settings<br/>(biography, personality,<br/>preferences, quirks)"]
+        TRAITS["Apply Traits"]
+    end
+
+    subgraph Generation["💬 Response Generation"]
+        RESPONSE_GEN["ResponseGenerator"]
+        PROMPT["Build Prompt<br/>+ System Prompt<br/>+ Context<br/>+ Personality"]
+        OLLAMA["Ollama LLM<br/>(phi3:mini, gemma)"]
+    end
+
+    subgraph Agent["🤖 Agent System (optional)"]
+        AGENT_CHECK{"Data management<br/>intent?"}
+        AGENT_SVC["PudelAgentService"]
+        AGENT_TOOLS["Agent Tools<br/>- createTable<br/>- storeData<br/>- searchData<br/>- remember"]
+        EXECUTOR["AgentDataExecutor"]
+    end
+
+    subgraph Output["📤 Output"]
+        RESPONSE[/"Bot Response"/]
+    end
+
+    %% Flow
+    MESSAGE --> ANALYZER
+    ANALYZER --> INTENT
+    ANALYZER --> SENTIMENT
+    ANALYZER --> ENTITIES
+    ANALYZER --> LANGUAGE
+
+    INTENT --> AGENT_CHECK
+
+    AGENT_CHECK -->|"Yes"| AGENT_SVC
+    AGENT_SVC --> AGENT_TOOLS
+    AGENT_TOOLS --> EXECUTOR
+    EXECUTOR --> RESPONSE
+
+    AGENT_CHECK -->|"No"| MEMORY_MGR
+    MEMORY_MGR --> EMBEDDINGS
+    EMBEDDINGS --> SEMANTIC
+    SEMANTIC --> CONTEXT
+
+    CONTEXT --> PERSONALITY_ENGINE
+    GUILD_SETTINGS --> PERSONALITY_ENGINE
+    PERSONALITY_ENGINE --> TRAITS
+
+    TRAITS --> RESPONSE_GEN
+    RESPONSE_GEN --> PROMPT
+    PROMPT --> OLLAMA
+    OLLAMA --> RESPONSE
+
+    %% Styling
+    classDef input fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef analysis fill:#7b1fa2,stroke:#4a148c,color:#fff
+    classDef memory fill:#00796b,stroke:#004d40,color:#fff
+    classDef personality fill:#f57c00,stroke:#e65100,color:#fff
+    classDef generation fill:#2e7d32,stroke:#1b5e20,color:#fff
+    classDef agent fill:#c62828,stroke:#b71c1c,color:#fff
+    classDef output fill:#455a64,stroke:#263238,color:#fff
+
+    class MESSAGE input
+    class ANALYZER,INTENT,SENTIMENT,ENTITIES,LANGUAGE analysis
+    class MEMORY_MGR,EMBEDDINGS,SEMANTIC,CONTEXT memory
+    class PERSONALITY_ENGINE,GUILD_SETTINGS,TRAITS personality
+    class RESPONSE_GEN,PROMPT,OLLAMA generation
+    class AGENT_CHECK,AGENT_SVC,AGENT_TOOLS,EXECUTOR agent
+    class RESPONSE output
