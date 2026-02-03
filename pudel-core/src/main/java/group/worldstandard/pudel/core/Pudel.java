@@ -33,8 +33,8 @@ import group.worldstandard.pudel.model.config.OllamaConfig;
 @SpringBootApplication
 @EnableScheduling
 @ComponentScan(basePackages = {
-        "worldstandard.group.pudel.core",
-        "worldstandard.group.pudel.model"
+        "group.worldstandard.pudel.core",
+        "group.worldstandard.pudel.model"
 })
 @EnableConfigurationProperties({
         SubscriptionTierConfig.class,
