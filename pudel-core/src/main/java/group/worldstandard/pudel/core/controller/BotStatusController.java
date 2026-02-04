@@ -74,9 +74,8 @@ public class BotStatusController {
     public ResponseEntity<?> getBotVersion() {
         try {
             Map<String, Object> version = new HashMap<>();
-            version.put("version", "1.0.0");
+            version.put("version", "2.0.0");
             version.put("name", "Pudel");
-            version.put("codename", "Maid Edition");
             version.put("jdaVersion", net.dv8tion.jda.api.JDAInfo.VERSION);
             version.put("javaVersion", System.getProperty("java.version"));
             version.put("springBootVersion", org.springframework.boot.SpringBootVersion.getVersion());
