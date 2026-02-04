@@ -51,7 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 @Transactional
-@SuppressWarnings("deprecation") // Supporting legacy PudelPlugin for backward compatibility
+@SuppressWarnings({"deprecation", "removal"}) // Supporting legacy PudelPlugin for backward compatibility
 public class PluginService extends BaseService implements PluginClassLoader.PluginUpdateCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);
@@ -433,14 +433,7 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
     }
 
     private String findPluginNameByJar(String jarFileName) {
-        for (Map.Entry<String, Object> entry : pluginClassLoader.getAllPlugins().entrySet()) {
-            // This is a simplistic check; in practice, track jar->name mapping
-            if (pluginClassLoader.getPluginsDirectory().toPath()
-                    .resolve(jarFileName).toFile().exists()) {
-                return entry.getKey();
-            }
-        }
-        return null;
+        return pluginClassLoader.findPluginNameByJarFile(jarFileName);
     }
 
     // =====================================================

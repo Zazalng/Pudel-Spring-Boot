@@ -28,6 +28,7 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -71,6 +72,13 @@ public class PluginClassLoader {
     private WatchService watchService;
     private Thread watcherThread;
     private volatile boolean watcherRunning = false;
+
+    // Debouncing for file events: filename -> last event timestamp
+    private final Map<String, Long> lastEventTime = new ConcurrentHashMap<>();
+    // Debounce window in milliseconds (ignore duplicate events within this window)
+    private static final long DEBOUNCE_WINDOW_MS = 2000;
+    // Track files currently being processed
+    private final Set<String> processingFiles = ConcurrentHashMap.newKeySet();
 
     public PluginClassLoader(File pluginsDirectory) {
         this.pluginsDirectory = pluginsDirectory;
@@ -272,7 +280,7 @@ public class PluginClassLoader {
                         return className;
                     }
                 }
-                return candidates.get(0);
+                return candidates.getFirst();
             }
 
             logger.warn("No plugin class found in JAR: {}", jarFile.getName());
@@ -316,6 +324,21 @@ public class PluginClassLoader {
 
         String newHash = calculateFileHash(jarFile);
         return !oldHash.equals(newHash);
+    }
+
+    /**
+     * Find plugin name by JAR filename.
+     *
+     * @param jarFileName the JAR file name (e.g., "my-plugin-1.0.jar")
+     * @return the plugin name if found, null otherwise
+     */
+    public String findPluginNameByJarFile(String jarFileName) {
+        for (Map.Entry<String, File> entry : jarFiles.entrySet()) {
+            if (entry.getValue().getName().equals(jarFileName)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     /**
@@ -383,23 +406,70 @@ public class PluginClassLoader {
 
                 while (watcherRunning) {
                     try {
-                        WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+                        WatchKey key = watchService.poll(1, TimeUnit.SECONDS);
                         if (key == null) continue;
 
                         for (WatchEvent<?> event : key.pollEvents()) {
                             Path filename = (Path) event.context();
-                            if (filename.toString().endsWith(".jar")) {
-                                File jarFile = new File(pluginsDirectory, filename.toString());
+                            String fileNameStr = filename.toString();
 
-                                if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
-                                    logger.info("New plugin detected: {}", filename);
-                                    callback.onPluginAdded(jarFile);
-                                } else if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
-                                    logger.info("Plugin modified: {}", filename);
-                                    callback.onPluginModified(jarFile);
-                                } else if (event.kind() == StandardWatchEventKinds.ENTRY_DELETE) {
-                                    logger.info("Plugin removed: {}", filename);
-                                    callback.onPluginRemoved(filename.toString());
+                            if (fileNameStr.endsWith(".jar")) {
+                                File jarFile = new File(pluginsDirectory, fileNameStr);
+                                long currentTime = System.currentTimeMillis();
+
+                                // Check if we should debounce this event
+                                Long lastTime = lastEventTime.get(fileNameStr);
+                                if (lastTime != null && (currentTime - lastTime) < DEBOUNCE_WINDOW_MS) {
+                                    logger.debug("Debouncing event for {}, too soon after last event", fileNameStr);
+                                    continue;
+                                }
+
+                                // Check if file is currently being processed
+                                if (processingFiles.contains(fileNameStr)) {
+                                    logger.debug("File {} is currently being processed, skipping event", fileNameStr);
+                                    continue;
+                                }
+
+                                // Update last event time
+                                lastEventTime.put(fileNameStr, currentTime);
+
+                                // Mark as processing
+                                processingFiles.add(fileNameStr);
+
+                                try {
+                                    if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
+                                        // For CREATE, wait a bit to ensure file is fully written
+                                        Thread.sleep(500);
+                                        if (jarFile.exists() && jarFile.canRead()) {
+                                            logger.info("New plugin detected: {}", fileNameStr);
+                                            callback.onPluginAdded(jarFile);
+                                        }
+                                    } else if (event.kind() == StandardWatchEventKinds.ENTRY_MODIFY) {
+                                        // Only handle MODIFY if plugin is already loaded (true update)
+                                        String pluginName = findPluginNameByJarFile(fileNameStr);
+                                        if (pluginName != null) {
+                                            logger.info("Plugin modified: {}", fileNameStr);
+                                            callback.onPluginModified(jarFile);
+                                        } else {
+                                            // Plugin not loaded yet, CREATE handler should handle it
+                                            logger.debug("Ignoring MODIFY for unloaded plugin: {}", fileNameStr);
+                                        }
+                                    } else if (event.kind() == StandardWatchEventKinds.ENTRY_DELETE) {
+                                        logger.info("Plugin removed: {}", fileNameStr);
+                                        callback.onPluginRemoved(fileNameStr);
+                                        // Clean up tracking
+                                        lastEventTime.remove(fileNameStr);
+                                    }
+                                } finally {
+                                    // Clear processing flag after a delay to prevent immediate re-processing
+                                    new Thread(() -> {
+                                        try {
+                                            Thread.sleep(DEBOUNCE_WINDOW_MS);
+                                        } catch (InterruptedException ignored) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                        processingFiles.remove(fileNameStr);
+                                    }).start();
                                 }
                             }
                         }
@@ -411,6 +481,8 @@ public class PluginClassLoader {
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
+                    } catch (Exception e) {
+                        logger.error("Error in plugin watcher: {}", e.getMessage(), e);
                     }
                 }
 

@@ -18,6 +18,7 @@ import group.worldstandard.pudel.api.PluginContext;
 import group.worldstandard.pudel.api.PluginInfo;
 import group.worldstandard.pudel.api.annotation.*;
 import group.worldstandard.pudel.api.command.CommandContext;
+import group.worldstandard.pudel.api.command.TextCommandHandler;
 import group.worldstandard.pudel.api.interaction.InteractionManager;
 import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
 import net.dv8tion.jda.api.Permission;
@@ -208,7 +209,7 @@ public class PluginAnnotationProcessor {
      *
      * @param pluginId      the plugin identifier
      * @param pluginInstance the plugin instance
-     * @param context       the plugin context
+     * @param context       the plugin context (may be null if plugin wasn't fully initialized)
      * @return true if shutdown was successful (or no shutdown method exists),
      *         false if shutdown failed and force-kill is needed
      */
@@ -232,6 +233,12 @@ public class PluginAnnotationProcessor {
                 if (params.length == 0) {
                     result = method.invoke(pluginInstance);
                 } else if (params.length == 1 && PluginContext.class.isAssignableFrom(params[0])) {
+                    // If context is null, skip methods that require it
+                    if (context == null) {
+                        logger.warn("[{}] @OnShutdown method {} requires context but context is null (plugin not fully initialized), skipping",
+                                   pluginId, method.getName());
+                        continue;
+                    }
                     result = method.invoke(pluginInstance, context);
                 } else {
                     logger.warn("[{}] @OnShutdown method {} has invalid parameters", pluginId, method.getName());
@@ -401,7 +408,7 @@ public class PluginAnnotationProcessor {
             // Create wrapper handler
             method.setAccessible(true);
             Method finalMethod = method;
-            group.worldstandard.pudel.api.command.TextCommandHandler handler = ctx -> {
+            TextCommandHandler handler = ctx -> {
                 try {
                     finalMethod.invoke(instance, ctx);
                 } catch (Exception e) {

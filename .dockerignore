@@ -44,12 +44,13 @@ Thumbs.db
 # Test files
 **/src/test
 
-# Scripts (not needed in image)
-scripts
+# Note: scripts/docker-entrypoint.sh is needed for Docker image
+# Other scripts (start.sh, update.sh) are for host use only
 
 # Docker files (prevent recursive copy)
 Dockerfile*
 docker-compose*
 .dockerignore
 
+# Keys (mounted at runtime, not baked into image)
 keys

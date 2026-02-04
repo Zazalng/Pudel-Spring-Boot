@@ -32,7 +32,7 @@ if [ -f .env ]; then
         value="${value%\"}"
         value="${value#\"}"
         # Export the variable
-        export "$key"=""$value"
+        export "$key"="$value"
     done < .env
 fi
 
