@@ -56,11 +56,19 @@ while IFS='=' read -r key value; do
     # Export the variable (strip quotes if present)
     value="${value%\"}"
     value="${value#\"}"
-    export "$key=$value"
+    export "$key"="$value"
 done < .env
 
 echo -e "\n${YELLOW}[1/4] Pulling required Docker images...${NC}"
-docker compose pull postgres ollama
+docker compose pull postgres
+
+# Check if Ollama is enabled
+OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
+
+if [ "$OLLAMA_ENABLED" = "true" ]; then
+    echo -e "${BLUE}Ollama is enabled - pulling Ollama image...${NC}"
+    docker compose --profile ollama pull ollama
+fi
 
 echo -e "\n${YELLOW}[2/4] Building Pudel Bot image...${NC}"
 docker compose build pudel
@@ -71,21 +79,23 @@ docker compose up -d postgres
 echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
 sleep 10
 
-# Start Ollama if enabled
-if grep -q "OLLAMA_ENABLED=true" .env; then
+# Start Ollama if enabled (using profile)
+if [ "$OLLAMA_ENABLED" = "true" ]; then
     echo -e "\n${YELLOW}Starting Ollama service...${NC}"
-    docker compose up -d ollama
+    docker compose --profile ollama up -d ollama
 
     echo -e "${BLUE}Waiting for Ollama to be ready...${NC}"
-    sleep 10
+    sleep 15
 
     # Pull the configured model
-    OLLAMA_MODEL=$(grep "OLLAMA_MODEL=" .env | cut -d'=' -f2)
-    EMBEDDING_MODEL=$(grep "EMBEDDING_MODEL=" .env | cut -d'=' -f2)
+    OLLAMA_MODEL=$(grep "OLLAMA_MODEL=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    EMBEDDING_MODEL=$(grep "EMBEDDING_MODEL=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'")
 
     echo -e "\n${YELLOW}Pulling Ollama models...${NC}"
     docker compose exec -T ollama ollama pull ${OLLAMA_MODEL:-qwen3:8b} || true
     docker compose exec -T ollama ollama pull ${EMBEDDING_MODEL:-qwen3-embedding:8b} || true
+else
+    echo -e "${BLUE}Ollama is disabled - skipping AI service${NC}"
 fi
 
 echo -e "\n${YELLOW}[4/4] Starting Pudel Bot...${NC}"

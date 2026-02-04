@@ -32,7 +32,7 @@ if [ -f .env ]; then
         value="${value%\"}"
         value="${value#\"}"
         # Export the variable
-        export "$key=$value"
+        export "$key"=""$value"
     done < .env
 fi
 
@@ -58,13 +58,25 @@ echo -e "\n${YELLOW}[2/5] Pulling latest changes...${NC}"
 git pull origin ${GIT_BRANCH}
 
 echo -e "\n${YELLOW}[3/5] Stopping current containers...${NC}"
-docker compose down
+# Check if Ollama is enabled to stop it too
+OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
+if [ "$OLLAMA_ENABLED" = "true" ]; then
+    docker compose --profile ollama down
+else
+    docker compose down
+fi
 
 echo -e "\n${YELLOW}[4/5] Rebuilding Docker images...${NC}"
 docker compose build --no-cache pudel
 
 echo -e "\n${YELLOW}[5/5] Starting containers...${NC}"
-docker compose up -d
+if [ "$OLLAMA_ENABLED" = "true" ]; then
+    echo -e "${BLUE}Starting with Ollama (AI enabled)...${NC}"
+    docker compose --profile ollama up -d
+else
+    echo -e "${BLUE}Starting without Ollama (AI disabled)...${NC}"
+    docker compose up -d
+fi
 
 echo -e "\n${GREEN}=========================================${NC}"
 echo -e "${GREEN}   Update completed successfully!        ${NC}"

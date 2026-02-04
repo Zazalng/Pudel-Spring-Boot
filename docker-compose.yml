@@ -1,5 +1,3 @@
-version: '3.9'
-
 # ===========================================
 # Pudel Discord Bot - Docker Compose
 # Complete setup with PostgreSQL, Ollama, and the Bot
@@ -18,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASS:-pudelpassword}
       POSTGRES_DB: ${POSTGRES_DB:-pudel}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -32,11 +30,16 @@ services:
 
   # ===========================================
   # Ollama LLM Service (Optional - for AI features)
+  # Only starts when OLLAMA_ENABLED=true or using 'ollama' profile
+  # Usage: docker-compose --profile ollama up -d
+  # Or set OLLAMA_ENABLED=true in .env
   # ===========================================
   ollama:
     image: ollama/ollama:latest
     container_name: pudel-ollama
     restart: unless-stopped
+    profiles:
+      - ollama
     volumes:
       - ollama_data:/root/.ollama
     ports:
@@ -56,6 +59,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
     networks:
       - pudel-network
 
@@ -75,8 +79,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
+      # Note: Ollama dependency is removed - Pudel handles connection gracefully
+      # If you need strict dependency, use: docker-compose --profile ollama up -d
     environment:
       # Database
       POSTGRES_HOST: postgres
@@ -130,7 +134,8 @@ services:
       # Bind mount for plugins - allows live plugin updates from host
       # On host: ./plugins directory, In container: /app/plugins
       # You can drop new .jar files into ./plugins and they will be auto-detected
-      - ./plugins:/app/plugins
+      # IMPORTANT: Run 'chmod 777 ./plugins' on host or ensure UID 1000 has write access
+      - ./plugins:/app/plugins:rw
       # RSA keys for JWT - read-only mount
       # Keys: keys/pv.key (private) and keys/pb.key (public)
       - ./keys:/app/keys:ro

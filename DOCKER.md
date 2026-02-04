@@ -61,17 +61,26 @@ cd ..
 
 ### 3. Start the Services
 
-**Option A: Production Mode (Pre-built)**
+**Option A: Without AI (Ollama disabled)**
 ```bash
+# Start only PostgreSQL and Pudel
 docker-compose up -d
 ```
 
-**Option B: Auto-Update Mode (Pulls latest on restart)**
+**Option B: With AI Features (Ollama enabled)**
+```bash
+# Start with Ollama profile
+docker-compose --profile ollama up -d
+```
+
+**Option C: Auto-Update Mode (Development)**
 ```bash
 docker-compose -f docker-compose.dev.yml up -d
 ```
 
-### 4. Pull Ollama Models (if using AI features)
+> **Note:** Ollama requires additional RAM (8GB+ recommended). If you don't need AI features, skip the `--profile ollama` flag to save resources.
+
+### 4. Pull Ollama Models (only if using AI features)
 
 ```bash
 # Pull the main chat model
@@ -109,13 +118,26 @@ docker-compose exec ollama ollama pull qwen3-embedding:8b
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,...` | Comma-separated CORS origins            |
 
 ### Ollama LLM Configuration
+
+Ollama is **optional** and only starts when using the `ollama` profile:
+
+```bash
+# With Ollama
+docker-compose --profile ollama up -d
+
+# Without Ollama (default)
+docker-compose up -d
+```
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_ENABLED` | `true` | Enable/disable Ollama AI |
-| `OLLAMA_URL` | `http://localhost:11434` | Ollama API URL |
+| `OLLAMA_ENABLED` | `true` | Enable/disable Ollama AI in Pudel (app-level) |
+| `OLLAMA_URL` | `http://ollama:11434` | Ollama API URL (use `ollama` for Docker, `localhost` for host) |
 | `OLLAMA_MODEL` | `qwen3:8b` | Chat model name |
 | `EMBEDDING_ENABLED` | `true` | Enable semantic search |
 | `EMBEDDING_MODEL` | `qwen3-embedding:8b` | Embedding model name |
+
+> **Note:** `OLLAMA_ENABLED=false` in `.env` disables AI features in Pudel but doesn't prevent the Ollama container from starting. Use profiles to control whether Ollama container runs.
 
 ### Server Configuration
 | Variable | Default | Description |

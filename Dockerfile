@@ -60,7 +60,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ca-certificates \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && gosu nobody true
 
 # Create non-root user for security
 RUN groupadd -r pudel && useradd -r -g pudel pudel
@@ -76,11 +78,15 @@ COPY --from=builder /app/pudel-core/target/*.jar app.jar
 RUN mkdir -p /app/plugins /app/data /app/logs /app/keys \
     && chown -R pudel:pudel /app
 
+# Copy entrypoint script
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # Define volumes for persistent data and keys
 VOLUME ["/app/plugins", "/app/data", "/app/logs", "/app/keys"]
 
-# Switch to non-root user
-USER pudel
+# Note: We start as root to fix bind mount permissions, then drop to pudel user
+# The entrypoint script handles this
 
 # ===========================================
 # Environment Variables Configuration
@@ -131,9 +137,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${SERVER_PORT}/actuator/health || exit 1
 
-# Start the application
-ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar \
-    --spring.datasource.url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} \
-    --spring.datasource.username=${POSTGRES_USER} \
-    --spring.datasource.password=${POSTGRES_PASS} \
-    --server.port=${SERVER_PORT}"]
+# Start the application via entrypoint script (handles permissions)
+ENTRYPOINT ["/docker-entrypoint.sh"]
