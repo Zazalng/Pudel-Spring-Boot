@@ -34,9 +34,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.KeyFactory;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
@@ -46,45 +44,38 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * REST controller for self-hosted admin operations.
+ * REST controller for self-hosted admin operations with Mutual RSA Authentication.
  * <p>
- * Provides administrative endpoints for managing Pudel without Discord OAuth.
- * Uses Discord user ID whitelist authentication for admin access.
+ * Uses a mutual authentication system where each admin has their own RSA keypair:
+ * - Pudel proves its identity by signing challenges with its private key
+ * - Admins prove their identity by signing challenges with their private keys
+ * - Pudel verifies admin signatures using their registered public keys
  * <p>
- * Authentication Flow:
+ * <b>Mutual Authentication Flow:</b>
  * <ol>
- *   <li>Admin requests a challenge: GET /api/admin/challenge</li>
- *   <li>Pudel generates a random challenge and signs it with private key (server identity proof)</li>
- *   <li>Admin verifies signature using Pudel's public key (confirms it's really Pudel)</li>
- *   <li>Admin submits their Discord user ID: POST /api/admin/auth</li>
- *   <li>Pudel checks the admin_whitelist table in PostgreSQL</li>
- *   <li>If whitelisted and enabled, Pudel issues an AdminJWT (separate from normal user JWT)</li>
- *   <li>Admin uses AdminJWT for admin panel operations</li>
+ *   <li>User logs in via Discord OAuth (gets user JWT with discordUserId)</li>
+ *   <li>User requests challenge: GET /api/admin/challenge</li>
+ *   <li>Pudel generates challenge and signs it (proves Pudel identity)</li>
+ *   <li>User verifies Pudel's signature using Pudel's public key</li>
+ *   <li>User signs the challenge nonce with their PRIVATE key</li>
+ *   <li>User submits signed challenge: POST /api/admin/auth/mutual</li>
+ *   <li>Pudel looks up user's PUBLIC key from database by discordUserId</li>
+ *   <li>Pudel verifies the signature - if valid, issues AdminJWT</li>
  * </ol>
  * <p>
- * Admin JWT vs User JWT:
+ * <b>Initial Owner Setup:</b>
  * <ul>
- *   <li>AdminJWT has subject "pudel-admin-session" and includes role claim</li>
- *   <li>User JWT has subject "user-session" for normal Discord OAuth users</li>
- *   <li>Both can coexist - admin can have both tokens</li>
+ *   <li>Owner's Discord ID is set via PUDEL_ADMIN_INITIAL_OWNER env var</li>
+ *   <li>Owner's public key is loaded from PUDEL_ADMIN_OWNER_PUBLIC_KEY_PATH</li>
+ *   <li>On first startup, owner entry is created in admin_whitelist</li>
  * </ul>
  * <p>
- * Endpoints:
+ * <b>Adding New Admins:</b>
  * <ul>
- *   <li>GET /api/admin/challenge - Get server challenge (signed by Pudel)</li>
- *   <li>GET /api/admin/public-key - Get Pudel's public key for verification</li>
- *   <li>POST /api/admin/auth - Authenticate with Discord user ID</li>
- *   <li>POST /api/admin/logout - Logout admin session</li>
- *   <li>GET /api/admin/status - Get system status</li>
- *   <li>GET /api/admin/plugins - List all plugins</li>
- *   <li>POST /api/admin/plugins/upload - Upload a plugin JAR</li>
- *   <li>POST /api/admin/plugins/{name}/enable - Enable plugin</li>
- *   <li>POST /api/admin/plugins/{name}/disable - Disable plugin</li>
- *   <li>POST /api/admin/plugins/{name}/reload - Reload plugin</li>
- *   <li>DELETE /api/admin/plugins/{name} - Remove plugin</li>
- *   <li>GET /api/admin/whitelist - List admin whitelist (OWNER only)</li>
- *   <li>POST /api/admin/whitelist - Add admin to whitelist (OWNER only)</li>
- *   <li>DELETE /api/admin/whitelist/{discordUserId} - Remove admin (OWNER only)</li>
+ *   <li>New admin generates their own RSA keypair</li>
+ *   <li>Admin gives their PUBLIC key to the owner</li>
+ *   <li>Owner uploads the public key via POST /api/admin/whitelist</li>
+ *   <li>New admin can now authenticate using their PRIVATE key</li>
  * </ul>
  */
 @RestController
@@ -116,6 +107,9 @@ public class AdminController {
 
     @Value("${pudel.admin.initial-owner:}")
     private String initialOwnerId;
+
+    @Value("${pudel.admin.owner-public-key-path:keys/owner_pb.key}")
+    private String ownerPublicKeyPath;
 
     private PrivateKey privateKey;
     private PublicKey publicKey;
@@ -253,63 +247,280 @@ public class AdminController {
      * Authenticate admin with Discord user ID.
      * Checks whitelist in PostgreSQL and issues AdminJWT if valid.
      * POST /api/admin/auth
+     * <p>
+    /**
+     * DEPRECATED: Old authentication method.
+     * Use POST /api/admin/auth/mutual with RSA signature instead.
+     * @deprecated Removed - use mutual RSA authentication
      */
     @PostMapping("/auth")
-    public ResponseEntity<?> authenticate(@RequestBody AdminAuthRequest request) {
+    public ResponseEntity<?> authenticate(@RequestBody Map<String, Object> request) {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(new ErrorResponse("This authentication method has been removed. Use /api/admin/auth/mutual with RSA signature."));
+    }
+
+    /**
+     * DEPRECATED: OAuth-based authentication.
+     * Use POST /api/admin/auth/mutual with RSA signature instead.
+     * @deprecated Removed - use mutual RSA authentication
+     */
+    @PostMapping("/auth/oauth")
+    public ResponseEntity<?> authenticateWithOAuth(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, Object> request) {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(new ErrorResponse("This authentication method has been removed. Use /api/admin/auth/mutual with RSA signature."));
+    }
+
+    /**
+     * Check if the current Discord OAuth user is an admin.
+     * GET /api/admin/check
+     * <p>
+     * Returns whether the authenticated user can access admin panel.
+     */
+    @GetMapping("/check")
+    public ResponseEntity<?> checkAdminStatus(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             ensureKeysLoaded();
             ensureInitialOwner();
 
-            // Validate request
-            if (request.challengeId == null || request.discordUserId == null) {
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Missing challengeId or discordUserId"));
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Not authenticated"
+                ));
             }
 
-            // Validate Discord user ID format (snowflake - 17-19 digit number)
-            if (!request.discordUserId.matches("^\\d{17,19}$")) {
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Invalid Discord user ID format"));
+            String token = authHeader.substring(7);
+            String discordUserId = null;
+
+            try {
+                Claims claims = Jwts.parser()
+                        .verifyWith(publicKey)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+
+                // If it's already an admin token, return admin info
+                if ("pudel-admin-session".equals(claims.getSubject())) {
+                    String sessionId = claims.get("sessionId", String.class);
+                    AdminSessionData session = activeSessions.get(sessionId);
+                    if (session != null && System.currentTimeMillis() < session.expiry) {
+                        return ResponseEntity.ok(Map.of(
+                                "isAdmin", true,
+                                "isAdminSession", true,
+                                "adminRole", session.adminRole.name(),
+                                "canModify", session.canModify(),
+                                "canManageAdmins", session.canManageAdmins()
+                        ));
+                    }
+                }
+
+                // Extract user ID from user JWT
+                discordUserId = claims.get("discordUserId", String.class);
+                if (discordUserId == null) {
+                    discordUserId = claims.get("userId", String.class);
+                }
+                if (discordUserId == null) {
+                    discordUserId = claims.getSubject();
+                }
+            } catch (Exception e) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Invalid token"
+                ));
             }
 
-            // Get pending challenge
+            if (discordUserId == null || !discordUserId.matches("^\\d{17,19}$")) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Cannot extract user ID"
+                ));
+            }
+
+            // Check whitelist
+            Optional<AdminWhitelist> adminEntry = adminWhitelistRepository.findByDiscordUserId(discordUserId);
+
+            if (adminEntry.isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Not in whitelist"
+                ));
+            }
+
+            AdminWhitelist admin = adminEntry.get();
+
+            if (!admin.isEnabled()) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Admin account disabled"
+                ));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "isAdmin", true,
+                    "isAdminSession", false,
+                    "adminRole", admin.getAdminRole().name(),
+                    "canModify", admin.canModify(),
+                    "canManageAdmins", admin.canManageAdmins(),
+                    "hasPublicKey", admin.getPublicKeyPem() != null && !admin.getPublicKeyPem().isEmpty(),
+                    "message", "You can access the admin panel. Complete challenge verification to continue."
+            ));
+        } catch (Exception e) {
+            log.error("Error checking admin status", e);
+            return ResponseEntity.ok(Map.of(
+                    "isAdmin", false,
+                    "reason", "Error checking status"
+            ));
+        }
+    }
+
+    /**
+     * Mutual RSA Authentication - Admin signs challenge with their private key.
+     * POST /api/admin/auth/mutual
+     * <p>
+     * Flow:
+     * 1. User is logged in via Discord OAuth (has user JWT with discordUserId)
+     * 2. User requested challenge from GET /api/admin/challenge
+     * 3. User verified Pudel's signature (proves server identity)
+     * 4. User signs the challenge nonce with their PRIVATE RSA key
+     * 5. User submits the signature here
+     * 6. Pudel looks up user's PUBLIC key from database by discordUserId
+     * 7. Pudel verifies the signature
+     * 8. If valid, issues AdminJWT session token
+     */
+    @PostMapping("/auth/mutual")
+    public ResponseEntity<?> authenticateMutual(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody MutualAuthRequest request) {
+        try {
+            ensureKeysLoaded();
+            ensureInitialOwner();
+
+            // Step 1: Validate user is authenticated via Discord OAuth
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Discord OAuth token required. Please login with Discord first."));
+            }
+
+            String userToken = authHeader.substring(7);
+            String discordUserId;
+            String discordUsername;
+
+            try {
+                Claims userClaims = Jwts.parser()
+                        .verifyWith(publicKey)
+                        .build()
+                        .parseSignedClaims(userToken)
+                        .getPayload();
+
+                // Don't accept admin tokens for this flow
+                if ("pudel-admin-session".equals(userClaims.getSubject())) {
+                    return ResponseEntity.badRequest()
+                            .body(new ErrorResponse("Use your Discord OAuth token, not admin token"));
+                }
+
+                discordUserId = userClaims.get("discordUserId", String.class);
+                discordUsername = userClaims.get("discordUsername", String.class);
+
+                if (discordUserId == null) {
+                    discordUserId = userClaims.get("userId", String.class);
+                }
+                if (discordUserId == null) {
+                    discordUserId = userClaims.getSubject();
+                }
+
+                if (discordUserId == null || !discordUserId.matches("^\\d{17,19}$")) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body(new ErrorResponse("Cannot extract Discord user ID from token"));
+                }
+            } catch (Exception e) {
+                log.debug("Failed to parse user JWT: {}", e.getMessage());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Invalid or expired Discord OAuth token"));
+            }
+
+            // Step 2: Validate challenge exists
+            if (request.challengeId == null || request.signature == null) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Missing challengeId or signature"));
+            }
+
             ChallengeData challenge = pendingChallenges.get(request.challengeId);
             if (challenge == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(new ErrorResponse("Invalid or expired challenge"));
             }
 
-            // Check expiry
             if (System.currentTimeMillis() > challenge.expiry) {
                 pendingChallenges.remove(request.challengeId);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(new ErrorResponse("Challenge expired"));
             }
 
-            // Check whitelist in PostgreSQL
-            Optional<AdminWhitelist> adminEntry = adminWhitelistRepository.findByDiscordUserId(request.discordUserId);
+            // Step 3: Look up admin and their public key
+            Optional<AdminWhitelist> adminEntry = adminWhitelistRepository.findByDiscordUserId(discordUserId);
 
             if (adminEntry.isEmpty()) {
-                log.warn("Admin authentication failed: Discord user {} not in whitelist", request.discordUserId);
+                log.warn("Mutual auth failed: Discord user {} not in whitelist", discordUserId);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(new ErrorResponse("Discord user not authorized for admin access"));
+                        .body(new ErrorResponse("Your Discord account is not authorized for admin access"));
             }
 
             AdminWhitelist admin = adminEntry.get();
 
             if (!admin.isEnabled()) {
-                log.warn("Admin authentication failed: Discord user {} is disabled", request.discordUserId);
+                log.warn("Mutual auth failed: Discord user {} is disabled", discordUserId);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(new ErrorResponse("Admin account is disabled"));
+                        .body(new ErrorResponse("Your admin account is disabled"));
             }
 
-            // Challenge verified - remove it (one-time use)
+            if (admin.getPublicKeyPem() == null || admin.getPublicKeyPem().isEmpty()) {
+                log.warn("Mutual auth failed: Discord user {} has no registered public key", discordUserId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ErrorResponse("No public key registered for your account. Contact the owner to register your key."));
+            }
+
+            // Step 4: Load admin's public key and verify signature
+            PublicKey adminPublicKey;
+            try {
+                adminPublicKey = loadPublicKeyFromPem(admin.getPublicKeyPem());
+            } catch (Exception e) {
+                log.error("Failed to load public key for user {}: {}", discordUserId, e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new ErrorResponse("Invalid public key format in database"));
+            }
+
+            // Step 5: Verify the signature
+            // The client signed the challenge nonce with their private key
+            boolean signatureValid;
+            try {
+                Signature sig = Signature.getInstance("SHA256withRSA");
+                sig.initVerify(adminPublicKey);
+                sig.update(challenge.nonce.getBytes());
+
+                // Decode base64 signature
+                byte[] signatureBytes = Base64.getDecoder().decode(request.signature);
+                signatureValid = sig.verify(signatureBytes);
+            } catch (Exception e) {
+                log.debug("Signature verification error for user {}: {}", discordUserId, e.getMessage());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Invalid signature format"));
+            }
+
+            if (!signatureValid) {
+                log.warn("Mutual auth failed: Invalid signature for user {}", discordUserId);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Signature verification failed. Make sure you signed with the correct private key."));
+            }
+
+            // Step 6: Signature valid! Remove challenge and create session
             pendingChallenges.remove(request.challengeId);
 
-            // Update last login
             admin.setLastLogin(LocalDateTime.now());
-            if (request.discordUsername != null) {
-                admin.setDiscordUsername(request.discordUsername);
+            if (discordUsername != null) {
+                admin.setDiscordUsername(discordUsername);
             }
             adminWhitelistRepository.save(admin);
 
@@ -318,7 +529,7 @@ public class AdminController {
             long sessionExpiry = System.currentTimeMillis() + ADMIN_SESSION_EXPIRY_MS;
 
             String adminToken = Jwts.builder()
-                    .subject("pudel-admin-session")  // Different from user JWT
+                    .subject("pudel-admin-session")
                     .claim("sessionId", sessionId)
                     .claim("discordUserId", admin.getDiscordUserId())
                     .claim("discordUsername", admin.getDiscordUsername())
@@ -330,7 +541,6 @@ public class AdminController {
                     .signWith(privateKey, Jwts.SIG.RS256)
                     .compact();
 
-            // Store active session
             activeSessions.put(sessionId, new AdminSessionData(
                     sessionId,
                     admin.getDiscordUserId(),
@@ -338,12 +548,12 @@ public class AdminController {
                     sessionExpiry
             ));
 
-            log.info("Admin authenticated successfully: {} ({}) with role {}",
+            log.info("Mutual RSA auth successful: {} ({}) with role {}",
                     admin.getDiscordUsername(), admin.getDiscordUserId(), admin.getAdminRole());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Admin authentication successful");
+            response.put("message", "Mutual authentication successful");
             response.put("adminToken", adminToken);
             response.put("discordUserId", admin.getDiscordUserId());
             response.put("discordUsername", admin.getDiscordUsername());
@@ -355,10 +565,25 @@ public class AdminController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Admin authentication failed", e);
+            log.error("Mutual auth failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Authentication failed: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Load RSA public key from PEM string.
+     */
+    private PublicKey loadPublicKeyFromPem(String pem) throws Exception {
+        String keyContent = pem
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+
+        byte[] decoded = Base64.getDecoder().decode(keyContent);
+        X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
+        KeyFactory kf = KeyFactory.getInstance("RSA");
+        return kf.generatePublic(spec);
     }
 
     /**
@@ -443,6 +668,21 @@ public class AdminController {
         if (initialOwnerId != null && !initialOwnerId.isEmpty() && !adminWhitelistRepository.hasAnyAdmin()) {
             AdminWhitelist owner = new AdminWhitelist(initialOwnerId, AdminRole.OWNER);
             owner.setNote("Initial owner configured via PUDEL_ADMIN_INITIAL_OWNER");
+
+            // Load owner's public key from file if available
+            try {
+                Path ownerKeyPath = Path.of(ownerPublicKeyPath);
+                if (Files.exists(ownerKeyPath)) {
+                    String ownerPublicKeyPem = Files.readString(ownerKeyPath);
+                    owner.setPublicKeyPem(ownerPublicKeyPem);
+                    log.info("Loaded owner's public key from: {}", ownerPublicKeyPath);
+                } else {
+                    log.warn("Owner public key file not found: {}. Owner will need to register their key.", ownerPublicKeyPath);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load owner public key: {}. Owner will need to register their key.", e.getMessage());
+            }
+
             adminWhitelistRepository.save(owner);
             log.info("Created initial admin owner: {}", initialOwnerId);
         }
@@ -533,8 +773,11 @@ public class AdminController {
     }
 
     /**
-     * Add a Discord user to admin whitelist.
+     * Add a Discord user to admin whitelist with their RSA public key.
      * POST /api/admin/whitelist
+     * <p>
+     * IMPORTANT: For mutual RSA authentication, the new admin MUST provide their public key.
+     * The admin keeps their private key secure and uses it to sign challenges.
      */
     @PostMapping("/whitelist")
     public ResponseEntity<?> addAdmin(
@@ -555,6 +798,20 @@ public class AdminController {
         if (request.discordUserId == null || !request.discordUserId.matches("^\\d{17,19}$")) {
             return ResponseEntity.badRequest()
                     .body(new ErrorResponse("Invalid Discord user ID"));
+        }
+
+        // Public key is required for mutual RSA authentication
+        if (request.publicKeyPem == null || request.publicKeyPem.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse("Public key is required. The new admin must provide their RSA public key."));
+        }
+
+        // Validate the public key format
+        try {
+            loadPublicKeyFromPem(request.publicKeyPem);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse("Invalid public key format: " + e.getMessage()));
         }
 
         try {
@@ -583,14 +840,15 @@ public class AdminController {
             AdminWhitelist newAdmin = new AdminWhitelist(request.discordUserId, request.discordUsername, role);
             newAdmin.setAddedBy(session.discordUserId);
             newAdmin.setNote(request.note);
+            newAdmin.setPublicKeyPem(request.publicKeyPem);
             adminWhitelistRepository.save(newAdmin);
 
-            log.info("Admin added to whitelist: {} ({}) by {}",
+            log.info("Admin added to whitelist with public key: {} ({}) by {}",
                     request.discordUserId, role, session.discordUserId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Admin added to whitelist");
+            response.put("message", "Admin added to whitelist with public key");
             response.put("admin", adminToMap(newAdmin));
 
             return ResponseEntity.ok(response);
@@ -604,6 +862,8 @@ public class AdminController {
     /**
      * Update admin whitelist entry.
      * PUT /api/admin/whitelist/{discordUserId}
+     * <p>
+     * Can update role, enabled status, note, and public key.
      */
     @PutMapping("/whitelist/{discordUserId}")
     public ResponseEntity<?> updateAdmin(
@@ -658,11 +918,29 @@ public class AdminController {
                 admin.setNote(request.note);
             }
 
+            // Update public key if provided
+            if (request.publicKeyPem != null && !request.publicKeyPem.trim().isEmpty()) {
+                try {
+                    // Validate the key format
+                    loadPublicKeyFromPem(request.publicKeyPem);
+                    admin.setPublicKeyPem(request.publicKeyPem);
+                    log.info("Updated public key for admin: {}", discordUserId);
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest()
+                            .body(new ErrorResponse("Invalid public key format: " + e.getMessage()));
+                }
+            }
+
             adminWhitelistRepository.save(admin);
 
             log.info("Admin updated: {} by {}", discordUserId, session.discordUserId);
 
-            return ResponseEntity.ok(new SuccessResponse("Admin updated"));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin updated");
+            response.put("admin", adminToMap(admin));
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error updating admin", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -737,6 +1015,7 @@ public class AdminController {
         map.put("enabled", admin.isEnabled());
         map.put("canModify", admin.canModify());
         map.put("canManageAdmins", admin.canManageAdmins());
+        map.put("hasPublicKey", admin.getPublicKeyPem() != null && !admin.getPublicKeyPem().isEmpty());
         map.put("note", admin.getNote());
         map.put("addedBy", admin.getAddedBy());
         map.put("lastLogin", admin.getLastLogin());
@@ -1154,24 +1433,31 @@ public class AdminController {
     // DTOs
     // =====================================================
 
-    public static class AdminAuthRequest {
+    /**
+     * Request DTO for Mutual RSA Authentication.
+     * Admin signs the challenge nonce with their private key.
+     * This is the ONLY supported authentication method for admin panel.
+     */
+    public static class MutualAuthRequest {
         public String challengeId;
-        public String discordUserId;
-        public String discordUsername; // Optional, for display
+        public String signature; // Base64-encoded RSA signature of the challenge nonce
 
         public String getChallengeId() { return challengeId; }
         public void setChallengeId(String challengeId) { this.challengeId = challengeId; }
-        public String getDiscordUserId() { return discordUserId; }
-        public void setDiscordUserId(String discordUserId) { this.discordUserId = discordUserId; }
-        public String getDiscordUsername() { return discordUsername; }
-        public void setDiscordUsername(String discordUsername) { this.discordUsername = discordUsername; }
+        public String getSignature() { return signature; }
+        public void setSignature(String signature) { this.signature = signature; }
     }
 
+    /**
+     * Request DTO for adding a new admin.
+     * IMPORTANT: publicKeyPem is REQUIRED for mutual RSA authentication.
+     */
     public static class AddAdminRequest {
         public String discordUserId;
         public String discordUsername;
         public String adminRole; // OWNER, ADMIN, MODERATOR
         public String note;
+        public String publicKeyPem; // RSA public key in PEM format - REQUIRED
 
         public String getDiscordUserId() { return discordUserId; }
         public void setDiscordUserId(String discordUserId) { this.discordUserId = discordUserId; }
@@ -1181,12 +1467,18 @@ public class AdminController {
         public void setAdminRole(String adminRole) { this.adminRole = adminRole; }
         public String getNote() { return note; }
         public void setNote(String note) { this.note = note; }
+        public String getPublicKeyPem() { return publicKeyPem; }
+        public void setPublicKeyPem(String publicKeyPem) { this.publicKeyPem = publicKeyPem; }
     }
 
+    /**
+     * Request DTO for updating an admin.
+     */
     public static class UpdateAdminRequest {
         public String adminRole;
         public Boolean enabled;
         public String note;
+        public String publicKeyPem; // Update RSA public key
 
         public String getAdminRole() { return adminRole; }
         public void setAdminRole(String adminRole) { this.adminRole = adminRole; }
@@ -1194,6 +1486,8 @@ public class AdminController {
         public void setEnabled(Boolean enabled) { this.enabled = enabled; }
         public String getNote() { return note; }
         public void setNote(String note) { this.note = note; }
+        public String getPublicKeyPem() { return publicKeyPem; }
+        public void setPublicKeyPem(String publicKeyPem) { this.publicKeyPem = publicKeyPem; }
     }
 
     public static class SuccessResponse {

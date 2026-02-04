@@ -60,13 +60,13 @@ while IFS='=' read -r key value; do
 done < .env
 
 echo -e "\n${YELLOW}[1/4] Pulling required Docker images...${NC}"
-docker-compose pull postgres ollama
+docker compose pull postgres ollama
 
 echo -e "\n${YELLOW}[2/4] Building Pudel Bot image...${NC}"
-docker-compose build pudel
+docker compose build pudel
 
 echo -e "\n${YELLOW}[3/4] Starting services...${NC}"
-docker-compose up -d postgres
+docker compose up -d postgres
 
 echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
 sleep 10

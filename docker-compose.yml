@@ -124,6 +124,8 @@ services:
       # Admin Configuration
       # Set your Discord user ID here to become the initial OWNER
       PUDEL_ADMIN_INITIAL_OWNER: ${PUDEL_ADMIN_INITIAL_OWNER:-}
+      # Owner's RSA public key for mutual authentication (separate from JWT keys)
+      PUDEL_ADMIN_OWNER_PUBLIC_KEY_PATH: /app/keys/${PUDEL_ADMIN_OWNER_PUBLIC_KEY_FILE:-owner_pb.key}
     volumes:
       # Bind mount for plugins - allows live plugin updates from host
       # On host: ./plugins directory, In container: /app/plugins

@@ -66,6 +66,14 @@ public class AdminWhitelist {
     private String note;
 
     /**
+     * RSA public key in PEM format for mutual authentication.
+     * Each admin has their own keypair - they sign challenges with their private key,
+     * Pudel verifies with this public key.
+     */
+    @Column(name = "public_key_pem", columnDefinition = "TEXT")
+    private String publicKeyPem;
+
+    /**
      * Who added this admin (Discord user ID).
      */
     @Column(name = "added_by")
@@ -159,6 +167,14 @@ public class AdminWhitelist {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getPublicKeyPem() {
+        return publicKeyPem;
+    }
+
+    public void setPublicKeyPem(String publicKeyPem) {
+        this.publicKeyPem = publicKeyPem;
     }
 
     public String getAddedBy() {

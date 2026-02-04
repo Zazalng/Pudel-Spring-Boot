@@ -211,6 +211,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- ============================================
 
 -- Admin Whitelist Table (Discord users authorized for admin panel)
+-- Uses Mutual RSA Authentication - each admin has their own keypair
 CREATE TABLE IF NOT EXISTS admin_whitelist (
     id BIGSERIAL PRIMARY KEY,
     discord_user_id VARCHAR(255) NOT NULL UNIQUE,
@@ -218,6 +219,7 @@ CREATE TABLE IF NOT EXISTS admin_whitelist (
     admin_role VARCHAR(20) NOT NULL DEFAULT 'ADMIN',  -- OWNER, ADMIN, MODERATOR
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     note TEXT,
+    public_key_pem TEXT,  -- RSA public key for mutual authentication
     added_by VARCHAR(255),
     last_login TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -227,6 +229,7 @@ CREATE TABLE IF NOT EXISTS admin_whitelist (
 COMMENT ON TABLE admin_whitelist IS 'Discord users authorized for admin panel access';
 COMMENT ON COLUMN admin_whitelist.discord_user_id IS 'Discord user ID (snowflake)';
 COMMENT ON COLUMN admin_whitelist.admin_role IS 'OWNER: full access + manage admins, ADMIN: full access, MODERATOR: view only';
+COMMENT ON COLUMN admin_whitelist.public_key_pem IS 'RSA public key in PEM format for mutual authentication';
 COMMENT ON COLUMN admin_whitelist.added_by IS 'Discord user ID who added this admin';
 
 -- ============================================

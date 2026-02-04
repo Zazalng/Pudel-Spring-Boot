@@ -10,10 +10,10 @@ This document describes the complete architecture of Pudel Discord Bot with the 
 - [Module Structure](#module-structure)
 - [Plugin System](#plugin-system)
 - [Command System](#command-system)
-- [Data Flow](#data-flow)
 - [Brain Architecture](#brain-architecture)
 - [Database Schema](#database-schema)
 - [Configuration](#configuration)
+- [Authentication Architecture](#authentication-architecture)
 
 ---
 
@@ -370,10 +370,84 @@ POSTGRES_PASSWORD=password
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=phi3:mini
 
-# JWT
+# JWT (for user authentication)
 JWT_PRIVATE_KEY_PATH=./keys/pv.key
 JWT_PUBLIC_KEY_PATH=./keys/pb.key
+
+# Admin Authentication
+PUDEL_ADMIN_INITIAL_OWNER=123456789012345678
+PUDEL_ADMIN_OWNER_PUBLIC_KEY_PATH=./keys/owner_pb.key
 ```
+
+---
+
+## Authentication Architecture
+
+### User Authentication (Discord OAuth)
+
+Standard OAuth2 flow for dashboard users:
+
+```
+User → Discord OAuth → Pudel API → User JWT (RSA signed)
+```
+
+See: [AuthFlow.mermaid](./AuthFlow.mermaid)
+
+### Admin Authentication (Mutual RSA)
+
+Mutual RSA authentication for admin panel access. Each admin has their own RSA keypair.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     ADMIN MUTUAL RSA AUTHENTICATION                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Admin                         Pudel                                        │
+│  ─────                         ─────                                        │
+│                                                                             │
+│  1. Login with Discord OAuth   →  Verify, issue User JWT                    │
+│                                                                             │
+│  2. GET /api/admin/challenge   →  Generate nonce                            │
+│                                ←  Sign with Pudel's PRIVATE key             │
+│                                   Return { challengeId, nonce, signature }  │
+│                                                                             │
+│  3. (Optional) Verify Pudel's     Proves server identity                    │
+│     signature with PUBLIC key                                               │
+│                                                                             │
+│  4. Sign nonce with Admin's       Client-side signing (Web Crypto API)      │
+│     PRIVATE key (in browser)      Private key never transmitted!            │
+│                                                                             │
+│  5. POST /api/admin/auth/mutual                                             │
+│     { challengeId, signature } →  Extract discordUserId from User JWT       │
+│                                   Lookup admin's PUBLIC key from DB         │
+│                                   RSA_VERIFY(nonce, signature, publicKey)   │
+│                                ←  If valid: Issue AdminJWT (24h session)    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Security Features:**
+- **Mutual Authentication**: Both parties prove identity
+- **Per-Admin Keys**: Each admin has unique RSA keypair
+- **Private Keys Stay Local**: Never transmitted, signing in browser
+- **Challenge Expiry**: 5-minute window prevents replay attacks
+
+See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
+
+### Token Types
+
+| Token | Subject | Duration | Purpose |
+|-------|---------|----------|---------|
+| User JWT | `{discordUserId}` | 7 days | Dashboard access |
+| Admin JWT | `pudel-admin-session` | 24 hours | Admin panel access |
+
+### Admin Roles
+
+| Role | Permissions |
+|------|-------------|
+| OWNER | Full access + manage admin whitelist |
+| ADMIN | Plugin management, settings |
+| MODERATOR | View-only access |
 
 ---
 

@@ -71,8 +71,21 @@ public class SecurityConfiguration {
                                 "/api/auth/discord/**",
                                 "/api/bot/**",
                                 "/api/plugins",
-                                "/api/plugins/*"
+                                "/api/plugins/*",
+                                // Admin public endpoints (for challenge/key fetching)
+                                "/api/admin/challenge",
+                                "/api/admin/public-key"
                         ).permitAll()
+
+                        // Admin check - requires Discord OAuth token
+                        .requestMatchers("/api/admin/check").authenticated()
+
+                        // Admin mutual RSA auth - requires Discord OAuth token
+                        // This is the ONLY supported admin auth method
+                        .requestMatchers("/api/admin/auth/mutual").authenticated()
+
+                        // Deprecated auth endpoints - return 410 GONE but allow access
+                        .requestMatchers("/api/admin/auth", "/api/admin/auth/oauth").permitAll()
 
                         // Plugin management - allow localhost OR authenticated
                         .requestMatchers(
@@ -92,6 +105,9 @@ public class SecurityConfiguration {
                                     !authentication.get().getPrincipal().equals("anonymousUser")
                             );
                         })
+
+                        // Admin endpoints - require authentication
+                        .requestMatchers("/api/admin/**").authenticated()
 
                         // User-authenticated
                         .requestMatchers(
