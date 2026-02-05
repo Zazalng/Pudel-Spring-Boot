@@ -46,6 +46,9 @@ services:
       - "${OLLAMA_PORT:-11434}:11434"
     environment:
       - OLLAMA_HOST=0.0.0.0
+      # API key for cloud/remote models (e.g., gemini-3-pro-preview)
+      # Get this from: https://ollama.com/connect after signing in
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
     # GPU support (uncomment if you have NVIDIA GPU)
     # deploy:
     #   resources:
@@ -109,6 +112,9 @@ services:
       OLLAMA_ENABLED: ${OLLAMA_ENABLED:-true}
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+      # API key for Ollama cloud/remote models (e.g., gemini-3-pro-preview)
+      # Get this from: https://ollama.com/connect after signing in
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
 
       # Embedding
       EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-true}

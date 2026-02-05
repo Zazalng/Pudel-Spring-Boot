@@ -371,22 +371,22 @@ public class PluginAnnotationProcessor {
             }
         }
 
-        // Set min/max for numeric types
-        if (opt.min() != Double.MIN_VALUE) {
+        // Set min/max for numeric types only
+        boolean isNumeric = (type == OptionType.INTEGER || type == OptionType.NUMBER);
+
+        if (isNumeric && opt.min() != Double.MIN_VALUE) {
             if (type == OptionType.INTEGER) {
                 data.setMinValue((long) opt.min());
-            } else if (type == OptionType.NUMBER) {
+            } else {
                 data.setMinValue(opt.min());
             }
-            // Ignore min for non-numeric types
         }
-        if (opt.max() != Double.MAX_VALUE) {
+        if (isNumeric && opt.max() != Double.MAX_VALUE) {
             if (type == OptionType.INTEGER) {
                 data.setMaxValue((long) opt.max());
-            } else if (type == OptionType.NUMBER) {
+            } else {
                 data.setMaxValue(opt.max());
             }
-            // Ignore max for non-numeric types
         }
 
         data.setAutoComplete(opt.autocomplete());
