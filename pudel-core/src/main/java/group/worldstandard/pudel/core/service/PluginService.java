@@ -386,6 +386,97 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
         logger.info("All plugins shut down");
     }
 
+    /**
+     * Remove a plugin completely.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Unloads the plugin</li>
+     *   <li>Deletes the plugin metadata from the database</li>
+     * </ol>
+     * <p>
+     * Note: This does NOT delete the JAR file. Use {@code AdminController}
+     * for the complete removal including JAR file deletion.
+     *
+     * @param pluginName the plugin name
+     */
+    public void removePlugin(String pluginName) {
+        // First unload the plugin
+        unloadPlugin(pluginName);
+
+        // Then delete the metadata from database
+        pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
+            pluginMetadataRepository.delete(m);
+            logger.info("Plugin metadata removed from database: {}", pluginName);
+        });
+    }
+
+    // =====================================================
+    // Plugin Reload
+    // =====================================================
+
+    /**
+     * Reload a plugin.
+     * <p>
+     * This method:
+     * <ol>
+     *   <li>Remembers if plugin was enabled</li>
+     *   <li>Unloads the plugin</li>
+     *   <li>Reloads the plugin from its JAR file</li>
+     *   <li>Re-enables the plugin if it was enabled before</li>
+     * </ol>
+     *
+     * @param pluginName the plugin name
+     * @return true if reload was successful
+     */
+    public boolean reloadPlugin(String pluginName) {
+        if (!pluginClassLoader.isPluginLoaded(pluginName)) {
+            logger.warn("Plugin not found for reloading: {}", pluginName);
+            return false;
+        }
+
+        try {
+            // Get JAR file name before unloading
+            Optional<PluginMetadata> metadata = pluginMetadataRepository.findByPluginName(pluginName);
+            if (metadata.isEmpty() || metadata.get().getJarFileName() == null) {
+                logger.error("Cannot reload plugin {}: JAR file information not found", pluginName);
+                return false;
+            }
+
+            String jarFileName = metadata.get().getJarFileName();
+            File jarFile = new File(pluginClassLoader.getPluginsDirectory(), jarFileName);
+
+            if (!jarFile.exists()) {
+                logger.error("Cannot reload plugin {}: JAR file does not exist: {}", pluginName, jarFile.getAbsolutePath());
+                return false;
+            }
+
+            // Remember enabled state
+            boolean wasEnabled = enabledPlugins.getOrDefault(pluginName, false);
+
+            // Unload old version
+            logger.info("Reloading plugin {}: unloading...", pluginName);
+            unloadPlugin(pluginName);
+
+            // Load new version
+            logger.info("Reloading plugin {}: loading from {}...", pluginName, jarFileName);
+            loadAndInitialize(jarFile);
+
+            // Re-enable if was enabled
+            if (wasEnabled) {
+                logger.info("Reloading plugin {}: re-enabling...", pluginName);
+                enablePlugin(pluginName);
+            }
+
+            logger.info("Plugin {} reloaded successfully", pluginName);
+            return true;
+
+        } catch (Exception e) {
+            logger.error("Error reloading plugin {}: {}", pluginName, e.getMessage(), e);
+            return false;
+        }
+    }
+
     // =====================================================
     // Hot-Reload Callbacks
     // =====================================================
