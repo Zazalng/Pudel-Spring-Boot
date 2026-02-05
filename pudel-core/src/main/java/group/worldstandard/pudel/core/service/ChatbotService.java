@@ -61,6 +61,11 @@ public class ChatbotService {
     private static final long FORWARD_CONTEXT_TIMEOUT_MS = 30_000; // 30 seconds
     private final Map<String, ForwardContext> forwardContextCache = new ConcurrentHashMap<>();
 
+    // Message deduplication cache - prevents processing the same message twice
+    // This can happen on Discord reconnection or if events are delivered multiple times
+    private static final long MESSAGE_DEDUP_TIMEOUT_MS = 60_000; // 1 minute
+    private final Map<String, Long> processedMessages = new ConcurrentHashMap<>();
+
     // Executor for async response generation - prevents blocking JDA event threads
     // This allows Discord heartbeats to continue while LLM generates response
     private final ExecutorService responseExecutor = Executors.newFixedThreadPool(4, r -> {
@@ -469,6 +474,23 @@ public class ChatbotService {
      */
     public void handleChatbotMessage(MessageReceivedEvent event) {
         try {
+            String messageId = event.getMessageId();
+
+            // Deduplication check - prevent processing the same message twice
+            // This can happen on Discord reconnection or if events are delivered multiple times
+            long now = System.currentTimeMillis();
+            Long previousProcessTime = processedMessages.putIfAbsent(messageId, now);
+            if (previousProcessTime != null) {
+                logger.debug("Message {} already being processed, skipping duplicate", messageId);
+                return;
+            }
+
+            // Clean up old entries periodically (every 100 messages)
+            if (processedMessages.size() > 100) {
+                processedMessages.entrySet().removeIf(entry ->
+                    now - entry.getValue() > MESSAGE_DEDUP_TIMEOUT_MS);
+            }
+
             String userMessage = event.getMessage().getContentRaw();
             String userId = event.getAuthor().getId();
             String channelId = event.getChannel().getId();
