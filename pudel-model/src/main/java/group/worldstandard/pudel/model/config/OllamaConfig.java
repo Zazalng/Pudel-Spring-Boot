@@ -99,12 +99,6 @@ public class OllamaConfig {
      */
     private boolean streaming = false;
 
-    /**
-     * API key for Ollama cloud/remote models authentication.
-     * Required when using models like gemini-3-pro-preview that require signin.
-     * Get this from: https://ollama.com/connect after signing in.
-     */
-    private String apiKey = null;
 
     /**
      * Disable thinking mode for models that support it (e.g., qwen3, deepseek).
@@ -239,13 +233,6 @@ public class OllamaConfig {
         this.streaming = streaming;
     }
 
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
 
     public boolean isDisableThinking() {
         return disableThinking;

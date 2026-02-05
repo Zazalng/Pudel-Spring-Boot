@@ -33,24 +33,20 @@ public class ModelConfiguration {
 
     /**
      * WebClient configured for Ollama API calls.
-     * Includes Authorization header if API key is configured for cloud models.
+     * <p>
+     * NOTE: For cloud models (gemini, etc.), Ollama server must be authenticated
+     * via OLLAMA_TOKEN env var or 'ollama login'. HTTP API keys don't work.
      */
     @Bean("ollamaWebClient")
     public WebClient ollamaWebClient(OllamaConfig config) {
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(config.getTimeoutSeconds()));
 
-        WebClient.Builder builder = WebClient.builder()
+        return WebClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)); // 16MB
-
-        // Add Authorization header if API key is configured (for cloud models like gemini)
-        if (config.getApiKey() != null && !config.getApiKey().isBlank()) {
-            builder.defaultHeader("Authorization", "Bearer " + config.getApiKey());
-        }
-
-        return builder.build();
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)) // 16MB
+                .build();
     }
 }
 

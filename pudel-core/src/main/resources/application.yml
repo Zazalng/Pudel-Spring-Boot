@@ -185,6 +185,9 @@ pudel:
   # Ollama LLM Configuration
   # Local LLM for intelligent chatbot responses
   # ===========================================
+  # FOR CLOUD MODELS (gemini, etc.): Set OLLAMA_TOKEN env var
+  # or run 'ollama login' / 'docker exec -it pudel-ollama ollama login'
+  # ===========================================
   ollama:
     enabled: ${OLLAMA_ENABLED:true}
     base-url: ${OLLAMA_URL:http://localhost:11434}
@@ -199,9 +202,6 @@ pudel:
     context-window: 8192
     retry-count: 2
     streaming: true
-    # API key for Ollama cloud/remote models (e.g., gemini-3-pro-preview)
-    # Get this from: https://ollama.com/connect after signing in
-    api-key: ${OLLAMA_API_KEY:}
     # For thinking models, add /no_think to disable thinking mode for faster responses
     # You can also use this as suffix in messages
     disable-thinking: false

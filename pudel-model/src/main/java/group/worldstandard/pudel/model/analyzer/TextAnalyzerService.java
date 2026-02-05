@@ -111,18 +111,14 @@ public class TextAnalyzerService {
                         ? ollamaConfig.getAnalysisModel()
                         : ollamaConfig.getModel();
 
-                var builder = OllamaChatModel.builder()
+                // NOTE: For cloud models (gemini, etc.), Ollama server must be authenticated
+                // via OLLAMA_TOKEN env var or 'ollama login'. HTTP API keys don't work.
+                this.analysisModel = OllamaChatModel.builder()
                         .baseUrl(ollamaConfig.getBaseUrl())
                         .modelName(analysisModelName)
                         .timeout(Duration.ofSeconds(300)) // Quick timeout for analysis
-                        .temperature(0.1); // Low temperature for consistent analysis
-
-                // Add Authorization header for cloud models (e.g., gemini-3-pro-preview)
-                if (ollamaConfig.getApiKey() != null && !ollamaConfig.getApiKey().isBlank()) {
-                    builder.customHeaders(Map.of("Authorization", "Bearer " + ollamaConfig.getApiKey()));
-                }
-
-                this.analysisModel = builder.build();
+                        .temperature(0.1) // Low temperature for consistent analysis
+                        .build();
 
                 // Test connection
                 try {

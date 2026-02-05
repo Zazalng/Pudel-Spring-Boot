@@ -34,6 +34,12 @@ services:
   # Usage: docker-compose --profile ollama up -d
   # Or set OLLAMA_ENABLED=true in .env
   # ===========================================
+  #
+  # FOR CLOUD MODELS (gemini, etc.):
+  # 1. Run once: docker exec -it pudel-ollama ollama login
+  # 2. This saves auth to the ollama_data volume persistently
+  # OR set OLLAMA_TOKEN env var (see below)
+  # ===========================================
   ollama:
     image: ollama/ollama:latest
     container_name: pudel-ollama
@@ -46,9 +52,10 @@ services:
       - "${OLLAMA_PORT:-11434}:11434"
     environment:
       - OLLAMA_HOST=0.0.0.0
-      # API key for cloud/remote models (e.g., gemini-3-pro-preview)
-      # Get this from: https://ollama.com/connect after signing in
-      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      # Authentication token for cloud/remote models (e.g., gemini-3-pro-preview)
+      # Option 1: Run 'docker exec -it pudel-ollama ollama login' once (recommended)
+      # Option 2: Set OLLAMA_TOKEN from https://ollama.com/settings/keys
+      - OLLAMA_TOKEN=${OLLAMA_TOKEN:-}
     # GPU support (uncomment if you have NVIDIA GPU)
     # deploy:
     #   resources:
@@ -112,9 +119,6 @@ services:
       OLLAMA_ENABLED: ${OLLAMA_ENABLED:-true}
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
-      # API key for Ollama cloud/remote models (e.g., gemini-3-pro-preview)
-      # Get this from: https://ollama.com/connect after signing in
-      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
 
       # Embedding
       EMBEDDING_ENABLED: ${EMBEDDING_ENABLED:-true}

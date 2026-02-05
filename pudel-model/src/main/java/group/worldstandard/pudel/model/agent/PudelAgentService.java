@@ -67,18 +67,14 @@ public class PudelAgentService {
         }
 
         try {
-            var builder = OllamaChatModel.builder()
+            // NOTE: For cloud models (gemini, etc.), Ollama server must be authenticated
+            // via OLLAMA_TOKEN env var or 'ollama login'. HTTP API keys don't work.
+            this.chatModel = OllamaChatModel.builder()
                     .baseUrl(ollamaConfig.getBaseUrl())
                     .modelName(ollamaConfig.getModel())
                     .timeout(Duration.ofSeconds(ollamaConfig.getTimeoutSeconds()))
-                    .temperature(0.7);
-
-            // Add Authorization header for cloud models (e.g., gemini-3-pro-preview)
-            if (ollamaConfig.getApiKey() != null && !ollamaConfig.getApiKey().isBlank()) {
-                builder.customHeaders(Map.of("Authorization", "Bearer " + ollamaConfig.getApiKey()));
-            }
-
-            this.chatModel = builder.build();
+                    .temperature(0.7)
+                    .build();
 
             // Test connection - OllamaChatModel doesn't have simple generate, it needs a list of messages
             // Just mark as available if build succeeds
