@@ -28,6 +28,11 @@ import group.worldstandard.pudel.api.database.QueryBuilder;
 import java.lang.reflect.Field;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -58,10 +63,34 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
         this.entityClass = entityClass;
         this.jdbcTemplate = jdbcTemplate;
         this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
-        this.rowMapper = new BeanPropertyRowMapper<>(entityClass);
+
+        // Create row mapper with custom conversion for java.time types
+        BeanPropertyRowMapper<T> mapper = new BeanPropertyRowMapper<>(entityClass);
+        mapper.setConversionService(createConversionService());
+        this.rowMapper = mapper;
 
         // Build field mappings
         buildFieldMappings();
+    }
+
+    /**
+     * Create a conversion service that handles Timestamp to Instant conversion.
+     */
+    private org.springframework.core.convert.ConversionService createConversionService() {
+        org.springframework.core.convert.support.DefaultConversionService conversionService =
+            new org.springframework.core.convert.support.DefaultConversionService();
+
+        // Add Timestamp -> Instant converter
+        conversionService.addConverter(Timestamp.class, Instant.class, Timestamp::toInstant);
+
+        // Add Timestamp -> LocalDateTime converter
+        conversionService.addConverter(Timestamp.class, LocalDateTime.class, Timestamp::toLocalDateTime);
+
+        // Add Timestamp -> OffsetDateTime converter
+        conversionService.addConverter(Timestamp.class, OffsetDateTime.class,
+            ts -> ts.toInstant().atOffset(java.time.ZoneOffset.UTC));
+
+        return conversionService;
     }
 
     private void buildFieldMappings() {
@@ -123,7 +152,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             Object value = field.get(entity);
 
             columns.add(columnName);
-            values.add(value);
+            values.add(convertToJdbcValue(value));
         }
 
         String sql = "INSERT INTO " + fullTableName + " (" + String.join(", ", columns) + ") " +
@@ -134,7 +163,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             for (int i = 0; i < values.size(); i++) {
-                ps.setObject(i + 1, values.get(i));
+                setParameterValue(ps, i + 1, values.get(i));
             }
             return ps;
         }, keyHolder);
@@ -170,7 +199,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             Object value = field.get(entity);
 
             setClauses.add(columnName + " = ?");
-            values.add(value);
+            values.add(convertToJdbcValue(value));
         }
 
         values.add(id); // For WHERE clause
@@ -201,6 +230,40 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
         if (idField != null) {
             idField.setAccessible(true);
             idField.set(entity, id);
+        }
+    }
+
+    /**
+     * Convert a Java value to a JDBC-compatible value.
+     * Handles java.time types that PostgreSQL JDBC driver doesn't support directly.
+     */
+    private Object convertToJdbcValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        // Convert java.time.Instant to java.sql.Timestamp
+        if (value instanceof Instant instant) {
+            return Timestamp.from(instant);
+        }
+        // Convert java.time.LocalDateTime to java.sql.Timestamp
+        if (value instanceof LocalDateTime ldt) {
+            return Timestamp.valueOf(ldt);
+        }
+        // Convert java.time.OffsetDateTime to java.sql.Timestamp
+        if (value instanceof OffsetDateTime odt) {
+            return Timestamp.from(odt.toInstant());
+        }
+        return value;
+    }
+
+    /**
+     * Set a parameter value on a PreparedStatement, handling null values properly.
+     */
+    private void setParameterValue(PreparedStatement ps, int index, Object value) throws java.sql.SQLException {
+        if (value == null) {
+            ps.setNull(index, Types.NULL);
+        } else {
+            ps.setObject(index, value);
         }
     }
 

@@ -1294,21 +1294,16 @@ public class AdminController {
                 return ResponseEntity.notFound().build();
             }
 
-            boolean wasEnabled = pluginService.isPluginEnabled(name);
+            // Use the dedicated reload method
+            boolean success = pluginService.reloadPlugin(name);
 
-            // Unload
-            pluginService.unloadPlugin(name);
-
-            // Re-discover (plugin watcher should handle this, but we can wait)
-            Thread.sleep(500); // Give file system time
-
-            // If was enabled, re-enable
-            if (wasEnabled) {
-                pluginService.enablePlugin(name);
+            if (success) {
+                log.info("Plugin reloaded by {}: {}", session.discordUserId, name);
+                return ResponseEntity.ok(new SuccessResponse("Plugin reloaded: " + name));
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new ErrorResponse("Failed to reload plugin: reload returned false"));
             }
-
-            log.info("Plugin reloaded by {}: {}", session.discordUserId, name);
-            return ResponseEntity.ok(new SuccessResponse("Plugin reloaded: " + name));
         } catch (Exception e) {
             log.error("Error reloading plugin: {}", name, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -1342,11 +1337,13 @@ public class AdminController {
                 return ResponseEntity.notFound().build();
             }
 
-            // Unload first
-            pluginService.unloadPlugin(name);
+            // Get JAR file name before removing
+            String jarFileName = plugin.get().getJarFileName();
+
+            // Remove plugin (unload and delete metadata from database)
+            pluginService.removePlugin(name);
 
             // Delete JAR file
-            String jarFileName = plugin.get().getJarFileName();
             if (jarFileName != null) {
                 File file = new File(pluginsDirectory, jarFileName);
                 if (file.exists()) {
