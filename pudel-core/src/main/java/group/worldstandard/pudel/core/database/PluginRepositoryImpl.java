@@ -216,7 +216,20 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             throw new IllegalStateException("Entity must have an 'id' field");
         }
         idField.setAccessible(true);
-        Object value = idField.get(entity);
+
+        // Handle both primitive long and wrapper Long types
+        Object value;
+        try {
+            value = idField.get(entity);
+        } catch (IllegalArgumentException e) {
+            // If it's a primitive field, use getLong() instead
+            try {
+                value = idField.getLong(entity);
+            } catch (IllegalArgumentException e2) {
+                throw new IllegalStateException("'id' field must be of type 'long' or 'Long'", e);
+            }
+        }
+
         return switch (value) {
             case null -> null;
             case Long l -> l;
@@ -229,7 +242,16 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
         Field idField = columnToField.get("id");
         if (idField != null) {
             idField.setAccessible(true);
-            idField.set(entity, id);
+            try {
+                idField.set(entity, id);
+            } catch (IllegalArgumentException e) {
+                // If it's a primitive field, use setLong() instead
+                try {
+                    idField.setLong(entity, id);
+                } catch (IllegalArgumentException e2) {
+                    throw new IllegalStateException("'id' field must be of type 'long' or 'Long'", e);
+                }
+            }
         }
     }
 
