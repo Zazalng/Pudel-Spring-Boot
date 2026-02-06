@@ -121,9 +121,21 @@ public class OllamaClient {
      * @return Generated response text
      */
     public Optional<String> chat(List<ChatMessage> messages) {
-        if (!isAvailable()) {
-            logger.debug("Ollama not available, skipping chat");
+        if (!config.isEnabled()) {
+            logger.debug("Ollama is disabled in config, skipping chat");
             return Optional.empty();
+        }
+
+        // If server was marked unavailable, try to re-check before giving up
+        // This handles cases where Ollama started after the bot
+        if (!serverAvailable) {
+            logger.debug("Server was marked unavailable, re-checking health before chat...");
+            checkServerHealth();
+            if (!serverAvailable) {
+                logger.debug("Ollama still not available after re-check, skipping chat");
+                return Optional.empty();
+            }
+            logger.info("Ollama server is now available, proceeding with chat");
         }
 
         int maxRetries = config.getRetryCount() + 1;
