@@ -113,6 +113,12 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
 
             fieldToColumn.put(field.getName(), columnName);
             columnToField.put(columnName, field);
+
+            // Debug logging
+            if (columnName.equals("id")) {
+                logger.debug("Mapped 'id' field: type={}, declaringClass={}",
+                    field.getType().getName(), field.getDeclaringClass().getName());
+            }
         }
     }
 
@@ -213,29 +219,53 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
     private Long getEntityId(T entity) throws Exception {
         Field idField = columnToField.get("id");
         if (idField == null) {
-            throw new IllegalStateException("Entity must have an 'id' field");
+            logger.error("Entity class {} has no 'id' field. Available fields: {}",
+                entityClass.getName(), columnToField.keySet());
+            throw new IllegalStateException("Entity must have an 'id' field. Available columns: " + columnToField.keySet());
         }
         idField.setAccessible(true);
 
-        // Handle both primitive long and wrapper Long types
-        Object value;
         try {
-            value = idField.get(entity);
-        } catch (IllegalArgumentException e) {
-            // If it's a primitive field, use getLong() instead
-            try {
-                value = idField.getLong(entity);
-            } catch (IllegalArgumentException e2) {
-                throw new IllegalStateException("'id' field must be of type 'long' or 'Long'", e);
-            }
-        }
+            // Determine field type and access appropriately
+            Class<?> fieldType = idField.getType();
+            logger.debug("Accessing 'id' field of type {} on entity {}", fieldType.getName(), entityClass.getName());
 
-        return switch (value) {
-            case null -> null;
-            case Long l -> l;
-            case Number number -> number.longValue();
-            default -> null;
-        };
+            Object value;
+
+            if (fieldType.isPrimitive()) {
+                // For primitive long
+                if (fieldType == long.class) {
+                    long primitiveValue = idField.getLong(entity);
+                    logger.debug("Got primitive long value: {}", primitiveValue);
+                    return primitiveValue == 0 ? null : primitiveValue;
+                } else {
+                    throw new IllegalStateException("'id' field must be of type 'long' or 'Long', but is " + fieldType.getName());
+                }
+            } else {
+                // For wrapper Long or other Number types
+                value = idField.get(entity);
+                logger.debug("Got object value: {} (type: {})", value, value == null ? "null" : value.getClass().getName());
+
+                if (value == null) {
+                    return null;
+                }
+
+                if (value instanceof Long l) {
+                    return l;
+                }
+
+                if (value instanceof Number number) {
+                    return number.longValue();
+                }
+
+                throw new IllegalStateException("'id' field must be of type 'long' or 'Long', but is " + fieldType.getName());
+            }
+
+        } catch (IllegalArgumentException e) {
+            logger.error("Failed to access 'id' field on entity class {} (field type: {})",
+                entityClass.getName(), idField.getType().getName(), e);
+            throw new IllegalStateException("'id' field must be of type 'long' or 'Long'", e);
+        }
     }
 
     private void setEntityId(T entity, long id) throws Exception {
