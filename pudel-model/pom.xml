@@ -42,7 +42,6 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Skip deployment to Maven Central - internal module only -->
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
@@ -93,13 +92,6 @@
             <artifactId>langchain4j-open-ai</artifactId>
             <version>1.10.0</version>
             <scope>provided</scope>
-        </dependency>
-
-        <!-- Test dependencies -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 

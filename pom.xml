@@ -50,6 +50,7 @@
         <spring.boot.version>4.1.0-M1</spring.boot.version>
         <jda.version>6.3.0</jda.version>
         <pudel.version>2.0.0-rc5</pudel.version>
+        <maven.compiler.version>3.15.0</maven.compiler.version>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
@@ -70,7 +71,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
+                <version>${maven.compiler.version}</version>
                 <configuration>
                     <source>25</source>
                     <target>25</target>
