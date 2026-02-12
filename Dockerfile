@@ -25,7 +25,7 @@ RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gp
 
 # Install Maven
 ARG MAVEN_VERSION=3.9.12
-RUN wget -qO- https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+RUN wget -qO- https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
     | tar xzf - -C /opt \
     && ln -s /opt/apache-maven-${MAVEN_VERSION} /opt/maven
 
