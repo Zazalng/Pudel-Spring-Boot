@@ -18,6 +18,8 @@
  */
 package group.worldstandard.pudel.api.annotation;
 
+import net.dv8tion.jda.api.Permission;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -102,5 +104,5 @@ public @interface SlashCommand {
      * Required permissions for the command.
      * Uses Discord permission names.
      */
-    String[] permissions() default {};
+    Permission[] permissions() default {};
 }

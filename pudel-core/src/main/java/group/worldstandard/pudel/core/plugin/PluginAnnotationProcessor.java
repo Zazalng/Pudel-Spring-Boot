@@ -310,14 +310,8 @@ public class PluginAnnotationProcessor {
 
         // Add permissions
         if (annotation.permissions().length > 0) {
-            List<Permission> perms = new ArrayList<>();
-            for (String permName : annotation.permissions()) {
-                try {
-                    perms.add(Permission.valueOf(permName.toUpperCase()));
-                } catch (IllegalArgumentException e) {
-                    logger.warn("Unknown permission: {}", permName);
-                }
-            }
+            List<Permission> perms = List.of(annotation.permissions());
+
             if (!perms.isEmpty()) {
                 data.setDefaultPermissions(DefaultMemberPermissions.enabledFor(perms));
             }
