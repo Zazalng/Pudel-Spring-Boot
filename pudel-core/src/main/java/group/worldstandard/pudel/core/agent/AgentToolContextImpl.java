@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.agent;
 
 import group.worldstandard.pudel.api.agent.AgentToolContext;
+import net.dv8tion.jda.api.entities.Member;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -28,16 +29,23 @@ public class AgentToolContextImpl implements AgentToolContext {
     private final long targetId;
     private final boolean isGuild;
     private final long requestingUserId;
+    private final Member requestingMember;
     private final Map<String, Object> contextData;
 
     public AgentToolContextImpl(long targetId, boolean isGuild, long requestingUserId) {
-        this(targetId, isGuild, requestingUserId, Collections.emptyMap());
+        this(targetId, isGuild, requestingUserId, null, Collections.emptyMap());
     }
 
     public AgentToolContextImpl(long targetId, boolean isGuild, long requestingUserId, Map<String, Object> contextData) {
+        this(targetId, isGuild, requestingUserId, null, contextData);
+    }
+
+    public AgentToolContextImpl(long targetId, boolean isGuild, long requestingUserId,
+                                Member requestingMember, Map<String, Object> contextData) {
         this.targetId = targetId;
         this.isGuild = isGuild;
         this.requestingUserId = requestingUserId;
+        this.requestingMember = requestingMember;
         this.contextData = contextData != null ? new HashMap<>(contextData) : new HashMap<>();
     }
 
@@ -57,6 +65,11 @@ public class AgentToolContextImpl implements AgentToolContext {
     }
 
     @Override
+    public Member getRequestingMember() {
+        return requestingMember;
+    }
+
+    @Override
     public Map<String, Object> getContextData() {
         return Collections.unmodifiableMap(contextData);
     }
@@ -72,6 +85,7 @@ public class AgentToolContextImpl implements AgentToolContext {
         private long targetId;
         private boolean isGuild;
         private long requestingUserId;
+        private Member requestingMember;
         private final Map<String, Object> contextData = new HashMap<>();
 
         public Builder targetId(long targetId) {
@@ -89,6 +103,11 @@ public class AgentToolContextImpl implements AgentToolContext {
             return this;
         }
 
+        public Builder requestingMember(Member requestingMember) {
+            this.requestingMember = requestingMember;
+            return this;
+        }
+
         public Builder contextData(String key, Object value) {
             this.contextData.put(key, value);
             return this;
@@ -100,7 +119,7 @@ public class AgentToolContextImpl implements AgentToolContext {
         }
 
         public AgentToolContextImpl build() {
-            return new AgentToolContextImpl(targetId, isGuild, requestingUserId, contextData);
+            return new AgentToolContextImpl(targetId, isGuild, requestingUserId, requestingMember, contextData);
         }
     }
 }

@@ -18,6 +18,9 @@
  */
 package group.worldstandard.pudel.api.agent;
 
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Member;
+
 import java.util.Map;
 
 /**
@@ -45,6 +48,13 @@ public interface AgentToolContext {
     long getRequestingUserId();
 
     /**
+     * Get the Member object for the requesting user (guild context only).
+     * Used for permission checking.
+     * @return the member or null if not in guild or unavailable
+     */
+    Member getRequestingMember();
+
+    /**
      * Get the guild ID (returns 0 if not in guild).
      * @return guild ID or 0
      */
@@ -58,6 +68,41 @@ public interface AgentToolContext {
      */
     default long getUserId() {
         return isGuild() ? getRequestingUserId() : getTargetId();
+    }
+
+    /**
+     * Check if the requesting user has a specific Discord permission.
+     * @param permission the permission to check
+     * @return true if user has permission, false otherwise (also false in DM)
+     */
+    default boolean hasPermission(Permission permission) {
+        Member member = getRequestingMember();
+        return member != null && member.hasPermission(permission);
+    }
+
+    /**
+     * Check if the requesting user is a guild administrator.
+     * @return true if admin, false otherwise
+     */
+    default boolean isAdmin() {
+        return hasPermission(Permission.ADMINISTRATOR);
+    }
+
+    /**
+     * Check if the requesting user can manage the guild.
+     * @return true if can manage, false otherwise
+     */
+    default boolean canManageGuild() {
+        return hasPermission(Permission.MANAGE_SERVER);
+    }
+
+    /**
+     * Check if the requesting user is the guild owner.
+     * @return true if owner, false otherwise
+     */
+    default boolean isGuildOwner() {
+        Member member = getRequestingMember();
+        return member != null && member.isOwner();
     }
 
     /**

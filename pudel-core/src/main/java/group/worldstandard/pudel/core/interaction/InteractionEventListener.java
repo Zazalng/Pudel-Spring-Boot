@@ -15,6 +15,8 @@
 package group.worldstandard.pudel.core.interaction;
 
 import group.worldstandard.pudel.api.interaction.*;
+import group.worldstandard.pudel.core.service.CommandExecutionService;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
@@ -24,10 +26,13 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.stream.Collectors;
 
 /**
  * JDA Event Listener that dispatches interaction events to registered handlers.
@@ -38,9 +43,12 @@ public class InteractionEventListener extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(InteractionEventListener.class);
 
     private final InteractionManagerImpl interactionManager;
+    private final CommandExecutionService commandExecutionService;
 
-    public InteractionEventListener(InteractionManagerImpl interactionManager) {
+    public InteractionEventListener(InteractionManagerImpl interactionManager,
+                                    CommandExecutionService commandExecutionService) {
         this.interactionManager = interactionManager;
+        this.commandExecutionService = commandExecutionService;
     }
 
     // =====================================================
@@ -57,17 +65,124 @@ public class InteractionEventListener extends ListenerAdapter {
             return;
         }
 
+        // Build the full command string including subcommands
+        String fullCommand = buildFullCommandName(event);
+        // Build arguments string from options
+        String argsStr = buildArgsString(event);
+
         try {
             logger.debug("Handling slash command: /{} by {}", commandName, event.getUser().getName());
             handler.handle(event);
+
+            // Log successful command execution to the guild's log channel
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "/" + fullCommand,
+                            argsStr,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getChannel(),
+                            true
+                    );
+                }
+            }
         } catch (Exception e) {
             logger.error("Error handling slash command /{}: {}", commandName, e.getMessage(), e);
+
+            // Log failed command execution
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "/" + fullCommand,
+                            argsStr,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getChannel(),
+                            false
+                    );
+                }
+            }
+
             if (!event.isAcknowledged()) {
                 event.reply("An error occurred while processing this command.")
                         .setEphemeral(true)
                         .queue();
             }
         }
+    }
+
+    /**
+     * Build the full command name including subcommand group and subcommand.
+     * Example: "settings prefix" or "command manage disable"
+     */
+    private String buildFullCommandName(SlashCommandInteractionEvent event) {
+        StringBuilder sb = new StringBuilder(event.getName());
+
+        String subcommandGroup = event.getSubcommandGroup();
+        if (subcommandGroup != null) {
+            sb.append(" ").append(subcommandGroup);
+        }
+
+        String subcommand = event.getSubcommandName();
+        if (subcommand != null) {
+            sb.append(" ").append(subcommand);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Build a string representation of slash command options/arguments.
+     * Example: "channel: #general, reason: Testing"
+     */
+    private String buildArgsString(SlashCommandInteractionEvent event) {
+        if (event.getOptions().isEmpty()) {
+            return "";
+        }
+
+        return event.getOptions().stream()
+                .map(this::formatOption)
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Format a single option for logging.
+     */
+    private String formatOption(OptionMapping option) {
+        String name = option.getName();
+        String value;
+
+        switch (option.getType()) {
+            case USER:
+                value = "@" + option.getAsUser().getName();
+                break;
+            case CHANNEL:
+                value = "#" + option.getAsChannel().getName();
+                break;
+            case ROLE:
+                value = "@" + option.getAsRole().getName();
+                break;
+            case MENTIONABLE:
+                value = option.getAsMentionable().getAsMention();
+                break;
+            case ATTACHMENT:
+                value = "[attachment: " + option.getAsAttachment().getFileName() + "]";
+                break;
+            default:
+                value = option.getAsString();
+                // Truncate long values
+                if (value.length() > 100) {
+                    value = value.substring(0, 97) + "...";
+                }
+                break;
+        }
+
+        return name + ": " + value;
     }
 
     // =====================================================
@@ -84,11 +199,46 @@ public class InteractionEventListener extends ListenerAdapter {
             return;
         }
 
+        String targetInfo = "target: @" + event.getTarget().getName();
+
         try {
             logger.debug("Handling user context menu: {} on {}", commandName, event.getTarget().getName());
             handler.handleUserContext(event);
+
+            // Log successful context menu usage
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "[User Menu] " + commandName,
+                            targetInfo,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getMessageChannel(),
+                            true
+                    );
+                }
+            }
         } catch (Exception e) {
             logger.error("Error handling user context menu {}: {}", commandName, e.getMessage(), e);
+
+            // Log failed context menu usage
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "[User Menu] " + commandName,
+                            targetInfo,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getMessageChannel(),
+                            false
+                    );
+                }
+            }
+
             if (!event.isAcknowledged()) {
                 event.reply("An error occurred while processing this action.")
                         .setEphemeral(true)
@@ -107,11 +257,47 @@ public class InteractionEventListener extends ListenerAdapter {
             return;
         }
 
+        String targetInfo = "message: " + event.getTarget().getId() +
+                " by @" + event.getTarget().getAuthor().getName();
+
         try {
             logger.debug("Handling message context menu: {} on message {}", commandName, event.getTarget().getId());
             handler.handleMessageContext(event);
+
+            // Log successful context menu usage
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "[Message Menu] " + commandName,
+                            targetInfo,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getMessageChannel(),
+                            true
+                    );
+                }
+            }
         } catch (Exception e) {
             logger.error("Error handling message context menu {}: {}", commandName, e.getMessage(), e);
+
+            // Log failed context menu usage
+            if (event.isFromGuild()) {
+                Guild guild = event.getGuild();
+                if (guild != null) {
+                    commandExecutionService.sendCommandLog(
+                            guild,
+                            "[Message Menu] " + commandName,
+                            targetInfo,
+                            event.getUser().getId(),
+                            event.getUser().getName(),
+                            event.getMessageChannel(),
+                            false
+                    );
+                }
+            }
+
             if (!event.isAcknowledged()) {
                 event.reply("An error occurred while processing this action.")
                         .setEphemeral(true)

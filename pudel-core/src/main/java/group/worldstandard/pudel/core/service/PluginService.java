@@ -88,6 +88,10 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
      * Also starts the file watcher for hot-reload.
      */
     public void discoverPlugins() {
+        // Reset all plugin states in database on startup
+        // Since we're starting fresh, no plugins are enabled in memory
+        resetPluginStatesOnStartup();
+
         File pluginsDir = pluginClassLoader.getPluginsDirectory();
         File[] files = pluginsDir.listFiles((dir, name) -> name.endsWith(".jar"));
 
@@ -107,6 +111,50 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
     }
 
     /**
+     * Reset plugin states in database on startup.
+     * <p>
+     * This ensures that the database enabled/loaded states are synchronized
+     * with the actual in-memory state after a reboot. On startup:
+     * <ul>
+     *   <li>All plugins should be marked as not loaded (they will be loaded during discovery)</li>
+     *   <li>All plugins should be marked as not enabled (admins need to re-enable them)</li>
+     * </ul>
+     * <p>
+     * This fixes Issue #6 where plugins showed as enabled in PostgreSQL after reboot
+     * but were not actually enabled in memory.
+     */
+    private void resetPluginStatesOnStartup() {
+        logger.info("Resetting plugin states in database on startup...");
+
+        List<PluginMetadata> allPlugins = pluginMetadataRepository.findAll();
+        int resetCount = 0;
+
+        for (PluginMetadata plugin : allPlugins) {
+            boolean needsUpdate = false;
+
+            if (plugin.isEnabled()) {
+                logger.info("Plugin {} was marked enabled in database, resetting to disabled", plugin.getPluginName());
+                plugin.setEnabled(false);
+                needsUpdate = true;
+            }
+
+            if (plugin.isLoaded()) {
+                plugin.setLoaded(false);
+                needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+                pluginMetadataRepository.save(plugin);
+                resetCount++;
+            }
+        }
+
+        if (resetCount > 0) {
+            logger.info("Reset {} plugin states in database", resetCount);
+        }
+    }
+
+    /**
      * Load and initialize a plugin from JAR file.
      */
     private void loadAndInitialize(File jarFile) {
@@ -114,15 +162,16 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
             PluginInfo info = pluginClassLoader.loadPlugin(jarFile);
             if (info != null) {
                 String pluginName = info.getName();
+                String pluginVersion = info.getVersion();
 
                 // Register metadata in database
                 registerPluginMetadata(info, jarFile.getName());
 
-                // Create plugin context
-                PluginContext context = pluginContextFactory.getContext(pluginName);
+                // Create plugin context with actual version for proper database registry
+                PluginContext context = pluginContextFactory.getContext(pluginName, pluginVersion);
                 pluginContexts.put(pluginName, context);
 
-                logger.info("Plugin loaded: {} v{}", pluginName, info.getVersion());
+                logger.info("Plugin loaded: {} v{}", pluginName, pluginVersion);
             }
         } catch (Exception e) {
             logger.error("Error loading plugin {}: {}", jarFile.getName(), e.getMessage(), e);
@@ -185,9 +234,24 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
             return;
         }
 
-        if (enabledPlugins.getOrDefault(pluginName, false)) {
-            logger.warn("Plugin {} is already enabled", pluginName);
+        // Check both in-memory state AND database state
+        boolean inMemoryEnabled = enabledPlugins.getOrDefault(pluginName, false);
+        boolean dbEnabled = pluginMetadataRepository.findByPluginName(pluginName)
+                .map(PluginMetadata::isEnabled)
+                .orElse(false);
+
+        if (inMemoryEnabled) {
+            logger.warn("Plugin {} is already enabled in memory", pluginName);
             return;
+        }
+
+        // If database shows enabled but memory doesn't, reset database state first
+        if (dbEnabled) {
+            logger.info("Plugin {} was marked enabled in database but not in memory, resetting state", pluginName);
+            pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
+                m.setEnabled(false);
+                pluginMetadataRepository.save(m);
+            });
         }
 
         try {
@@ -246,9 +310,20 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
             return;
         }
 
-        if (!enabledPlugins.getOrDefault(pluginName, false)) {
-            logger.warn("Plugin {} is not enabled", pluginName);
+        // Check both in-memory state AND database state to handle reboot scenarios
+        boolean inMemoryEnabled = enabledPlugins.getOrDefault(pluginName, false);
+        boolean dbEnabled = pluginMetadataRepository.findByPluginName(pluginName)
+                .map(PluginMetadata::isEnabled)
+                .orElse(false);
+
+        if (!inMemoryEnabled && !dbEnabled) {
+            logger.warn("Plugin {} is not enabled (memory={}, db={})", pluginName, inMemoryEnabled, dbEnabled);
             return;
+        }
+
+        // Sync in-memory state if database shows enabled but memory doesn't
+        if (!inMemoryEnabled && dbEnabled) {
+            logger.info("Plugin {} was enabled in database but not in memory, syncing state", pluginName);
         }
 
         try {
@@ -451,8 +526,11 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
                 return false;
             }
 
-            // Remember enabled state
+            // Remember enabled state - check both memory and database
             boolean wasEnabled = enabledPlugins.getOrDefault(pluginName, false);
+            if (!wasEnabled) {
+                wasEnabled = metadata.get().isEnabled();
+            }
 
             // Unload old version
             logger.info("Reloading plugin {}: unloading...", pluginName);
@@ -493,9 +571,16 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
         String pluginName = findPluginNameByJar(jarFile.getName());
 
         if (pluginName != null) {
+            // Check both in-memory AND database for enabled state
             boolean wasEnabled = enabledPlugins.getOrDefault(pluginName, false);
+            if (!wasEnabled) {
+                // Also check database in case of state mismatch
+                wasEnabled = pluginMetadataRepository.findByPluginName(pluginName)
+                        .map(PluginMetadata::isEnabled)
+                        .orElse(false);
+            }
 
-            logger.info("Plugin {} modified, reloading...", pluginName);
+            logger.info("Plugin {} modified, reloading... (wasEnabled={})", pluginName, wasEnabled);
 
             // Unload old version
             unloadPlugin(pluginName);

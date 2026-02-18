@@ -18,6 +18,8 @@
  */
 package group.worldstandard.pudel.api.command;
 
+import net.dv8tion.jda.api.Permission;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -57,8 +59,9 @@ public @interface CommandInfo {
 
     /**
      * The command permissions required.
-     * @return required permission names
+     * Uses JDA Permission enum for type safety and IDE autocomplete.
+     * @return required permissions
      */
-    String[] permissions() default {};
+    Permission[] permissions() default {};
 }
 

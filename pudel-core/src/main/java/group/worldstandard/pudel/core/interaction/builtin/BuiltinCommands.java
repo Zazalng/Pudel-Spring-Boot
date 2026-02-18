@@ -15,9 +15,14 @@
 package group.worldstandard.pudel.core.interaction.builtin;
 
 import group.worldstandard.pudel.api.annotation.*;
+import group.worldstandard.pudel.api.interaction.InteractionManager;
+import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
+import group.worldstandard.pudel.core.command.CommandRegistry;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
@@ -50,9 +55,18 @@ import java.util.stream.Collectors;
 public class BuiltinCommands {
 
     private final GuildInitializationService guildInitializationService;
+    private final CommandMetadataRegistry metadataRegistry;
+    private final CommandRegistry commandRegistry;
+    private final InteractionManager interactionManager;
 
-    public BuiltinCommands(GuildInitializationService guildInitializationService) {
+    public BuiltinCommands(GuildInitializationService guildInitializationService,
+                          CommandMetadataRegistry metadataRegistry,
+                          CommandRegistry commandRegistry,
+                          InteractionManager interactionManager) {
         this.guildInitializationService = guildInitializationService;
+        this.metadataRegistry = metadataRegistry;
+        this.commandRegistry = commandRegistry;
+        this.interactionManager = interactionManager;
     }
 
     // =====================================================
@@ -62,7 +76,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "settings",
         description = "Configure Pudel's guild settings",
-        permissions = {"ADMINISTRATOR"},
+        permissions = {Permission.ADMINISTRATOR},
         subcommands = {
             @Subcommand(name = "view", description = "View current guild settings"),
             @Subcommand(
@@ -233,7 +247,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "ai",
         description = "Configure Pudel's AI behavior",
-        permissions = {"ADMINISTRATOR"},
+        permissions = {Permission.ADMINISTRATOR},
         subcommands = {
             @Subcommand(name = "status", description = "View AI configuration"),
             @Subcommand(
@@ -363,7 +377,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "channel",
         description = "Manage channel settings",
-        permissions = {"ADMINISTRATOR"},
+        permissions = {Permission.ADMINISTRATOR},
         subcommands = {
             @Subcommand(
                 name = "ignore",
@@ -453,7 +467,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "command",
         description = "Manage text commands",
-        permissions = {"ADMINISTRATOR"},
+        permissions = {Permission.ADMINISTRATOR},
         subcommands = {
             @Subcommand(
                 name = "disable",
@@ -551,13 +565,54 @@ public class BuiltinCommands {
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("📚 Pudel Commands")
                 .setColor(Color.CYAN)
-                .setDescription("Use `/command` to see options for each command.")
-                .addField("⚙️ Settings", "`/settings` - Configure guild settings", false)
-                .addField("🤖 AI", "`/ai` - Configure AI behavior", false)
-                .addField("📢 Channel", "`/channel` - Manage ignored channels", false)
-                .addField("🔧 Command", "`/command` - Enable/disable text commands", false)
-                .addField("🏓 Ping", "`/ping` - Check bot latency", false)
-                .setFooter("Pudel v2.0.0 | Powered by annotation-based plugins");
+                .setDescription("Use `/command` to see options for each slash command.\n" +
+                        "Use `!help [command]` for detailed text command info.");
+
+        // Built-in slash commands section
+        StringBuilder builtInSlash = new StringBuilder();
+        StringBuilder pluginSlash = new StringBuilder();
+
+        for (SlashCommandHandler handler : interactionManager.getAllSlashCommands()) {
+            String name = handler.getCommandData().getName();
+            String desc = handler.getCommandData().getDescription();
+            // Truncate long descriptions
+            if (desc.length() > 40) {
+                desc = desc.substring(0, 37) + "...";
+            }
+
+            String line = "`/" + name + "` - " + desc + "\n";
+
+            // Check if it's a plugin command
+            var metadata = metadataRegistry.getSlashCommandMetadata(name);
+            if (metadata.isPresent() && !metadata.get().isBuiltIn()) {
+                pluginSlash.append(line);
+            } else {
+                builtInSlash.append(line);
+            }
+        }
+
+        if (!builtInSlash.isEmpty()) {
+            embed.addField("⚙️ Built-in Slash Commands", builtInSlash.toString(), false);
+        }
+
+        if (!pluginSlash.isEmpty()) {
+            embed.addField("🔌 Plugin Slash Commands", pluginSlash.toString(), false);
+        }
+
+        // Text commands summary
+        int textCmdCount = commandRegistry.getCommandCount();
+        if (textCmdCount > 0) {
+            String prefix = "!";
+            if (event.isFromGuild() && event.getGuild() != null) {
+                GuildSettings settings = guildInitializationService.getOrCreateGuildSettings(event.getGuild().getId());
+                prefix = settings.getPrefix() != null ? settings.getPrefix() : "!";
+            }
+            embed.addField("📝 Text Commands",
+                    "**" + textCmdCount + "** text commands available.\n" +
+                    "Use `" + prefix + "help` for the full list with pagination.", false);
+        }
+
+        embed.setFooter("Pudel v2.0.0 | Use !help for detailed command list");
 
         event.replyEmbeds(embed.build()).setEphemeral(true).queue();
     }

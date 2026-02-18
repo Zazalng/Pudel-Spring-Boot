@@ -30,12 +30,14 @@ import group.worldstandard.pudel.core.repository.GuildRepository;
 import group.worldstandard.pudel.core.repository.GuildSettingsRepository;
 import group.worldstandard.pudel.core.repository.UserRepository;
 import group.worldstandard.pudel.core.repository.UserGuildRepository;
+import group.worldstandard.pudel.core.security.DPoPService;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 /**
  * Service for authentication operations.
+ * Supports both standard Bearer tokens and DPoP-bound tokens for enhanced security.
  */
 @Service
 public class AuthService extends BaseService {
@@ -47,6 +49,7 @@ public class AuthService extends BaseService {
     private final GuildSettingsRepository guildSettingsRepository;
     private final UserGuildRepository userGuildRepository;
     private final JwtUtil jwtUtil;
+    private final DPoPService dpopService;
 
     public AuthService(JDA jda,
                       DiscordAPIService discordAPIService,
@@ -54,7 +57,8 @@ public class AuthService extends BaseService {
                       GuildRepository guildRepository,
                       GuildSettingsRepository guildSettingsRepository,
                       UserGuildRepository userGuildRepository,
-                      JwtUtil jwtUtil) {
+                      JwtUtil jwtUtil,
+                      DPoPService dpopService) {
         super(jda);
         this.discordAPIService = discordAPIService;
         this.userRepository = userRepository;
@@ -62,14 +66,45 @@ public class AuthService extends BaseService {
         this.guildSettingsRepository = guildSettingsRepository;
         this.userGuildRepository = userGuildRepository;
         this.jwtUtil = jwtUtil;
+        this.dpopService = dpopService;
     }
 
     /**
      * Handle Discord OAuth callback.
+     * Returns a standard Bearer token.
      */
     @Transactional
     public OAuthCallbackResponse handleOAuthCallback(String code) {
+        return handleOAuthCallback(code, null, null, null);
+    }
+
+    /**
+     * Handle Discord OAuth callback with DPoP support.
+     * If dpopProof is provided, returns a DPoP-bound token.
+     *
+     * @param code OAuth authorization code
+     * @param dpopProof DPoP proof JWT (optional)
+     * @param httpMethod HTTP method of the request
+     * @param httpUri HTTP URI of the request
+     * @return OAuth callback response with token
+     */
+    @Transactional
+    public OAuthCallbackResponse handleOAuthCallback(String code, String dpopProof, String httpMethod, String httpUri) {
         try {
+            // Validate DPoP proof if provided
+            String dpopThumbprint = null;
+            if (dpopProof != null && !dpopProof.isBlank()) {
+                DPoPService.DPoPValidationResult proofResult =
+                        dpopService.validateProofForTokenRequest(dpopProof, httpMethod, httpUri);
+
+                if (!proofResult.valid()) {
+                    log.warn("DPoP proof validation failed during OAuth: {}", proofResult.error());
+                    return null;
+                }
+                dpopThumbprint = proofResult.thumbprint();
+                log.info("DPoP proof validated for OAuth callback, thumbprint: {}", dpopThumbprint);
+            }
+
             // Exchange code for access token
             String accessToken = discordAPIService.getAccessToken(code);
             if (accessToken == null) {
@@ -103,16 +138,46 @@ public class AuthService extends BaseService {
             List<Map<String, Object>> discordGuilds = discordAPIService.getUserGuilds(accessToken);
             syncUserGuilds(user.getId(), discordGuilds);
 
-            // Generate JWT token
+            // Generate JWT token (DPoP-bound if proof was provided)
             Map<String, Object> claims = new HashMap<>();
             claims.put("username", user.getUsername());
-            String jwtToken = jwtUtil.generateToken(user.getId(), claims);
 
-            return new OAuthCallbackResponse(jwtToken, userDto);
+            String jwtToken;
+            String tokenType;
+
+            if (dpopThumbprint != null) {
+                // Generate DPoP-bound token
+                jwtToken = jwtUtil.generateDPoPBoundToken(user.getId(), claims, dpopThumbprint);
+                dpopService.bindTokenToThumbprint(jwtToken, dpopThumbprint);
+                tokenType = JwtUtil.TOKEN_TYPE_DPOP;
+                log.info("Generated DPoP-bound token for user: {}", user.getId());
+            } else {
+                // Generate standard Bearer token
+                jwtToken = jwtUtil.generateToken(user.getId(), claims);
+                tokenType = JwtUtil.TOKEN_TYPE_BEARER;
+                log.info("Generated Bearer token for user: {}", user.getId());
+            }
+
+            OAuthCallbackResponse response = new OAuthCallbackResponse(jwtToken, userDto);
+            response.setTokenType(tokenType);
+            return response;
         } catch (Exception e) {
             log.error("Error handling OAuth callback", e);
             return null;
         }
+    }
+
+    /**
+     * Revoke a token (e.g., on logout).
+     * For DPoP tokens, also removes the binding.
+     */
+    public void revokeToken(String token) {
+        if (token != null && jwtUtil.isDPoPBoundToken(token)) {
+            dpopService.revokeTokenBinding(token);
+            log.info("Revoked DPoP token binding");
+        }
+        // Note: JWT tokens are stateless, so we can't truly revoke them
+        // For full revocation support, you'd need a token blacklist
     }
 
     /**

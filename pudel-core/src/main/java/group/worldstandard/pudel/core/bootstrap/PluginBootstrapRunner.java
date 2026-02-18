@@ -20,6 +20,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.core.config.plugins.PluginProperties;
+import group.worldstandard.pudel.core.database.PluginDatabaseService;
 import group.worldstandard.pudel.core.service.PluginService;
 
 /**
@@ -32,15 +33,27 @@ public class PluginBootstrapRunner implements ApplicationRunner {
 
     private final PluginService pluginService;
     private final PluginProperties pluginProperties;
+    private final PluginDatabaseService databaseService;
 
-    public PluginBootstrapRunner(PluginService pluginService, PluginProperties pluginProperties) {
+    public PluginBootstrapRunner(PluginService pluginService, PluginProperties pluginProperties,
+                                 PluginDatabaseService databaseService) {
         this.pluginService = pluginService;
         this.pluginProperties = pluginProperties;
+        this.databaseService = databaseService;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         logger.info("Starting Pudel plugin bootstrap...");
+
+        // Run database migration to normalize existing plugin IDs
+        // This fixes Issue #8 where plugins got new database prefixes after reboot
+        try {
+            databaseService.migrateToNormalizedIds();
+        } catch (Exception e) {
+            logger.error("Failed to migrate plugin database registrations: {}", e.getMessage(), e);
+            // Continue anyway - new plugins will work correctly
+        }
 
         if (pluginProperties.isEnableAutoDiscovery()) {
             logger.info("Auto-discovery enabled, scanning for plugins...");

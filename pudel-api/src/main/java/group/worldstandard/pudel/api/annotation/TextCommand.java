@@ -18,6 +18,8 @@
  */
 package group.worldstandard.pudel.api.annotation;
 
+import net.dv8tion.jda.api.Permission;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -40,6 +42,14 @@ import java.lang.annotation.Target;
  * @TextCommand(value = "help", aliases = {"h", "?"})
  * public void help(CommandContext ctx) {
  *     ctx.reply("Available commands: ...");
+ * }
+ * }</pre>
+ *
+ * <h2>With Permissions:</h2>
+ * <pre>{@code
+ * @TextCommand(value = "kick", permissions = {Permission.KICK_MEMBERS})
+ * public void kick(CommandContext ctx) {
+ *     // Only users with KICK_MEMBERS can use this
  * }
  * }</pre>
  */
@@ -66,4 +76,10 @@ public @interface TextCommand {
      * Usage example.
      */
     String usage() default "";
+
+    /**
+     * Required permissions for the command.
+     * Uses JDA Permission enum for type safety and IDE autocomplete.
+     */
+    Permission[] permissions() default {};
 }

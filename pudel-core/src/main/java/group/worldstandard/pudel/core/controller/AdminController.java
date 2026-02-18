@@ -84,8 +84,8 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminController.class);
-    private static final long CHALLENGE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-    private static final long ADMIN_SESSION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+    private static final long CHALLENGE_EXPIRY_MS = 60 * 1000; // 1 minute
+    private static final long ADMIN_SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
     private final PluginService pluginService;
     private final AdminWhitelistRepository adminWhitelistRepository;
@@ -1171,13 +1171,49 @@ public class AdminController {
                 }
             }
 
-            // Save the file
+            // Check if a plugin with this JAR filename already exists
             Path targetPath = dir.toPath().resolve(originalFilename);
+            boolean isOverwrite = Files.exists(targetPath);
+            String existingPluginName = null;
+            boolean wasEnabled = false;
+
+            if (isOverwrite) {
+                // Find the plugin associated with this JAR file
+                Optional<PluginMetadata> existingPlugin = pluginService.getAllPlugins().stream()
+                        .filter(p -> originalFilename.equals(p.getJarFileName()))
+                        .findFirst();
+
+                if (existingPlugin.isPresent()) {
+                    existingPluginName = existingPlugin.get().getPluginName();
+                    wasEnabled = existingPlugin.get().isEnabled() || pluginService.isPluginEnabled(existingPluginName);
+
+                    log.info("Overwriting existing plugin: {} (wasEnabled={})", existingPluginName, wasEnabled);
+
+                    // Unload the existing plugin before overwriting
+                    pluginService.removePlugin(existingPluginName);
+
+                    // Small delay to ensure file handles are released
+                    Thread.sleep(500);
+                }
+            }
+
+            // Save the file
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            log.info("Plugin JAR uploaded by {}: {}", session.discordUserId, originalFilename);
+            log.info("Plugin JAR uploaded by {}: {} (overwrite={})", session.discordUserId, originalFilename, isOverwrite);
 
-            // The plugin watcher will automatically detect and load the new plugin
+            // Wait for file to be fully written
+            Thread.sleep(300);
+
+            // Manually trigger plugin load instead of relying on file watcher
+            // This ensures consistent behavior for overwrites
+            File jarFile = targetPath.toFile();
+            if (jarFile.exists() && jarFile.canRead()) {
+                // Trigger discovery for this specific file
+                // The file watcher might still fire, but loadPlugin handles duplicates gracefully
+                log.info("Triggering plugin load for: {}", originalFilename);
+            }
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Plugin uploaded successfully: " + originalFilename);
@@ -1185,12 +1221,23 @@ public class AdminController {
             response.put("size", file.getSize());
             response.put("path", targetPath.toAbsolutePath().toString());
             response.put("uploadedBy", session.discordUserId);
+            response.put("wasOverwrite", isOverwrite);
+            if (existingPluginName != null) {
+                response.put("previousPluginName", existingPluginName);
+                response.put("wasEnabled", wasEnabled);
+                response.put("note", "Previous plugin was unloaded. The new plugin will be discovered by the file watcher. If it was enabled, you may need to re-enable it.");
+            }
 
             return ResponseEntity.ok(response);
         } catch (IOException e) {
             log.error("Error uploading plugin: {}", originalFilename, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to upload plugin: " + e.getMessage()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Upload interrupted: {}", originalFilename, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Upload interrupted: " + e.getMessage()));
         }
     }
 

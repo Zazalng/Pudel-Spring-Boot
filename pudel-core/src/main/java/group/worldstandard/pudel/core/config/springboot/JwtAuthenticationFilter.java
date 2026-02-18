@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.config.springboot;
 
+import group.worldstandard.pudel.core.security.DPoPService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,23 +24,40 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * JWT authentication filter that validates tokens on every request.
+ * Supports both standard Bearer tokens and DPoP-bound tokens.
+ * <p>
+ * For DPoP-bound tokens:
+ * <ul>
+ *   <li>Client must include DPoP header with a signed proof</li>
+ *   <li>The proof must be bound to the access token via 'ath' claim</li>
+ *   <li>The token's thumbprint binding must match the proof's JWK</li>
+ * </ul>
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
-    private final JwtUtil jwtUtil;
+    private static final String DPOP_HEADER = "DPoP";
+    private static final String AUTH_SCHEME_DPOP = "DPoP";
+    private static final String AUTH_SCHEME_BEARER = "Bearer";
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    private final JwtUtil jwtUtil;
+    private final DPoPService dpopService;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, DPoPService dpopService) {
         this.jwtUtil = jwtUtil;
+        this.dpopService = dpopService;
     }
 
     @Override
@@ -48,33 +66,90 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String token = getTokenFromRequest(request);
+        String authHeader = request.getHeader("Authorization");
+        String dpopProof = request.getHeader(DPOP_HEADER);
 
-        if (token != null && jwtUtil.validateToken(token)) {
-            String userId = jwtUtil.getUserIdFromToken(token);
-            if (userId != null) {
-                // Create authentication token
-                Authentication auth = new UsernamePasswordAuthenticationToken(
-                        userId, null, null
-                );
-                SecurityContextHolder.getContext().setAuthentication(auth);
-                log.debug("Set authentication for user: {}", userId);
+        if (authHeader != null) {
+            String token = null;
+            boolean isDPoP = false;
+
+            // Determine token type and extract token
+            if (authHeader.startsWith(AUTH_SCHEME_DPOP + " ")) {
+                token = authHeader.substring(AUTH_SCHEME_DPOP.length() + 1);
+                isDPoP = true;
+            } else if (authHeader.startsWith(AUTH_SCHEME_BEARER + " ")) {
+                token = authHeader.substring(AUTH_SCHEME_BEARER.length() + 1);
+                // Check if it's a DPoP-bound token being used as Bearer (error)
+                if (jwtUtil.isDPoPBoundToken(token)) {
+                    log.warn("DPoP-bound token used with Bearer scheme - use DPoP scheme instead");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setHeader("WWW-Authenticate", "DPoP error=\"use_dpop_nonce\", error_description=\"Token is DPoP-bound\"");
+                    response.getWriter().write("{\"error\":\"invalid_token\",\"error_description\":\"DPoP-bound token must use DPoP scheme\"}");
+                    return;
+                }
+            }
+
+            if (token != null && jwtUtil.validateToken(token)) {
+                // For DPoP tokens, validate the proof
+                if (isDPoP) {
+                    if (dpopProof == null) {
+                        log.warn("DPoP scheme used but no DPoP proof header");
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setHeader("WWW-Authenticate", "DPoP error=\"invalid_dpop_proof\"");
+                        response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"Missing DPoP proof\"}");
+                        return;
+                    }
+
+                    // Build the request URI
+                    String httpUri = request.getRequestURL().toString();
+                    String httpMethod = request.getMethod();
+
+                    // Validate DPoP proof
+                    DPoPService.DPoPValidationResult proofResult =
+                            dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, token);
+
+                    if (!proofResult.valid()) {
+                        log.warn("DPoP proof validation failed: {}", proofResult.error());
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setHeader("WWW-Authenticate", "DPoP error=\"invalid_dpop_proof\", error_description=\"" + proofResult.error() + "\"");
+                        response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"" + proofResult.error() + "\"}");
+                        return;
+                    }
+
+                    // Verify token is bound to this thumbprint
+                    String tokenThumbprint = jwtUtil.getDPoPThumbprint(token);
+                    if (tokenThumbprint != null && !tokenThumbprint.equals(proofResult.thumbprint())) {
+                        log.warn("DPoP thumbprint mismatch: token bound to {}, proof from {}",
+                                tokenThumbprint, proofResult.thumbprint());
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setHeader("WWW-Authenticate", "DPoP error=\"invalid_dpop_proof\", error_description=\"Token not bound to this key\"");
+                        response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"Token not bound to this key\"}");
+                        return;
+                    }
+
+                    log.debug("DPoP proof validated successfully for user");
+                }
+
+                String userId = jwtUtil.getUserIdFromToken(token);
+                if (userId != null) {
+                    // Add DPoP-verified authority if using DPoP
+                    List<SimpleGrantedAuthority> authorities = isDPoP
+                            ? List.of(new SimpleGrantedAuthority("DPOP_VERIFIED"))
+                            : Collections.emptyList();
+
+                    // Create authentication token
+                    Authentication auth = new UsernamePasswordAuthenticationToken(
+                            userId, null, authorities
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    log.debug("Set authentication for user: {} (DPoP: {})", userId, isDPoP);
+                }
             }
         }
 
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * Extract JWT token from Authorization header.
-     */
-    private String getTokenFromRequest(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        return null;
-    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

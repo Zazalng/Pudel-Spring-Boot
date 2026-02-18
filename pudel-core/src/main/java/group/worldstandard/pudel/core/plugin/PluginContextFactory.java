@@ -82,11 +82,14 @@ public class PluginContextFactory {
 
     /**
      * Removes the context for a plugin.
+     * Also cleans up the database manager cache.
      *
      * @param pluginName the plugin name
      */
     public void removeContext(String pluginName) {
         contexts.remove(pluginName);
+        // Also clean up database manager cache to prevent stale references
+        databaseService.removeManager(pluginName);
     }
 
     /**
