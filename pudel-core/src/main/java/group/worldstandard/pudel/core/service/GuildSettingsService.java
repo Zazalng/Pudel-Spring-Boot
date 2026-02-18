@@ -16,6 +16,7 @@ package group.worldstandard.pudel.core.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import net.dv8tion.jda.api.JDA;
 import group.worldstandard.pudel.core.entity.GuildSettings;
@@ -32,7 +33,7 @@ public class GuildSettingsService extends BaseService {
 
     private final GuildSettingsRepository guildSettingsRepository;
 
-    public GuildSettingsService(JDA jda, GuildSettingsRepository guildSettingsRepository) {
+    public GuildSettingsService(@Lazy JDA jda, GuildSettingsRepository guildSettingsRepository) {
         super(jda);
         this.guildSettingsRepository = guildSettingsRepository;
     }

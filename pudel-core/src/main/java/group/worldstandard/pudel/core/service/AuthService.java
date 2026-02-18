@@ -16,6 +16,7 @@ package group.worldstandard.pudel.core.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import net.dv8tion.jda.api.JDA;
@@ -51,7 +52,7 @@ public class AuthService extends BaseService {
     private final JwtUtil jwtUtil;
     private final DPoPService dpopService;
 
-    public AuthService(JDA jda,
+    public AuthService(@Lazy JDA jda,
                       DiscordAPIService discordAPIService,
                       UserRepository userRepository,
                       GuildRepository guildRepository,

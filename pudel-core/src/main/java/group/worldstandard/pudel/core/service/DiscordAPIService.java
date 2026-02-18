@@ -62,6 +62,8 @@ public class DiscordAPIService {
      */
     public String getAccessToken(String code) {
         try {
+            log.debug("Exchanging OAuth code for access token, redirectUri: {}", redirectUri);
+
             String body = "client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
                     "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8) +
                     "&grant_type=authorization_code" +
@@ -83,7 +85,7 @@ public class DiscordAPIService {
                 return json.get("access_token").getAsString();
             }
 
-            log.error("Failed to get access token. Status: {}", response.statusCode());
+            log.error("Failed to get access token. Status: {}, Response: {}", response.statusCode(), response.body());
         } catch (Exception e) {
             log.error("Error exchanging code for token", e);
         }
