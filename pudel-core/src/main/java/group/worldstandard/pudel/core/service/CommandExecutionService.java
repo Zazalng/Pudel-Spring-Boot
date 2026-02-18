@@ -15,7 +15,6 @@
 package group.worldstandard.pudel.core.service;
 
 import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -35,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  * Service for handling command execution features like cooldowns, logging, and verbosity.
  */
 @Service
-public class CommandExecutionService extends BaseService {
+public class CommandExecutionService {
 
     private static final Logger logger = LoggerFactory.getLogger(CommandExecutionService.class);
 
@@ -47,8 +46,7 @@ public class CommandExecutionService extends BaseService {
     // Track message IDs to delete: key = "guildId:userId:messageId", value = true
     private final ConcurrentHashMap<String, Message> messagesToManage = new ConcurrentHashMap<>();
 
-    public CommandExecutionService(JDA jda, GuildSettingsRepository guildSettingsRepository) {
-        super(jda);
+    public CommandExecutionService(GuildSettingsRepository guildSettingsRepository) {
         this.guildSettingsRepository = guildSettingsRepository;
     }
 

@@ -18,6 +18,7 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -56,7 +57,7 @@ import java.util.concurrent.TimeUnit;
  * </pre>
  */
 @Component
-public class DPoPService {
+public class DPoPService implements DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(DPoPService.class);
 
@@ -73,11 +74,30 @@ public class DPoPService {
     // Token thumbprint bindings: accessToken -> jwkThumbprint
     private final Map<String, String> tokenBindings = new ConcurrentHashMap<>();
 
+    // Cleanup thread reference for proper shutdown
+    private final Thread cleanupThread;
+    private volatile boolean running = true;
+
     public DPoPService() {
         // Start cleanup thread for expired JTIs
-        Thread cleanupThread = new Thread(this::cleanupExpiredJtis, "dpop-jti-cleanup");
+        cleanupThread = new Thread(this::cleanupExpiredJtis, "dpop-jti-cleanup");
         cleanupThread.setDaemon(true);
         cleanupThread.start();
+    }
+
+    @Override
+    public void destroy() {
+        log.info("Shutting down DPoP JTI cleanup thread...");
+        running = false;
+        if (cleanupThread != null) {
+            cleanupThread.interrupt();
+            try {
+                cleanupThread.join(5000); // Wait up to 5 seconds
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        log.info("DPoP JTI cleanup thread stopped.");
     }
 
     /**
@@ -428,7 +448,7 @@ public class DPoPService {
      * Cleanup expired JTIs periodically.
      */
     private void cleanupExpiredJtis() {
-        while (!Thread.currentThread().isInterrupted()) {
+        while (running && !Thread.currentThread().isInterrupted()) {
             try {
                 TimeUnit.MINUTES.sleep(5);
                 long now = System.currentTimeMillis();
@@ -439,6 +459,7 @@ public class DPoPService {
                 log.debug("DPoP cleanup: {} JTIs, {} token bindings", usedJtis.size(), tokenBindings.size());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                log.debug("DPoP cleanup thread interrupted, shutting down.");
                 break;
             }
         }

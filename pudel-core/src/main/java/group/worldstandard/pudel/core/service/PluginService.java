@@ -25,6 +25,7 @@ import group.worldstandard.pudel.core.repository.PluginMetadataRepository;
 import net.dv8tion.jda.api.JDA;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,7 +68,7 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
     // Track enabled state: pluginName -> enabled
     private final Map<String, Boolean> enabledPlugins = new ConcurrentHashMap<>();
 
-    public PluginService(JDA jda,
+    public PluginService(@Lazy JDA jda,
                          PluginMetadataRepository pluginMetadataRepository,
                          PluginClassLoader pluginClassLoader,
                          PluginContextFactory pluginContextFactory,

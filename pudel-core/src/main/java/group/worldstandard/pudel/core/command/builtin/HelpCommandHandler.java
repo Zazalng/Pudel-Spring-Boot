@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.api.command.CommandContext;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
@@ -33,19 +34,23 @@ import java.util.Set;
 /**
  * Handler for the help command.
  * Shows information about Pudel commands including plugin commands.
+ * Includes both text commands (!command) and slash commands (/command).
  * Uses reaction-based pagination for interactive navigation.
  */
 @Component
 public class HelpCommandHandler implements TextCommandHandler {
 
     private final CommandRegistry commandRegistry;
+    private final CommandMetadataRegistry commandMetadataRegistry;
     private final GuildInitializationService guildInitializationService;
     private final HelpSessionManager helpSessionManager;
 
     public HelpCommandHandler(CommandRegistry commandRegistry,
+                              CommandMetadataRegistry commandMetadataRegistry,
                               GuildInitializationService guildInitializationService,
                               HelpSessionManager helpSessionManager) {
         this.commandRegistry = commandRegistry;
+        this.commandMetadataRegistry = commandMetadataRegistry;
         this.guildInitializationService = guildInitializationService;
         this.helpSessionManager = helpSessionManager;
     }
@@ -147,8 +152,20 @@ public class HelpCommandHandler implements TextCommandHandler {
     private void showCommandHelp(CommandContext context, String commandName, String prefix, Set<String> disabledCommands) {
         String cmdLower = commandName.toLowerCase();
 
+        // Check if it's a slash command (starts with /)
+        if (cmdLower.startsWith("/")) {
+            showSlashCommandHelp(context, cmdLower.substring(1));
+            return;
+        }
+
         if (!commandRegistry.hasCommand(cmdLower)) {
-            context.getChannel().sendMessage("❌ Unknown command: `" + commandName + "`").queue();
+            // Check if it's a slash command without the /
+            var slashMeta = commandMetadataRegistry.getSlashCommandMetadata(cmdLower);
+            if (slashMeta.isPresent()) {
+                showSlashCommandHelp(context, cmdLower);
+                return;
+            }
+            context.getChannel().sendMessage("❌ Unknown command: `" + commandName + "`\nTry `" + prefix + "help` for a list of commands.").queue();
             return;
         }
 
@@ -159,9 +176,25 @@ public class HelpCommandHandler implements TextCommandHandler {
                 .setTitle("📖 Command: " + prefix + cmdLower + statusText)
                 .setColor(isDisabled ? new Color(255, 0, 0) : new Color(114, 137, 218));
 
-        // Provide descriptions for built-in commands
-        String description = getCommandDescription(cmdLower);
-        String usage = getCommandUsage(cmdLower, prefix);
+        // Try to get description from metadata registry first
+        var metadata = commandMetadataRegistry.getTextCommandMetadata(cmdLower);
+        String description;
+        String usage;
+        String permissions;
+
+        if (metadata.isPresent()) {
+            var meta = metadata.get();
+            description = meta.description() != null && !meta.description().isEmpty()
+                    ? meta.description() : getCommandDescription(cmdLower);
+            usage = meta.usage() != null && !meta.usage().isEmpty()
+                    ? meta.usage() : getCommandUsage(cmdLower, prefix);
+            permissions = meta.permissions() != null && meta.permissions().length > 0
+                    ? formatPermissions(meta.permissions()) : getRequiredPermissions(cmdLower);
+        } else {
+            description = getCommandDescription(cmdLower);
+            usage = getCommandUsage(cmdLower, prefix);
+            permissions = getRequiredPermissions(cmdLower);
+        }
 
         embed.setDescription(description);
 
@@ -179,15 +212,56 @@ public class HelpCommandHandler implements TextCommandHandler {
         if (isBuiltInCommand(cmdLower)) {
             embed.addField("📁 Category", "🔧 Built-in", true);
         } else {
-            embed.addField("📁 Category", "🔌 Plugin", true);
+            String pluginName = metadata.map(CommandMetadataRegistry.CommandMetadata::pluginId).orElse("Unknown");
+            embed.addField("📁 Category", "🔌 Plugin (" + pluginName + ")", true);
         }
 
-        String permissions = getRequiredPermissions(cmdLower);
         if (!permissions.isEmpty()) {
             embed.addField("🔒 Permissions", permissions, true);
         }
 
         context.getChannel().sendMessageEmbeds(embed.build()).queue();
+    }
+
+    /**
+     * Show detailed help for a slash command.
+     */
+    private void showSlashCommandHelp(CommandContext context, String commandName) {
+        var metadata = commandMetadataRegistry.getSlashCommandMetadata(commandName);
+
+        if (metadata.isEmpty()) {
+            context.getChannel().sendMessage("❌ Unknown slash command: `/" + commandName + "`").queue();
+            return;
+        }
+
+        var meta = metadata.get();
+        EmbedBuilder embed = new EmbedBuilder()
+                .setTitle("📖 Slash Command: /" + commandName)
+                .setColor(new Color(87, 242, 135)) // Green for slash commands
+                .setDescription(meta.description());
+
+        String pluginName = meta.isBuiltIn() ? "Built-in" : meta.pluginId();
+        embed.addField("📁 Category", meta.isBuiltIn() ? "🔧 Built-in" : "🔌 Plugin (" + pluginName + ")", true);
+
+        if (meta.permissions() != null && meta.permissions().length > 0) {
+            embed.addField("🔒 Permissions", formatPermissions(meta.permissions()), true);
+        }
+
+        embed.setFooter("Use this command by typing /" + commandName + " in Discord");
+
+        context.getChannel().sendMessageEmbeds(embed.build()).queue();
+    }
+
+    /**
+     * Format JDA Permission array to readable string.
+     */
+    private String formatPermissions(net.dv8tion.jda.api.Permission[] permissions) {
+        if (permissions == null || permissions.length == 0) {
+            return "None";
+        }
+        return java.util.Arrays.stream(permissions)
+                .map(net.dv8tion.jda.api.Permission::getName)
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private boolean isBuiltInCommand(String commandName) {

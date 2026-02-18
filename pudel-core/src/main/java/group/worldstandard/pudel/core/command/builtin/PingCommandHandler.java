@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.command.builtin;
 
 import net.dv8tion.jda.api.JDA;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.api.command.CommandContext;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
@@ -28,7 +29,7 @@ public class PingCommandHandler implements TextCommandHandler {
 
     private final JDA jda;
 
-    public PingCommandHandler(JDA jda) {
+    public PingCommandHandler(@Lazy JDA jda) {
         this.jda = jda;
     }
 

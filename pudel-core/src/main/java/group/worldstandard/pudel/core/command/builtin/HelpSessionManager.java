@@ -141,16 +141,35 @@ public class HelpSessionManager {
         }
 
         if (!builtInCommands.isEmpty()) {
-            embed.addField("🔧 Built-in Commands", builtInCommands.toString(), false);
+            embed.addField("🔧 Built-in Text Commands", builtInCommands.toString(), false);
         }
 
         if (!pluginCommands.isEmpty()) {
-            embed.addField("🔌 Plugin Commands", pluginCommands.toString(), false);
+            embed.addField("🔌 Plugin Text Commands", pluginCommands.toString(), false);
+        }
+
+        // Add slash commands section (only on first page for overview)
+        if (page == 1) {
+            StringBuilder slashCommands = new StringBuilder();
+            var allSlashCommands = metadataRegistry.getAllSlashCommands();
+            int slashCount = 0;
+            for (var slashCmd : allSlashCommands) {
+                if (slashCount >= 5) {
+                    slashCommands.append("*... and ").append(allSlashCommands.size() - 5).append(" more*\n");
+                    break;
+                }
+                slashCommands.append("`/").append(slashCmd.name()).append("` - ").append(slashCmd.shortDescription()).append("\n");
+                slashCount++;
+            }
+            if (!slashCommands.isEmpty()) {
+                embed.addField("⚡ Slash Commands", slashCommands.toString(), false);
+            }
         }
 
         // Navigation hints
+        int totalSlashCommands = metadataRegistry.getAllSlashCommands().size();
         String footer = "Page " + page + "/" + totalPages +
-                " • Total: " + totalCommands + " commands" +
+                " • Text: " + totalCommands + " | Slash: " + totalSlashCommands +
                 " • ❌ = disabled";
 
         embed.setFooter(footer);
