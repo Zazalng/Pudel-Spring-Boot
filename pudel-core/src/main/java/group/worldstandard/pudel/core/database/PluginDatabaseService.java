@@ -60,36 +60,78 @@ public class PluginDatabaseService {
      */
     @Transactional
     public PluginDatabaseManager getManagerForPlugin(String pluginId, String pluginVersion) {
+        // Normalize plugin ID to prevent case/whitespace issues causing duplicate registrations
+        String normalizedId = normalizePluginId(pluginId);
+
         // Check cache first
-        PluginDatabaseManagerImpl cached = managerCache.get(pluginId);
+        PluginDatabaseManagerImpl cached = managerCache.get(normalizedId);
         if (cached != null) {
+            logger.debug("Returning cached database manager for plugin {}", normalizedId);
             return cached;
         }
 
         // Get or create registry entry
-        PluginDatabaseRegistry registry = registryRepository.findByPluginId(pluginId)
-                .orElseGet(() -> createRegistryEntry(pluginId, pluginVersion));
+        PluginDatabaseRegistry registry = registryRepository.findByPluginId(normalizedId)
+                .orElseGet(() -> createRegistryEntry(normalizedId, pluginVersion));
+
+        // Log the prefix being used - helps debug issues
+        logger.info("Plugin {} using database prefix: {}", normalizedId, registry.getDbPrefix());
 
         // Update version if changed
         if (!Objects.equals(registry.getCurrentVersion(), pluginVersion)) {
             registry.setCurrentVersion(pluginVersion);
             registryRepository.save(registry);
-            logger.info("Updated plugin {} version to {}", pluginId, pluginVersion);
+            logger.info("Updated plugin {} version to {}", normalizedId, pluginVersion);
         }
 
         // Create manager instance
         PluginDatabaseManagerImpl manager = new PluginDatabaseManagerImpl(
-                pluginId,
+                normalizedId,
                 registry.getDbPrefix(),
                 registry,
                 registryRepository,
                 jdbcTemplate
         );
 
-        managerCache.put(pluginId, manager);
-        logger.debug("Created database manager for plugin {} with prefix {}", pluginId, registry.getDbPrefix());
+        managerCache.put(normalizedId, manager);
+        logger.debug("Created database manager for plugin {} with prefix {}", normalizedId, registry.getDbPrefix());
 
         return manager;
+    }
+
+    /**
+     * Normalize plugin ID to ensure consistent lookups.
+     * <p>
+     * This prevents issues where plugins with names like "My Plugin" vs "my plugin"
+     * or "Plugin's Name" vs "Plugin's Name" (different apostrophe chars) would get
+     * different database prefixes.
+     *
+     * @param pluginId the raw plugin ID
+     * @return normalized plugin ID
+     */
+    private String normalizePluginId(String pluginId) {
+        if (pluginId == null) {
+            return "unknown";
+        }
+
+        // Convert to lowercase
+        String normalized = pluginId.toLowerCase();
+
+        // Replace common problematic characters with standard versions
+        // Using Unicode escapes to avoid encoding issues
+        normalized = normalized
+                .replace("\u2018", "'")  // Left single curly quote to straight
+                .replace("\u2019", "'")  // Right single curly quote (apostrophe) to straight
+                .replace("\u201C", "\"") // Left double curly quote to straight
+                .replace("\u201D", "\""); // Right double curly quote to straight
+
+        // Trim whitespace
+        normalized = normalized.trim();
+
+        // Replace multiple spaces with single space
+        normalized = normalized.replaceAll("\\s+", " ");
+
+        return normalized;
     }
 
     /**
@@ -141,17 +183,19 @@ public class PluginDatabaseService {
 
     /**
      * Remove a manager from cache when plugin is unloaded.
+     * The database tables and registry entry are preserved for data persistence.
      */
     public void removeManager(String pluginId) {
-        managerCache.remove(pluginId);
-        logger.debug("Removed database manager from cache for plugin {}", pluginId);
+        String normalizedId = normalizePluginId(pluginId);
+        managerCache.remove(normalizedId);
+        logger.debug("Removed database manager from cache for plugin {}", normalizedId);
     }
 
     /**
      * Get registry information for a plugin.
      */
     public Optional<PluginDatabaseRegistry> getRegistry(String pluginId) {
-        return registryRepository.findByPluginId(pluginId);
+        return registryRepository.findByPluginId(normalizePluginId(pluginId));
     }
 
     /**
@@ -159,6 +203,78 @@ public class PluginDatabaseService {
      */
     public List<PluginDatabaseRegistry> getAllRegistries() {
         return registryRepository.findAll();
+    }
+
+    /**
+     * Migrate existing plugin database registrations to use normalized IDs.
+     * <p>
+     * This should be called once during startup to fix any existing registrations
+     * that were created before normalization was implemented.
+     * <p>
+     * Also attempts to find and merge duplicate registrations for the same plugin
+     * (e.g., "My Plugin" and "my plugin" would be merged, keeping the older one).
+     */
+    @Transactional
+    public void migrateToNormalizedIds() {
+        logger.info("Checking for plugin database registrations that need migration...");
+
+        List<PluginDatabaseRegistry> allRegistries = registryRepository.findAll();
+        Map<String, PluginDatabaseRegistry> normalizedMap = new HashMap<>();
+        List<PluginDatabaseRegistry> toDelete = new ArrayList<>();
+
+        for (PluginDatabaseRegistry registry : allRegistries) {
+            String originalId = registry.getPluginId();
+            String normalizedId = normalizePluginId(originalId);
+
+            if (!originalId.equals(normalizedId)) {
+                // This registration needs normalization
+                logger.info("Found registration needing normalization: '{}' -> '{}'", originalId, normalizedId);
+
+                // Check if a normalized version already exists
+                if (normalizedMap.containsKey(normalizedId)) {
+                    // Duplicate found - keep the older one (lower ID = created first = has data)
+                    PluginDatabaseRegistry existing = normalizedMap.get(normalizedId);
+                    if (registry.getId() < existing.getId()) {
+                        // Current one is older, update its ID and mark existing for deletion
+                        toDelete.add(existing);
+                        registry.setPluginId(normalizedId);
+                        registryRepository.save(registry);
+                        normalizedMap.put(normalizedId, registry);
+                        logger.info("Migrated registration and will delete duplicate: {} (prefix: {})",
+                                existing.getPluginId(), existing.getDbPrefix());
+                    } else {
+                        // Existing one is older, mark current for deletion
+                        toDelete.add(registry);
+                        logger.info("Will delete duplicate registration: {} (prefix: {})",
+                                originalId, registry.getDbPrefix());
+                    }
+                } else {
+                    // No duplicate, just normalize the ID
+                    registry.setPluginId(normalizedId);
+                    registryRepository.save(registry);
+                    normalizedMap.put(normalizedId, registry);
+                    logger.info("Normalized plugin ID: '{}' -> '{}' (prefix: {})",
+                            originalId, normalizedId, registry.getDbPrefix());
+                }
+            } else {
+                // Already normalized
+                normalizedMap.put(normalizedId, registry);
+            }
+        }
+
+        // Delete duplicates
+        for (PluginDatabaseRegistry duplicate : toDelete) {
+            logger.warn("Deleting duplicate plugin database registration: {} (prefix: {}). " +
+                    "Note: Database tables with this prefix will become orphaned.",
+                    duplicate.getPluginId(), duplicate.getDbPrefix());
+            registryRepository.delete(duplicate);
+        }
+
+        if (toDelete.isEmpty()) {
+            logger.info("No plugin database migrations needed");
+        } else {
+            logger.info("Migrated {} plugin database registrations", toDelete.size());
+        }
     }
 
     /**

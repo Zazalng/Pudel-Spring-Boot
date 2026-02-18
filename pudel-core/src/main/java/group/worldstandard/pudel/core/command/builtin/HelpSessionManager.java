@@ -19,6 +19,7 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import org.springframework.stereotype.Component;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
 
 import java.awt.Color;
@@ -52,8 +53,10 @@ public class HelpSessionManager {
 
     private final Map<Long, HelpSession> activeSessions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
+    private final CommandMetadataRegistry metadataRegistry;
 
-    public HelpSessionManager() {
+    public HelpSessionManager(CommandMetadataRegistry metadataRegistry) {
+        this.metadataRegistry = metadataRegistry;
         // Schedule cleanup of expired sessions
         cleanupExecutor.scheduleAtFixedRate(this::cleanupExpiredSessions, 1, 1, TimeUnit.MINUTES);
     }
@@ -206,15 +209,24 @@ public class HelpSessionManager {
     }
 
     private boolean isBuiltInCommand(String commandName) {
-        return switch (commandName.toLowerCase()) {
+        // Check metadata registry first
+        var metadata = metadataRegistry.getTextCommandMetadata(commandName);
+        return metadata.map(CommandMetadataRegistry.CommandMetadata::isBuiltIn).orElseGet(() -> switch (commandName.toLowerCase()) {
             case "help", "enable", "disable", "ping", "settings", "prefix", "verbosity", "cooldown",
                  "logchannel", "botchannel", "listen", "ignore", "ai",
                  "biography", "personality", "preferences", "dialoguestyle" -> true;
             default -> false;
-        };
+        });
     }
 
     private String getShortDescription(String commandName) {
+        // Try to get description from metadata registry first
+        var metadata = metadataRegistry.getTextCommandMetadata(commandName);
+        if (metadata.isPresent() && metadata.get().description() != null && !metadata.get().description().isEmpty()) {
+            return metadata.get().shortDescription();
+        }
+
+        // Fallback to hardcoded descriptions for built-in commands
         return switch (commandName.toLowerCase()) {
             case "help" -> "Show command list";
             case "enable" -> "Enable a command";

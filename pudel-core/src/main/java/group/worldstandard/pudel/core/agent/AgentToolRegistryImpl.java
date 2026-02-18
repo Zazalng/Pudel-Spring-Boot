@@ -369,11 +369,20 @@ public class AgentToolRegistryImpl implements AgentToolRegistry {
             return ToolResult.notFound(toolName);
         }
 
-        // Check availability
+        // Check availability (guild/DM restrictions)
         if (!tool.isAvailableIn(context)) {
             String reason = tool.isGuildOnly() ? "This tool is only available in servers" :
                            tool.isDmOnly() ? "This tool is only available in DMs" : "Unknown";
             return ToolResult.notAvailable(toolName, reason);
+        }
+
+        // Check permission level
+        if (!checkPermission(tool.getPermission(), context)) {
+            String permissionName = getPermissionName(tool.getPermission());
+            logger.warn("User {} attempted to use tool {} without {} permission",
+                    context.getRequestingUserId(), toolName, permissionName);
+            return ToolResult.permissionDenied(toolName,
+                    "You need " + permissionName + " permission to use this tool.");
         }
 
         try {
@@ -386,6 +395,52 @@ public class AgentToolRegistryImpl implements AgentToolRegistry {
             logger.error("Error executing tool {}: {}", toolName, e.getMessage(), e);
             return ToolResult.failure(toolName, e.getMessage(), duration);
         }
+    }
+
+    /**
+     * Check if the user has the required permission level.
+     */
+    private boolean checkPermission(AgentTool.ToolPermission required, AgentToolContext context) {
+        if (required == null || required == AgentTool.ToolPermission.EVERYONE) {
+            return true;
+        }
+
+        // In DM context, only EVERYONE tools are allowed for guild-related permissions
+        if (!context.isGuild()) {
+            // BOT_ADMIN might still work in DMs if we add that check
+            return required == AgentTool.ToolPermission.BOT_ADMIN && isBotAdmin(context.getRequestingUserId());
+        }
+
+        return switch (required) {
+            case GUILD_MANAGER -> context.canManageGuild() || context.isAdmin() || context.isGuildOwner();
+            case GUILD_ADMIN -> context.isAdmin() || context.isGuildOwner();
+            case GUILD_OWNER -> context.isGuildOwner();
+            case BOT_ADMIN -> isBotAdmin(context.getRequestingUserId());
+            case EVERYONE -> true;
+        };
+    }
+
+    /**
+     * Check if a user is a bot admin.
+     * This should be integrated with your admin whitelist system.
+     */
+    private boolean isBotAdmin(long userId) {
+        // TODO: Integrate with AdminWhitelistRepository
+        // For now, this is a placeholder - you can connect to your existing admin system
+        return false;
+    }
+
+    /**
+     * Get human-readable permission name.
+     */
+    private String getPermissionName(AgentTool.ToolPermission permission) {
+        return switch (permission) {
+            case EVERYONE -> "Everyone";
+            case GUILD_MANAGER -> "Manage Server";
+            case GUILD_ADMIN -> "Administrator";
+            case GUILD_OWNER -> "Server Owner";
+            case BOT_ADMIN -> "Bot Administrator";
+        };
     }
 
     /**

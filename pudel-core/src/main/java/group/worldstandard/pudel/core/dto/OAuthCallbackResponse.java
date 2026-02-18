@@ -16,10 +16,12 @@ package group.worldstandard.pudel.core.dto;
 
 /**
  * DTO for OAuth callback response containing token and user data.
+ * Supports both Bearer and DPoP token types.
  */
 public class OAuthCallbackResponse {
     private String accessToken;
     private UserDto user;
+    private String tokenType = "Bearer"; // "Bearer" or "DPoP"
 
     public OAuthCallbackResponse() {
     }
@@ -43,6 +45,14 @@ public class OAuthCallbackResponse {
 
     public void setUser(UserDto user) {
         this.user = user;
+    }
+
+    public String getTokenType() {
+        return tokenType;
+    }
+
+    public void setTokenType(String tokenType) {
+        this.tokenType = tokenType;
     }
 }
 

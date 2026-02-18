@@ -161,9 +161,41 @@ public class PluginClassLoader {
 
             // Check if already loaded
             if (loadedPlugins.containsKey(pluginName)) {
-                logger.warn("Plugin {} is already loaded. Use reload to update.", pluginName);
+                logger.info("Plugin {} is already loaded. Unloading old version before loading new one.", pluginName);
+                // Close the new class loader first since we need to unload the old one
                 classLoader.close();
-                return pluginInfos.get(pluginName);
+                classLoader = null;
+
+                // Unload the old version
+                unloadPlugin(pluginName);
+
+                // Reload with fresh class loader
+                classLoader = new URLClassLoader(
+                        new URL[]{jarFile.toURI().toURL()},
+                        Thread.currentThread().getContextClassLoader()
+                );
+                mainClass = classLoader.loadClass(mainClassName);
+
+                // Re-extract info and create instance for new version
+                pluginAnnotation = mainClass.getAnnotation(Plugin.class);
+                if (pluginAnnotation != null) {
+                    info = new PluginInfo(
+                            pluginAnnotation.name(),
+                            pluginAnnotation.version(),
+                            pluginAnnotation.author(),
+                            pluginAnnotation.description()
+                    );
+                    instance = mainClass.getDeclaredConstructor().newInstance();
+                    logger.info("Reloaded annotation-based plugin: {} v{}", pluginName, info.getVersion());
+                } else if (PudelPlugin.class.isAssignableFrom(mainClass)) {
+                    PudelPlugin legacyPlugin = (PudelPlugin) mainClass.getDeclaredConstructor().newInstance();
+                    info = legacyPlugin.getPluginInfo();
+                    instance = legacyPlugin;
+                } else {
+                    logger.error("Class {} is not a valid plugin after reload", mainClassName);
+                    classLoader.close();
+                    return null;
+                }
             }
 
             // Register plugin

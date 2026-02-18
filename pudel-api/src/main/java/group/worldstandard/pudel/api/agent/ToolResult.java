@@ -64,4 +64,11 @@ public record ToolResult(
     public static ToolResult notAvailable(String toolName, String reason) {
         return new ToolResult(false, null, "Tool not available: " + reason, toolName, 0);
     }
+
+    /**
+     * Create a "permission denied" result.
+     */
+    public static ToolResult permissionDenied(String toolName, String reason) {
+        return new ToolResult(false, null, "Permission denied: " + reason, toolName, 0);
+    }
 }

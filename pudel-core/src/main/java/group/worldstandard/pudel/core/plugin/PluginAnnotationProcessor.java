@@ -21,6 +21,7 @@ import group.worldstandard.pudel.api.command.CommandContext;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
 import group.worldstandard.pudel.api.interaction.InteractionManager;
 import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -56,6 +57,7 @@ public class PluginAnnotationProcessor {
     private static final Logger logger = LoggerFactory.getLogger(PluginAnnotationProcessor.class);
 
     private final InteractionManager interactionManager;
+    private final CommandMetadataRegistry commandMetadataRegistry;
 
     // Track registered handlers per plugin for cleanup
     private final Map<String, Set<String>> pluginSlashCommands = new HashMap<>();
@@ -64,8 +66,10 @@ public class PluginAnnotationProcessor {
     private final Map<String, Set<String>> pluginModalHandlers = new HashMap<>();
     private final Map<String, Set<String>> pluginSelectMenuHandlers = new HashMap<>();
 
-    public PluginAnnotationProcessor(InteractionManager interactionManager) {
+    public PluginAnnotationProcessor(InteractionManager interactionManager,
+                                     CommandMetadataRegistry commandMetadataRegistry) {
         this.interactionManager = interactionManager;
+        this.commandMetadataRegistry = commandMetadataRegistry;
     }
 
     /**
@@ -181,6 +185,9 @@ public class PluginAnnotationProcessor {
                 interactionManager.unregisterSelectMenuHandler(prefix);
             }
         }
+
+        // Clean up command metadata
+        commandMetadataRegistry.unregisterPluginCommands(pluginId);
 
         logger.info("[{}] Unregistered all annotation-based handlers", pluginId);
     }
@@ -298,6 +305,15 @@ public class PluginAnnotationProcessor {
             if (interactionManager.registerSlashCommand(pluginId, handler)) {
                 pluginSlashCommands.computeIfAbsent(pluginId, k -> new HashSet<>())
                         .add(annotation.name());
+
+                // Register metadata for help system
+                commandMetadataRegistry.registerSlashCommand(
+                        pluginId,
+                        annotation.name(),
+                        annotation.description(),
+                        annotation.permissions()
+                );
+
                 count++;
             }
         }
@@ -407,11 +423,24 @@ public class PluginAnnotationProcessor {
                 continue;
             }
 
+            // Get required permissions
+            Permission[] requiredPermissions = annotation.permissions();
+
             // Create wrapper handler
             method.setAccessible(true);
             Method finalMethod = method;
             TextCommandHandler handler = ctx -> {
                 try {
+                    // Check permissions if required
+                    if (requiredPermissions.length > 0 && ctx.getMember() != null) {
+                        for (Permission perm : requiredPermissions) {
+                            if (!ctx.getMember().hasPermission(perm)) {
+                                ctx.reply("❌ You need the **" + perm.getName() + "** permission to use this command.");
+                                return;
+                            }
+                        }
+                    }
+
                     finalMethod.invoke(instance, ctx);
                 } catch (Exception e) {
                     logger.error("[{}] Error in text command {}: {}",
@@ -424,6 +453,16 @@ public class PluginAnnotationProcessor {
             context.registerCommand(annotation.value(), handler);
             pluginTextCommands.computeIfAbsent(pluginId, k -> new HashSet<>())
                     .add(annotation.value());
+
+            // Register metadata for help system
+            commandMetadataRegistry.registerTextCommand(
+                    pluginId,
+                    annotation.value(),
+                    annotation.description(),
+                    annotation.usage(),
+                    annotation.permissions()
+            );
+
             count++;
 
             // Register aliases

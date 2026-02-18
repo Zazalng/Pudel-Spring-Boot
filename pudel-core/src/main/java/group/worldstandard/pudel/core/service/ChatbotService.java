@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.service;
 
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.slf4j.Logger;
@@ -250,7 +251,8 @@ public class ChatbotService {
                     personality,
                     true,
                     guildId,
-                    userId
+                    userId,
+                    event.getMember() // Include member for permission checks
             );
         } else {
             long userId = event.getAuthor().getIdLong();
@@ -264,7 +266,8 @@ public class ChatbotService {
                     personality,
                     false,
                     0L,
-                    userId
+                    userId,
+                    null // No member in DMs
             );
         }
     }
@@ -399,6 +402,7 @@ public class ChatbotService {
                     .targetId(targetId)
                     .isGuild(context.isGuild())
                     .requestingUserId(context.userId())
+                    .requestingMember(context.member()) // Include member for permission checks
                     .build();
 
             // Build plugin tools list
@@ -789,7 +793,8 @@ public class ChatbotService {
             PudelPersonality personality,
             boolean isGuild,
             long guildId,
-            long userId
+            long userId,
+            Member member // For permission checking in agent tools
     ) {}
 
     /**

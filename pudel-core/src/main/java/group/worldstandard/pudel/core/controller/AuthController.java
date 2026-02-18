@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,12 +28,22 @@ import group.worldstandard.pudel.core.service.AuthService;
 
 /**
  * REST controller for authentication endpoints.
+ * Supports DPoP (Demonstrating Proof-of-Possession) for enhanced token security.
+ * <p>
+ * To use DPoP:
+ * <ol>
+ *   <li>Generate an asymmetric key pair (RSA or EC) on the client</li>
+ *   <li>Include a DPoP proof in the "DPoP" header when requesting tokens</li>
+ *   <li>Use the "DPoP" authorization scheme instead of "Bearer" for protected resources</li>
+ * </ol>
  */
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
+    private static final String DPOP_HEADER = "DPoP";
 
     private final AuthService authService;
 
@@ -43,25 +54,63 @@ public class AuthController {
     /**
      * Handle Discord OAuth2 callback.
      * POST /api/auth/discord/callback
+     * <p>
+     * For DPoP-bound tokens, include a DPoP proof in the "DPoP" header.
+     * The response will indicate the token_type as "DPoP" or "Bearer".
      */
     @PostMapping("/discord/callback")
-    public ResponseEntity<?> discordCallback(@RequestBody OAuthCallbackRequest request) {
-        log.info("Received OAuth callback request");
+    public ResponseEntity<?> discordCallback(@RequestBody OAuthCallbackRequest request,
+                                             @RequestHeader(value = DPOP_HEADER, required = false) String dpopProof,
+                                             HttpServletRequest httpRequest) {
+        log.info("Received OAuth callback request (DPoP: {})", dpopProof != null);
 
         if (request.getCode() == null || request.getCode().isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(new ErrorResponse("Authorization code is required"));
         }
 
-        OAuthCallbackResponse response = authService.handleOAuthCallback(request.getCode());
+        // Build request URI for DPoP validation
+        String httpUri = httpRequest.getRequestURL().toString();
+        String httpMethod = httpRequest.getMethod();
+
+        OAuthCallbackResponse response = authService.handleOAuthCallback(
+                request.getCode(),
+                dpopProof,
+                httpMethod,
+                httpUri
+        );
 
         if (response == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResponse("Failed to authenticate with Discord"));
         }
 
-        log.info("Successfully authenticated user: {}", response.getUser().getId());
+        log.info("Successfully authenticated user: {} (token_type: {})",
+                response.getUser().getId(), response.getTokenType());
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Logout endpoint - revokes token binding for DPoP tokens.
+     * POST /api/auth/logout
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader != null) {
+            String token = null;
+            if (authHeader.startsWith("DPoP ")) {
+                token = authHeader.substring(5);
+            } else if (authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+
+            if (token != null) {
+                authService.revokeToken(token);
+                log.info("Token revoked on logout");
+            }
+        }
+
+        return ResponseEntity.ok().body(new SuccessResponse("Logged out successfully"));
     }
 
     /**
@@ -130,6 +179,25 @@ public class AuthController {
 
         public void setError(String error) {
             this.error = error;
+        }
+    }
+
+    /**
+     * Success response DTO.
+     */
+    public static class SuccessResponse {
+        private String message;
+
+        public SuccessResponse(String message) {
+            this.message = message;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
         }
     }
 }

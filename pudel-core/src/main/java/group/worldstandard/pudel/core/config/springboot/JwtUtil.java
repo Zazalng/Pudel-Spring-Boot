@@ -38,10 +38,27 @@ import java.util.Map;
 
 /**
  * JWT utility for token generation and validation using RSA key pairs.
+ * Supports DPoP (Demonstrating Proof-of-Possession) for enhanced security.
  */
 @Component
 public class JwtUtil {
     private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
+
+    /**
+     * Token type for DPoP-bound tokens.
+     */
+    public static final String TOKEN_TYPE_DPOP = "DPoP";
+
+    /**
+     * Token type for standard Bearer tokens.
+     */
+    public static final String TOKEN_TYPE_BEARER = "Bearer";
+
+    /**
+     * Claim key for DPoP JWK thumbprint binding.
+     */
+    public static final String DPOP_THUMBPRINT_CLAIM = "cnf";
+    public static final String DPOP_JKT_CLAIM = "jkt";
 
     @Value("${pudel.jwt.private-key-path:keys/private.key}")
     private String privateKeyPath;
@@ -127,6 +144,79 @@ public class JwtUtil {
     }
 
     /**
+     * Generate a DPoP-bound JWT token.
+     * The token will be bound to the client's public key via the JWK thumbprint.
+     *
+     * @param userId the user ID
+     * @param claims additional claims
+     * @param dpopThumbprint the JWK thumbprint from the DPoP proof
+     * @return the DPoP-bound JWT token
+     */
+    public String generateDPoPBoundToken(String userId, Map<String, Object> claims, String dpopThumbprint) {
+        long now = System.currentTimeMillis();
+        Date expiryDate = new Date(now + jwtExpiration);
+
+        // Create the confirmation claim with JWK thumbprint
+        // Per RFC 9449, this is: "cnf": {"jkt": "<thumbprint>"}
+        Map<String, Object> cnf = new HashMap<>();
+        cnf.put(DPOP_JKT_CLAIM, dpopThumbprint);
+
+        Map<String, Object> allClaims = new HashMap<>(claims);
+        allClaims.put(DPOP_THUMBPRINT_CLAIM, cnf);
+
+        return Jwts.builder()
+                .subject(userId)
+                .claims(allClaims)
+                .issuedAt(new Date(now))
+                .expiration(expiryDate)
+                .signWith(privateKey, Jwts.SIG.RS256)
+                .compact();
+    }
+
+    /**
+     * Check if a token is DPoP-bound.
+     */
+    public boolean isDPoPBoundToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(publicKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            return claims.containsKey(DPOP_THUMBPRINT_CLAIM);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Get the DPoP JWK thumbprint from a token.
+     *
+     * @param token the JWT token
+     * @return the JWK thumbprint or null if not a DPoP-bound token
+     */
+    @SuppressWarnings("unchecked")
+    public String getDPoPThumbprint(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(publicKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Map<String, Object> cnf = claims.get(DPOP_THUMBPRINT_CLAIM, Map.class);
+            if (cnf != null) {
+                return (String) cnf.get(DPOP_JKT_CLAIM);
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("Could not get DPoP thumbprint from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Get user ID from token using RSA public key.
      */
     public String getUserIdFromToken(String token) {
@@ -139,6 +229,22 @@ public class JwtUtil {
                     .getSubject();
         } catch (JwtException | IllegalArgumentException e) {
             log.error("Could not get user ID from token", e);
+            return null;
+        }
+    }
+
+    /**
+     * Get all claims from token.
+     */
+    public Claims getClaimsFromToken(String token) {
+        try {
+            return Jwts.parser()
+                    .verifyWith(publicKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException | IllegalArgumentException e) {
+            log.error("Could not get claims from token", e);
             return null;
         }
     }
@@ -192,5 +298,12 @@ public class JwtUtil {
      */
     public PublicKey getPublicKey() {
         return publicKey;
+    }
+
+    /**
+     * Get the private key (for internal use only).
+     */
+    protected PrivateKey getPrivateKey() {
+        return privateKey;
     }
 }
