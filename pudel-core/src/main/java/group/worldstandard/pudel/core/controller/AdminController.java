@@ -285,14 +285,23 @@ public class AdminController {
             ensureKeysLoaded();
             ensureInitialOwner();
 
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            // Accept both Bearer and DPoP tokens
+            if (authHeader == null || (!authHeader.startsWith("Bearer ") && !authHeader.startsWith("DPoP "))) {
                 return ResponseEntity.ok(Map.of(
                         "isAdmin", false,
                         "reason", "Not authenticated"
                 ));
             }
 
-            String token = authHeader.substring(7);
+            // Extract token (works for both "Bearer {token}" and "DPoP {token}")
+            String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+            if (token == null || token.isBlank()) {
+                return ResponseEntity.ok(Map.of(
+                        "isAdmin", false,
+                        "reason", "Invalid token format"
+                ));
+            }
+
             String discordUserId = null;
 
             try {
@@ -394,6 +403,9 @@ public class AdminController {
     public ResponseEntity<?> authenticateMutual(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody MutualAuthRequest request) {
+        log.info("Admin mutual auth request received. AuthHeader present: {}, AuthHeader prefix: {}",
+                authHeader != null,
+                authHeader != null ? authHeader.substring(0, Math.min(authHeader.length(), 10)) : "null");
         try {
             ensureKeysLoaded();
             ensureInitialOwner();
@@ -401,6 +413,7 @@ public class AdminController {
             // Step 1: Validate user is authenticated via Discord OAuth
             // Accept both Bearer and DPoP tokens (DPoP is validated by the filter)
             if (authHeader == null || (!authHeader.startsWith("Bearer ") && !authHeader.startsWith("DPoP "))) {
+                log.warn("Admin mutual auth failed: Invalid auth header format");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(new ErrorResponse("Discord OAuth token required. Please login with Discord first."));
             }
@@ -408,9 +421,12 @@ public class AdminController {
             // Extract token (works for both "Bearer {token}" and "DPoP {token}")
             String userToken = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
             if (userToken == null || userToken.isBlank()) {
+                log.warn("Admin mutual auth failed: Empty token");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(new ErrorResponse("Invalid authorization header format"));
             }
+
+            log.debug("Admin mutual auth: Extracted token, length={}", userToken.length());
 
             String discordUserId;
             String discordUsername;
@@ -598,11 +614,15 @@ public class AdminController {
      * Returns AdminSessionData if valid, null otherwise.
      */
     private AdminSessionData validateAdminSession(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader == null || (!authHeader.startsWith("Bearer ") && !authHeader.startsWith("DPoP "))) {
             return null;
         }
 
-        String token = authHeader.substring(7);
+        // Extract token (works for both "Bearer {token}" and "DPoP {token}")
+        String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+        if (token == null || token.isBlank()) {
+            return null;
+        }
 
         try {
             ensureKeysLoaded();
@@ -643,21 +663,24 @@ public class AdminController {
      */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && (authHeader.startsWith("Bearer ") || authHeader.startsWith("DPoP "))) {
             try {
                 ensureKeysLoaded();
-                String token = authHeader.substring(7);
-                Claims claims = Jwts.parser()
-                        .verifyWith(publicKey)
-                        .build()
-                        .parseSignedClaims(token)
-                        .getPayload();
+                // Extract token (works for both "Bearer {token}" and "DPoP {token}")
+                String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+                if (token != null && !token.isBlank()) {
+                    Claims claims = Jwts.parser()
+                            .verifyWith(publicKey)
+                            .build()
+                            .parseSignedClaims(token)
+                            .getPayload();
 
-                String sessionId = claims.get("sessionId", String.class);
-                if (sessionId != null) {
-                    AdminSessionData session = activeSessions.remove(sessionId);
-                    if (session != null) {
-                        log.info("Admin session logged out: {} ({})", session.discordUserId, sessionId);
+                    String sessionId = claims.get("sessionId", String.class);
+                    if (sessionId != null) {
+                        AdminSessionData session = activeSessions.remove(sessionId);
+                        if (session != null) {
+                            log.info("Admin session logged out: {} ({})", session.discordUserId, sessionId);
+                        }
                     }
                 }
             } catch (Exception ignored) {
