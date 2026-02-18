@@ -200,7 +200,8 @@ public class DPoPService implements DisposableBean {
 
             // Validate htu (HTTP URI)
             String htu = claims.get("htu", String.class);
-            if (!normalizeUri(httpUri).equals(normalizeUri(htu))) {
+            if (!isUriMatch(httpUri, htu)) {
+                log.warn("DPoP URI mismatch - backend sees: {}, proof has: {}", httpUri, htu);
                 return DPoPValidationResult.failure("HTTP URI mismatch");
             }
 
@@ -410,6 +411,62 @@ public class DPoPService implements DisposableBean {
             uri = uri.substring(0, uri.length() - 1);
         }
         return uri.toLowerCase();
+    }
+
+    /**
+     * Check if two URIs match, with support for reverse proxy scenarios.
+     * <p>
+     * In a reverse proxy setup, the backend might see a different host/scheme
+     * than what the client used. This method:
+     * 1. First tries exact match (after normalization)
+     * 2. If that fails, compares just the path component
+     * <p>
+     * This is a pragmatic tradeoff for deployments behind reverse proxies.
+     *
+     * @param backendUri the URI as seen by the backend
+     * @param proofUri the URI from the DPoP proof (client's view)
+     * @return true if URIs match
+     */
+    private boolean isUriMatch(String backendUri, String proofUri) {
+        String normalizedBackend = normalizeUri(backendUri);
+        String normalizedProof = normalizeUri(proofUri);
+
+        // Exact match
+        if (normalizedBackend.equals(normalizedProof)) {
+            return true;
+        }
+
+        // Path-only match for reverse proxy scenarios
+        String backendPath = extractPath(normalizedBackend);
+        String proofPath = extractPath(normalizedProof);
+
+        if (backendPath.equals(proofPath)) {
+            log.debug("DPoP URI matched by path only (reverse proxy): {} vs {}", backendUri, proofUri);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Extract path component from a URI.
+     */
+    private String extractPath(String uri) {
+        if (uri == null || uri.isEmpty()) return "";
+
+        // Remove scheme (http:// or https://)
+        int schemeEnd = uri.indexOf("://");
+        if (schemeEnd > 0) {
+            uri = uri.substring(schemeEnd + 3);
+        }
+
+        // Remove host and port
+        int pathStart = uri.indexOf('/');
+        if (pathStart > 0) {
+            return uri.substring(pathStart);
+        }
+
+        return "/";
     }
 
     /**
