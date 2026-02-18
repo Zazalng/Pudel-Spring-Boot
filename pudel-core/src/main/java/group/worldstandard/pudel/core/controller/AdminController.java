@@ -399,12 +399,19 @@ public class AdminController {
             ensureInitialOwner();
 
             // Step 1: Validate user is authenticated via Discord OAuth
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            // Accept both Bearer and DPoP tokens (DPoP is validated by the filter)
+            if (authHeader == null || (!authHeader.startsWith("Bearer ") && !authHeader.startsWith("DPoP "))) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(new ErrorResponse("Discord OAuth token required. Please login with Discord first."));
             }
 
-            String userToken = authHeader.substring(7);
+            // Extract token (works for both "Bearer {token}" and "DPoP {token}")
+            String userToken = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+            if (userToken == null || userToken.isBlank()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse("Invalid authorization header format"));
+            }
+
             String discordUserId;
             String discordUsername;
 
