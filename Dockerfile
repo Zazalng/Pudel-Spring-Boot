@@ -52,7 +52,7 @@ FROM eclipse-temurin:25-jre AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
-LABEL version="2.0.0"
+LABEL version="2.1.0"
 
 # Install required runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
