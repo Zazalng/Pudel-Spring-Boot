@@ -334,7 +334,8 @@ Are **NOT considered derivative works** of Pudel. This allows proprietary and co
 ## Status
 
 **Version**: 2.1.0 (Stable)
-**Note**: Any change or Bug fix from API is only thing that count for Semantic version update
+
+**Note**: Only changes or bug fixes originating from the API qualify for a semantic version update.
 
 The annotation-based plugin API is production-ready. Legacy `PudelPlugin` interface is deprecated and will be removed in 3.0.0.
 
