@@ -263,40 +263,9 @@ public class MyPlugin {
 }
 ```
 
-See [Plugin Development Guide](docs/vuedocs/plugin-development.md) for comprehensive documentation.
+See [Plugin Development Guide](https://worldstandard.group/wiki) for comprehensive documentation.
 
 ---
-
-## Docker Deployment
-
-### docker-compose.yml
-
-```yaml
-version: '3.8'
-services:
-  pudel:
-    build: .
-    environment:
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - POSTGRES_HOST=postgres
-    volumes:
-      - ./plugins:/app/plugins  # Hot-reload plugins
-      - ./keys:/app/keys
-    depends_on:
-      - postgres
-    
-  postgres:
-    image: pgvector/pgvector:pg18
-    environment:
-      POSTGRES_DB: pudel
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-
-volumes:
-  pgdata:
-```
 
 ### Plugin Hot-Reload in Docker
 
@@ -364,7 +333,8 @@ Are **NOT considered derivative works** of Pudel. This allows proprietary and co
 
 ## Status
 
-**Version**: 2.0.0 (Stable)
+**Version**: 2.1.0 (Stable)
+**Note**: Any change or Bug fix from API is only thing that count for Semantic version update
 
 The annotation-based plugin API is production-ready. Legacy `PudelPlugin` interface is deprecated and will be removed in 3.0.0.
 
