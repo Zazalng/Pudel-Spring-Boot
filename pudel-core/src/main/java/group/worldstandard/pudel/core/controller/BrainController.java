@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.brain.PudelBrain;
@@ -28,6 +29,7 @@ import java.util.Map;
 /**
  * REST controller for brain/memory statistics and analysis.
  */
+@Tag(name = "Brain", description = "Brain/memory statistics and text analysis")
 @RestController
 @RequestMapping("/api/brain")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})

@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ import java.util.Map;
 /**
  * Controller for managing guild-specific schema data (dialogue, memory, etc.).
  */
+@Tag(name = "Guild Data", description = "Guild-specific schema data management")
 @RestController
 @RequestMapping("/api/guilds/{guildId}/data")
 @CrossOrigin(origins = "*")

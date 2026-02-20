@@ -21,6 +21,7 @@ import group.worldstandard.pudel.core.repository.AdminWhitelistRepository;
 import group.worldstandard.pudel.core.service.PluginService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -78,6 +79,7 @@ import java.util.stream.Collectors;
  *   <li>New admin can now authenticate using their PRIVATE key</li>
  * </ul>
  */
+@Tag(name = "Admin", description = "Self-hosted admin operations with Mutual RSA Authentication")
 @RestController
 @RequestMapping("/api/admin")
 @CrossOrigin(origins = "*", maxAge = 3600)

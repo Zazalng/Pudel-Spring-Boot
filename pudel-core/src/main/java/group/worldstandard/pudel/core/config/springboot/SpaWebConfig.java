@@ -49,7 +49,9 @@ public class SpaWebConfig implements WebMvcConfigurer {
                         }
 
                         // For API routes, don't fallback to index.html
-                        if (resourcePath.startsWith("api/")) {
+                        if (resourcePath.startsWith("api/") ||
+                            resourcePath.startsWith("v3/") ||
+                            resourcePath.startsWith("swagger-ui")) {
                             return null;
                         }
 

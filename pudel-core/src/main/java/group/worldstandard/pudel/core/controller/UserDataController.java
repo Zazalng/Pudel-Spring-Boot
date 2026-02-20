@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,7 @@ import java.util.Map;
 /**
  * Controller for managing user-specific schema data (DM conversations, personal settings).
  */
+@Tag(name = "User Data", description = "User-specific data management (DM conversations, settings)")
 @RestController
 @RequestMapping("/api/user/data")
 @CrossOrigin(origins = "*")

@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
@@ -25,6 +26,7 @@ import java.util.Optional;
 /**
  * REST controller for plugin management.
  */
+@Tag(name = "Plugins", description = "Plugin listing, enabling, disabling, and unloading")
 @RestController
 @RequestMapping("/api/plugins")
 public class PluginController {

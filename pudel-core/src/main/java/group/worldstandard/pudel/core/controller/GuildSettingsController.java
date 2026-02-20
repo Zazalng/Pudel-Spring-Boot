@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ import group.worldstandard.pudel.core.service.GuildSettingsService;
 /**
  * REST controller for guild settings management.
  */
+@Tag(name = "Guild Settings", description = "Guild configuration and settings management")
 @RestController
 @RequestMapping("/api/guilds")
 @CrossOrigin(origins = "*", maxAge = 3600)

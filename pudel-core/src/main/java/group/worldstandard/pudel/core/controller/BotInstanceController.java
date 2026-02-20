@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.entity.GuildSettings;
@@ -23,6 +24,7 @@ import group.worldstandard.pudel.core.service.GuildInitializationService;
  * REST controller for bot instance management.
  * Uses GuildSettings for all configuration operations.
  */
+@Tag(name = "Bot Instances", description = "Bot instance and guild configuration")
 @RestController
 @RequestMapping("/api/instances")
 public class BotInstanceController {

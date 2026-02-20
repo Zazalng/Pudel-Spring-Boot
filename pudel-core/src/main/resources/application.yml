@@ -26,6 +26,23 @@ server:
     context-path: /
 
 # ===========================================
+# SpringDoc OpenAPI / Swagger UI
+# ===========================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:true}
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: none
+    filter: true
+  show-actuator: false
+  default-produces-media-type: application/json
+
+# ===========================================
 # Main Config
 # Without field subscription, chatbot, memory & ollama
 # Default .yml fallback will be used

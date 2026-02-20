@@ -587,6 +587,10 @@ public class PluginWatcherService {
                 jarHashes.put(pluginName, newHash);
                 jarToPlugin.put(newJarFile.getName(), pluginName);
                 pendingUpdates.remove(pluginName);
+
+                // Update metadata in the database with new version info
+                pluginService.registerPluginMetadata(pluginInfo, newJarFile.getName());
+
                 logger.info("Plugin '{}' updated successfully", pluginName);
             }
 
@@ -647,6 +651,9 @@ public class PluginWatcherService {
 
                 // Remove from failed list if it was there
                 failedJars.remove(jarFile.getName());
+
+                // Register metadata in the database so the plugin appears in API responses
+                pluginService.registerPluginMetadata(pluginInfo, jarFile.getName());
 
                 logger.info("New plugin discovered: {} v{}", pluginName, pluginInfo.getVersion());
             } else {

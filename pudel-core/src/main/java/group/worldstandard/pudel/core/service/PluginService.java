@@ -181,8 +181,14 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
 
     /**
      * Register plugin metadata in the database.
+     * <p>
+     * This is used during initial discovery and by the file watcher
+     * when new plugins are discovered at runtime.
+     *
+     * @param info        the plugin info
+     * @param jarFileName the JAR file name (not the temp copy)
      */
-    private void registerPluginMetadata(PluginInfo info, String jarFileName) {
+    public void registerPluginMetadata(PluginInfo info, String jarFileName) {
         String pluginName = info.getName();
 
         Optional<PluginMetadata> existing = pluginMetadataRepository.findByPluginName(pluginName);
