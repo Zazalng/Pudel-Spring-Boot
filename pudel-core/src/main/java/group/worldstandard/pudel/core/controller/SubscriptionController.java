@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.service.SubscriptionService;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 /**
  * Controller for subscription and usage endpoints.
  */
+@Tag(name = "Subscriptions", description = "Subscription tiers and usage management")
 @RestController
 @RequestMapping("/api/subscription")
 @CrossOrigin(origins = "*")

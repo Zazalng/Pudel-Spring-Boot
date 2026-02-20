@@ -62,12 +62,14 @@
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>${tool.jackson.version}</version>
         </dependency>
 
         <!-- SLF4J for logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+            <version>${log.version}</version>
         </dependency>
 
         <!-- LangChain4j for unified AI/LLM integration -->

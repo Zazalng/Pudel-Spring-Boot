@@ -74,7 +74,11 @@ public class SecurityConfiguration {
                                 "/api/plugins/*",
                                 // Admin public endpoints (for challenge/key fetching)
                                 "/api/admin/challenge",
-                                "/api/admin/public-key"
+                                "/api/admin/public-key",
+                                // OpenAPI / Swagger UI (docs are public, admin panel gates access)
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
                         ).permitAll()
 
                         // Admin check - requires Discord OAuth token

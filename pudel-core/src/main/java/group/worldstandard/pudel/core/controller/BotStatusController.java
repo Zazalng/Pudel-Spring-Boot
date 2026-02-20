@@ -16,6 +16,7 @@ package group.worldstandard.pudel.core.controller;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,7 @@ import java.util.Map;
 /**
  * REST controller for bot status and statistics endpoints.
  */
+@Tag(name = "Bot Status", description = "Bot health, version, and statistics")
 @RestController
 @RequestMapping("/api/bot")
 @CrossOrigin(origins = "*", maxAge = 3600)

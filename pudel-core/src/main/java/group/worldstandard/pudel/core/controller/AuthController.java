@@ -15,6 +15,8 @@
 package group.worldstandard.pudel.core.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,6 +39,7 @@ import group.worldstandard.pudel.core.service.AuthService;
  *   <li>Use the "DPoP" authorization scheme instead of "Bearer" for protected resources</li>
  * </ol>
  */
+@Tag(name = "Authentication", description = "Discord OAuth2 authentication and DPoP token management")
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -58,6 +61,7 @@ public class AuthController {
      * For DPoP-bound tokens, include a DPoP proof in the "DPoP" header.
      * The response will indicate the token_type as "DPoP" or "Bearer".
      */
+    @Operation(summary = "Discord OAuth2 callback", description = "Exchange Discord authorization code for a JWT token. Include DPoP header for proof-of-possession binding.")
     @PostMapping("/discord/callback")
     public ResponseEntity<?> discordCallback(@RequestBody OAuthCallbackRequest request,
                                              @RequestHeader(value = DPOP_HEADER, required = false) String dpopProof,
