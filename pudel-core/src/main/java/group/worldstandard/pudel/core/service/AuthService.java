@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -31,7 +31,6 @@ import group.worldstandard.pudel.core.repository.GuildRepository;
 import group.worldstandard.pudel.core.repository.GuildSettingsRepository;
 import group.worldstandard.pudel.core.repository.UserRepository;
 import group.worldstandard.pudel.core.repository.UserGuildRepository;
-import group.worldstandard.pudel.core.security.DPoPService;
 
 import java.time.LocalDateTime;
 import java.util.*;

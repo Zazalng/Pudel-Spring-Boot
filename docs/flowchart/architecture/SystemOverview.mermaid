@@ -1,9 +1,11 @@
-%% Pudel System Overview v2.0.0
+%% Pudel System Overview vWorld Standard.group
+%% Two-Tier Plugin Control + Components V2
 
 flowchart TB
     subgraph Users["👥 Users"]
         DISCORD_USER["Discord User"]
-        ADMIN["Server Admin"]
+        GUILD_ADMIN["Guild Admin"]
+        BOT_ADMIN["Bot Admin"]
         DEVELOPER["Plugin Developer"]
     end
 
@@ -11,29 +13,41 @@ flowchart TB
         DG["Discord Gateway"]
         SLASH["Slash Commands"]
         TEXT["Text Commands"]
-        INTERACT["Buttons/Modals/Selects"]
+        CV2["Components V2<br/>Buttons / Modals /<br/>EntitySelectMenu"]
     end
 
-    subgraph Pudel["🐩 Pudel v2.0.0"]
+    subgraph Pudel["🐩 Pudel vWorld Standard.group"]
         subgraph Core["pudel-core"]
             JDA["JDA 6<br/>(Discord API)"]
             SPRING["Spring Boot 4"]
 
-            subgraph PluginSys["Annotation-Based Plugin System"]
+            subgraph PluginSys["Plugin System"]
                 LOADER["PluginClassLoader"]
                 PROCESSOR["AnnotationProcessor"]
-                SERVICE["PluginService"]
+                PLUGIN_SVC["PluginService<br/>(global lifecycle)"]
+                WATCHER["PluginWatcherService<br/>(hot-reload)"]
             end
 
             subgraph Commands["Command System"]
-                BUILTIN["BuiltinCommands<br/>@Plugin"]
-                INTERACT_MGR["InteractionManager"]
+                BUILTIN["BuiltinCommands<br/>Components V2 Panel<br/>/settings /ping /help"]
+                INTERACT_MGR["InteractionManagerImpl<br/>Two-tier sync:<br/>core→global, plugin→guild"]
                 CMD_REG["CommandRegistry"]
+            end
+
+            subgraph REST["REST API Controllers"]
+                ADMIN_CTRL["AdminController<br/>(global plugin mgmt)"]
+                GUILD_CTRL["GuildSettingsController<br/>(guild plugin toggle)"]
+                AUTH_CTRL["AuthController"]
             end
 
             subgraph Brain["AI Brain"]
                 BRAIN["PudelBrain"]
                 MEMORY["MemoryManager"]
+            end
+
+            subgraph GuildData["Guild Settings"]
+                GUILD_SETTINGS["GuildSettings<br/>disabled_plugins CSV<br/>disabled_commands CSV"]
+                GUILD_SVC["GuildSettingsService"]
             end
         end
 
@@ -44,41 +58,56 @@ flowchart TB
         end
 
         subgraph API["pudel-api (MIT)"]
-            ANNOTATIONS["@Plugin<br/>@SlashCommand<br/>@TextCommand<br/>@OnEnable<br/>@OnShutdown"]
+            ANNOTATIONS["@Plugin @SlashCommand<br/>@ButtonHandler @ModalHandler<br/>@TextCommand @OnEnable<br/>@OnShutdown"]
         end
 
         subgraph Plugins["External Plugins"]
-            PLUGIN1["Music Plugin<br/>@Plugin"]
-            PLUGIN2["Moderation Plugin<br/>@Plugin"]
-            PLUGIN3["Custom Plugin<br/>@Plugin"]
+            PLUGIN1["🎵 Music Plugin"]
+            PLUGIN2["🛡️ Moderation Plugin"]
+            PLUGIN3["🔧 Custom Plugin"]
         end
     end
 
     subgraph Infrastructure["🏗️ Infrastructure"]
         DB[(PostgreSQL<br/>+ pgvector)]
         LLM["Ollama<br/>(Local LLM)"]
+        VUE["Vue Dashboard"]
     end
 
     %% User flows
     DISCORD_USER --> DG
-    ADMIN --> DG
+    GUILD_ADMIN --> DG
+    GUILD_ADMIN --> VUE
+    BOT_ADMIN --> VUE
     DEVELOPER -->|"Create JAR"| Plugins
 
     %% Discord to Pudel
     DG --> JDA
     SLASH --> INTERACT_MGR
     TEXT --> CMD_REG
-    INTERACT --> INTERACT_MGR
+    CV2 --> INTERACT_MGR
 
     %% Plugin system
     LOADER --> PROCESSOR
-    PROCESSOR --> SERVICE
+    PROCESSOR --> PLUGIN_SVC
+    WATCHER --> LOADER
     Plugins --> LOADER
     ANNOTATIONS --> Plugins
 
     %% Commands
     BUILTIN --> INTERACT_MGR
-    SERVICE --> Commands
+    PLUGIN_SVC --> Commands
+
+    %% Two-tier control
+    ADMIN_CTRL --> PLUGIN_SVC
+    GUILD_CTRL --> GUILD_SVC
+    GUILD_SVC --> GUILD_SETTINGS
+    GUILD_SETTINGS --> INTERACT_MGR
+    BUILTIN --> GUILD_SVC
+
+    %% REST API
+    VUE --> REST
+    REST --> DB
 
     %% AI flow
     Brain --> Model
@@ -94,10 +123,10 @@ flowchart TB
     classDef plugin fill:#f57c00,stroke:#e65100,color:#fff
     classDef infra fill:#455a64,stroke:#263238,color:#fff
 
-    class DISCORD_USER,ADMIN,DEVELOPER user
-    class DG,SLASH,TEXT,INTERACT discord
-    class JDA,SPRING,LOADER,PROCESSOR,SERVICE,BUILTIN,INTERACT_MGR,CMD_REG,BRAIN,MEMORY core
+    class DISCORD_USER,GUILD_ADMIN,BOT_ADMIN,DEVELOPER user
+    class DG,SLASH,TEXT,CV2 discord
+    class JDA,SPRING,LOADER,PROCESSOR,PLUGIN_SVC,WATCHER,BUILTIN,INTERACT_MGR,CMD_REG,ADMIN_CTRL,GUILD_CTRL,AUTH_CTRL,BRAIN,MEMORY,GUILD_SETTINGS,GUILD_SVC core
     class OLLAMA_CLIENT,ANALYZER,AGENT model
     class ANNOTATIONS api
     class PLUGIN1,PLUGIN2,PLUGIN3 plugin
-    class DB,LLM infra
+    class DB,LLM,VUE infra

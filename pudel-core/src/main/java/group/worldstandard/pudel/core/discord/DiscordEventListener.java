@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -26,12 +26,14 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
 import group.worldstandard.pudel.core.command.CommandContextImpl;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.event.PluginEventManager;
 import group.worldstandard.pudel.core.service.ChatbotService;
 import group.worldstandard.pudel.core.service.CommandExecutionService;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
+import group.worldstandard.pudel.core.service.GuildSettingsService;
 
 /**
  * Listens to Discord events and dispatches commands.
@@ -47,18 +49,24 @@ public class DiscordEventListener extends ListenerAdapter {
     private final CommandExecutionService commandExecutionService;
     private final PluginEventManager pluginEventManager;
     private final ChatbotService chatbotService;
+    private final CommandMetadataRegistry commandMetadataRegistry;
+    private final GuildSettingsService guildSettingsService;
     private static final String DEFAULT_PREFIX = "!";
 
     public DiscordEventListener(CommandRegistry commandRegistry,
                                GuildInitializationService guildInitializationService,
                                @Lazy CommandExecutionService commandExecutionService,
                                PluginEventManager pluginEventManager,
-                               @Lazy ChatbotService chatbotService) {
+                               @Lazy ChatbotService chatbotService,
+                               CommandMetadataRegistry commandMetadataRegistry,
+                               GuildSettingsService guildSettingsService) {
         this.commandRegistry = commandRegistry;
         this.guildInitializationService = guildInitializationService;
         this.commandExecutionService = commandExecutionService;
         this.pluginEventManager = pluginEventManager;
         this.chatbotService = chatbotService;
+        this.commandMetadataRegistry = commandMetadataRegistry;
+        this.guildSettingsService = guildSettingsService;
     }
 
     /**
@@ -211,6 +219,16 @@ public class DiscordEventListener extends ListenerAdapter {
             if (isCommandDisabled(command, guildSettings)) {
                 event.getChannel().sendMessage("❌ The command `" + command + "` is disabled on this server.").queue();
                 return;
+            }
+
+            // Check if the command's plugin is disabled for this guild
+            var textMeta = commandMetadataRegistry.getTextCommandMetadata(command);
+            if (textMeta.isPresent() && !"core".equals(textMeta.get().pluginId())) {
+                String pluginId = textMeta.get().pluginId();
+                if (!guildSettingsService.isPluginEnabledForGuild(event.getGuild().getId(), pluginId)) {
+                    event.getChannel().sendMessage("❌ The plugin providing this command is disabled on this server.").queue();
+                    return;
+                }
             }
         }
 

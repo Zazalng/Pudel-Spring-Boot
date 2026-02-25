@@ -94,7 +94,7 @@ services:
     environment:
       # Database
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASS: ${POSTGRES_PASS:-pudelpassword}
       POSTGRES_DB: ${POSTGRES_DB:-pudel}
@@ -130,6 +130,11 @@ services:
       # JVM (note: value must be quoted in .env file if it contains spaces)
       JAVA_OPTS: "${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}"
 
+      # Branding Configuration
+      PUDEL_BRANDING_NAME: ${PUDEL_BRANDING_NAME:-Pudel}
+      PUDEL_BRANDING_CODENAME: ${PUDEL_BRANDING_CODENAME:-Canis Lupus Familiaris}
+      PUDEL_BRANDING_VERSION: ${PUDEL_BRANDING_VERSION:-1.0.0}
+
       # Plugin Configuration
       PUDEL_PLUGIN_DIRECTORY: /app/plugins
       PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY: ${PLUGIN_AUTO_DISCOVERY:-true}
@@ -151,7 +156,7 @@ services:
       - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
     networks:
       - pudel-network
 

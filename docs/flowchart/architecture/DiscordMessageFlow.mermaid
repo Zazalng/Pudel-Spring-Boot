@@ -1,4 +1,4 @@
-%% Pudel Discord Message Flow v2.0.0
+%% Pudel Discord Message Flow vWorld Standard.group
 
 sequenceDiagram
     participant User as Discord User
@@ -9,15 +9,16 @@ sequenceDiagram
     participant Prefix as Text Command
     participant AI as AI Chat
     participant Brain as PudelBrain
+    participant Passive as PassiveContextProcessor
 
-    Note over User,Brain: Message Routing Flow
+    Note over User,Passive: Message Routing Flow
 
     User->>Discord: Send message
     Discord->>JDA: MessageReceivedEvent
     JDA->>Listener: onMessageReceived()
 
     Listener->>Listener: Check if bot message
-    Listener->>Listener: Check if ignored channel
+    Listener->>Listener: Check if ignored channel<br/>(guild_settings.ignored_channels)
 
     Listener->>Router: Route message
 
@@ -26,6 +27,7 @@ sequenceDiagram
         Prefix->>Prefix: Parse command & args
         Prefix->>Prefix: Check permissions
         Prefix->>Prefix: Check cooldown
+        Prefix->>Prefix: Check disabled_commands
 
         alt Built-in Command
             Prefix->>Prefix: Execute @TextCommand handler
@@ -37,13 +39,13 @@ sequenceDiagram
 
     else Mention or AI Trigger
         Router->>AI: ChatbotService
-        AI->>AI: Check AI enabled
+        AI->>AI: Check AI enabled<br/>(guild_settings.ai_enabled)
 
         alt AI Enabled
             AI->>Brain: PudelBrain.process()
             Brain->>Brain: Analyze intent
-            Brain->>Brain: Retrieve memory
-            Brain->>Brain: Apply personality
+            Brain->>Brain: Retrieve memory<br/>(pgvector semantic search)
+            Brain->>Brain: Apply personality<br/>(biography, personality, quirks)
             Brain->>Brain: Generate response (Ollama)
             Brain-->>AI: Response text
             AI->>Discord: Send AI response
@@ -52,9 +54,10 @@ sequenceDiagram
         end
 
     else Regular Message
-        Router->>AI: PassiveContextProcessor
-        AI->>AI: Store context (async)
-        Note over AI: No direct response
+        Router->>Passive: PassiveContextProcessor
+        Passive->>Passive: Queue message (async)
+        Passive->>Passive: Batch embed + store<br/>(guild_{id}.memory_embeddings)
+        Note over Passive: No direct response
     end
 
     Discord->>User: Display response

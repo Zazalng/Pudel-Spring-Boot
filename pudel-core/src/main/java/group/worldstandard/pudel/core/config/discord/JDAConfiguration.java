@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -54,7 +54,8 @@ public class JDAConfiguration {
     private boolean audioEnabled;
 
     @Bean
-    public JDA jda(DiscordBotProperties properties, DiscordEventListener eventListener,
+    public JDA jda(DiscordBotProperties properties,
+                   DiscordEventListener eventListener,
                    ReactionNavigationListener reactionNavigationListener,
                    AICommandHandler aiCommandHandler,
                    SettingsCommandHandler settingsCommandHandler,
@@ -133,7 +134,6 @@ public class JDAConfiguration {
 
             logger.info("DAVE configured successfully with JDAVE - voice encryption enabled");
             logger.info("Voice connections are ready for Discord's E2EE requirement (March 1st, 2026)");
-
         } catch (UnsatisfiedLinkError e) {
             logger.error("JDAVE native library not found for this platform: {}", e.getMessage());
             logger.error("Voice connections will fail after March 1st, 2026!");

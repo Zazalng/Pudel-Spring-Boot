@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -14,7 +14,7 @@
  */
 package group.worldstandard.pudel.core.config.springboot;
 
-import group.worldstandard.pudel.core.security.DPoPService;
+import group.worldstandard.pudel.core.service.DPoPService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -158,6 +158,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith("/api/auth/discord/")
                 || path.startsWith("/api/bot/")
                 || (path.equals("/api/plugins") && "GET".equals(request.getMethod()))
+                || (path.equals("/api/plugins/installed") && "GET".equals(request.getMethod()))
+                || (path.matches("/api/plugins/installed/[^/]+") && "GET".equals(request.getMethod()))
+                || (path.equals("/api/plugins/enabled") && "GET".equals(request.getMethod()))
                 || (path.matches("/api/plugins/[^/]+") && "GET".equals(request.getMethod()));
     }
 }

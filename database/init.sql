@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     system_prompt_prefix TEXT,
     ignored_channels TEXT,
     disabled_commands TEXT,
+    disabled_plugins TEXT,
 
     -- Schema management
     schema_created BOOLEAN DEFAULT FALSE,
@@ -118,6 +119,7 @@ COMMENT ON COLUMN guild_settings.emote_usage IS 'Emoji usage level: none, minima
 COMMENT ON COLUMN guild_settings.quirks IS 'Custom speech patterns/catchphrases for natural responses';
 COMMENT ON COLUMN guild_settings.topics_interest IS 'Topics Pudel should be more engaged about';
 COMMENT ON COLUMN guild_settings.topics_avoid IS 'Topics Pudel should politely redirect away from';
+COMMENT ON COLUMN guild_settings.disabled_plugins IS 'Comma-separated list of plugin names disabled for this guild';
 COMMENT ON COLUMN guild_settings.ai_enabled IS 'Whether AI/chatbot features are enabled for this guild';
 COMMENT ON COLUMN guild_settings.system_prompt_prefix IS 'Custom system prompt prefix for LLM customization per guild';
 COMMENT ON COLUMN guild_settings.ignored_channels IS 'Comma-separated list of channel IDs to completely ignore';

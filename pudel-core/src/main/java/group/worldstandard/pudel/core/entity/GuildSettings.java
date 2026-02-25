@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -16,6 +16,10 @@ package group.worldstandard.pudel.core.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents guild settings for Pudel bot configuration.
@@ -86,6 +90,9 @@ public class GuildSettings {
 
     @Column(name = "disabled_commands", columnDefinition = "TEXT")
     private String disabledCommands;
+
+    @Column(name = "disabled_plugins", columnDefinition = "TEXT")
+    private String disabledPlugins;
 
     @Column(name = "ai_enabled")
     private Boolean aiEnabled = true;
@@ -279,6 +286,35 @@ public class GuildSettings {
 
     public void setDisabledCommands(String disabledCommands) {
         this.disabledCommands = disabledCommands;
+    }
+
+    public String getDisabledPlugins() {
+        return disabledPlugins;
+    }
+
+    public void setDisabledPlugins(String disabledPlugins) {
+        this.disabledPlugins = disabledPlugins;
+    }
+
+    /**
+     * Get disabled plugins as a list.
+     * The field stores comma-separated plugin names.
+     */
+    public List<String> getDisabledPluginsList() {
+        if (disabledPlugins == null || disabledPlugins.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(disabledPlugins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Check if a specific plugin is disabled for this guild.
+     */
+    public boolean isPluginDisabled(String pluginName) {
+        return getDisabledPluginsList().contains(pluginName);
     }
 
     public Boolean getAiEnabled() {

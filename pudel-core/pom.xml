@@ -6,7 +6,7 @@
     <parent>
         <groupId>group.worldstandard</groupId>
         <artifactId>pudel</artifactId>
-        <version>2.1.0</version>
+        <version>2.1.1</version>
     </parent>
 
     <artifactId>pudel-core</artifactId>
@@ -15,6 +15,7 @@
         <license>
             <name>GNU Affero General Public License v3</name>
             <url>https://raw.githubusercontent.com/World-Standard-Group/Pudel-Spring-Boot/refs/heads/main/LICENSE</url>
+            <comments>This AGPLv3 contains Additional Terms from sector 7 as "PUDEL PLUGIN EXCEPTION"</comments>
         </license>
         <license>
             <name>PUDEL PLUGIN EXCEPTION</name>
@@ -26,16 +27,19 @@
         <developer>
             <id>zazalng</id>
             <name>Napapon Kamanee</name>
-            <email>kenghide@hotmail.com</email>
+            <email>zazalng.founder@worldstandard.group</email>
+            <roles>
+                <role>Founder</role>
+            </roles>
             <organization>World Standard Group</organization>
+            <organizationUrl>https://github.com/World-Standard-Group</organizationUrl>
         </developer>
     </developers>
 
-    <scm>
-        <connection>scm:git:https://github.com/World-Standard-Group/Pudel-Spring-Boot.git</connection>
-        <developerConnection>scm:git:git@github.com:World-Standard-Group/Pudel-Spring-Boot.git</developerConnection>
-        <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot.git</url>
-    </scm>
+    <issueManagement>
+        <system>Github</system>
+        <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot/issues</url>
+    </issueManagement>
 
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
@@ -62,6 +66,45 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-logging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- Swagger Ui -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+        <!-- Encryption for sensitive data -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+            <version>7.1.0-M2</version>
+        </dependency>
+
+        <!-- JWT Authentication -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jwt.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Discord API -->
@@ -112,13 +155,6 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- Encryption for sensitive data -->
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
-            <version>7.1.0-M1</version>
-        </dependency>
-
         <!-- PostgreSQL Driver for persistence -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -133,48 +169,11 @@
             <version>3.20.0</version>
         </dependency>
 
-        <!-- Logging -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-logging</artifactId>
-        </dependency>
-
-        <!-- JWT Authentication -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jwt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- JSON Processing -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.13.2</version>
-        </dependency>
-
-        <!-- Spring Security -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.1</version>
         </dependency>
     </dependencies>
 

@@ -6,12 +6,12 @@
     <parent>
         <groupId>group.worldstandard</groupId>
         <artifactId>pudel</artifactId>
-        <version>2.1.0</version>
+        <version>2.1.1</version>
     </parent>
 
     <artifactId>pudel-api</artifactId>
     <name>Pudel Plugin API (PDK)</name>
-    <description>Plugin Development Kit for Pudel - Licensed under MIT to allow proprietary plugins</description>
+    <description>Plugin Development Kit for Pudel Discord Bot instance</description>
     <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot</url>
 
     <licenses>
@@ -27,11 +27,19 @@
         <developer>
             <id>zazalng</id>
             <name>Napapon Kamanee</name>
-            <email>kenghide@hotmail.com</email>
+            <email>zazalng.founder@worldstandard.group</email>
+            <roles>
+                <role>Founder</role>
+            </roles>
             <organization>World Standard Group</organization>
             <organizationUrl>https://github.com/World-Standard-Group</organizationUrl>
         </developer>
     </developers>
+
+    <issueManagement>
+        <system>Github</system>
+        <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot/issues</url>
+    </issueManagement>
 
     <scm>
         <connection>scm:git:https://github.com/World-Standard-Group/Pudel-Spring-Boot.git</connection>
@@ -56,33 +64,6 @@
 
     <build>
         <plugins>
-            <!-- Flatten POM for Maven Central - removes parent reference -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.7.3</version>
-                <configuration>
-                    <updatePomFile>true</updatePomFile>
-                    <flattenMode>ossrh</flattenMode>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>flatten</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>flatten</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>flatten.clean</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
             <!-- Attach sources -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -95,7 +76,6 @@
                     </execution>
                 </executions>
             </plugin>
-
             <!-- Javadoc (Central requirement) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -123,21 +103,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Sonatype OSS Index: Dependency Vulnerability Audit -->
-            <plugin>
-                <groupId>org.sonatype.ossindex.maven</groupId>
-                <artifactId>ossindex-maven-plugin</artifactId>
-                <version>3.2.0</version>
-                <executions>
-                    <execution>
-                        <id>audit-dependencies</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>audit</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
 
@@ -146,6 +111,32 @@
             <id>central</id>
             <build>
                 <plugins>
+                    <!-- Flatten POM for Maven Central - removes parent reference -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>flatten-maven-plugin</artifactId>
+                        <version>1.7.3</version>
+                        <configuration>
+                            <updatePomFile>true</updatePomFile>
+                            <flattenMode>ossrh</flattenMode>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>flatten</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>flatten</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>flatten.clean</id>
+                                <phase>clean</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
@@ -160,7 +151,6 @@
                             </execution>
                         </executions>
                     </plugin>
-
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
@@ -170,6 +160,21 @@
                             <deploymentName>${project.artifactId}:${project.version}</deploymentName>
                             <publishingServerId>central</publishingServerId>
                         </configuration>
+                    </plugin>
+                    <!-- Sonatype OSS Index: Dependency Vulnerability Audit -->
+                    <plugin>
+                        <groupId>org.sonatype.ossindex.maven</groupId>
+                        <artifactId>ossindex-maven-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <execution>
+                                <id>audit-dependencies</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>audit</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

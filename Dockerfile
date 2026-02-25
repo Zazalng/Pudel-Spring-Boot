@@ -4,55 +4,37 @@
 # Base: Ubuntu Linux with Eclipse Temurin JDK 25
 # ===========================================
 
-# Stage 1: Build Stage
-FROM ubuntu:24.04 AS builder
-
-# Install required packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    git \
-    ca-certificates \
-    gnupg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Eclipse Temurin JDK 25
+ARG JDK_VENDOR=eclipse-temurin
 ARG JDK_VERSION=25
-RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /etc/apt/trusted.gpg.d/adoptium.gpg \
-    && echo "deb https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" > /etc/apt/sources.list.d/adoptium.list \
-    && apt-get update \
-    && apt-get install -y temurin-${JDK_VERSION}-jdk \
-    && rm -rf /var/lib/apt/lists/*
+ARG BUILDER_VENDOR=maven
+ARG BUILDER_VERSION=3.9.12
 
-# Install Maven
-ARG MAVEN_VERSION=3.9.12
-RUN wget -qO- https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-    | tar xzf - -C /opt \
-    && ln -s /opt/apache-maven-${MAVEN_VERSION} /opt/maven
+ARG GIT_REPO=https://github.com/World-Standard-Group/Pudel-Spring-Boot.git
+ARG GIT_BRANCH=main
 
-ENV MAVEN_HOME=/opt/maven
-ENV PATH="${MAVEN_HOME}/bin:${PATH}"
+ARG PUDEL_CORE=pudel-core
+
+# Stage 1: Build Stage
+FROM ${BUILDER_VENDOR}:${BUILDER_VERSION}-${JDK_VENDOR}-${JDK_VERSION} AS builder
 
 # Set working directory
 WORKDIR /app
 
 # Clone the repository (or use local copy if mounted)
-ARG GIT_REPO=https://github.com/World-Standard-Group/Pudel-Spring-Boot.git
-ARG GIT_BRANCH=main
-
 RUN git clone --depth 1 --branch ${GIT_BRANCH} ${GIT_REPO} . || true
 
 # Copy local source if exists (will override cloned files)
 COPY . .
 
 # Build the project
-RUN mvn clean package -DskipTests -pl pudel-core -am
+RUN mvn clean package -DskipTests -pl ${PUDEL_CORE} -am
 
 # Stage 2: Runtime Stage
-FROM eclipse-temurin:25-jre AS runtime
+FROM ${JDK_VENDOR}:${JDK_VERSION}-jre AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
-LABEL version="2.1.0"
+LABEL version="2.1.1"
 
 # Install required runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -71,7 +53,7 @@ RUN groupadd -r pudel && useradd -r -g pudel pudel
 WORKDIR /app
 
 # Copy the built JAR from builder stage
-COPY --from=builder /app/pudel-core/target/*.jar app.jar
+COPY --from=builder /app/${PUDEL_CORE}/target/*.jar app.jar
 
 # Create directories for plugins, data, logs, and keys
 # Keys directory will be mounted at runtime for RSA private/public keys
@@ -105,6 +87,11 @@ ENV DISCORD_BOT_TOKEN=
 ENV DISCORD_CLIENT_ID=
 ENV DISCORD_CLIENT_SECRET=
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
+
+# Pudel Configuration
+ENV PUDEL_BRANDING_NAME=
+ENV PUDEL_BRANDING_CODENAME=
+ENV PUDEL_BRANDING_VERSION=
 ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)
@@ -130,12 +117,12 @@ ENV SERVER_PORT=8080
 # JVM Options
 ENV JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication"
 
-# Expose the application port
-EXPOSE 8080
+# Expose the application port (Must match .env instead of using Variable)
+EXPOSE ${SERVER_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${SERVER_PORT}/actuator/health || exit 1
+    CMD curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1
 
 # Start the application via entrypoint script (handles permissions)
 ENTRYPOINT ["/docker-entrypoint.sh"]

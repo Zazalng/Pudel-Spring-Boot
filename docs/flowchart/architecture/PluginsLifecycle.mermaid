@@ -1,5 +1,5 @@
-%% Pudel Plugin Lifecycle v2.0.0
-%% Annotation-Based Plugin System
+%% Pudel Plugin Lifecycle vWorld Standard.group
+%% Annotation-Based Plugin System with Two-Tier Control
 
 flowchart TD
     subgraph Discovery["🔍 Plugin Discovery"]
@@ -20,14 +20,21 @@ flowchart TD
         SCAN_TEXT["Scan @TextCommand"]
         SCAN_INTERACT["Scan @ButtonHandler<br/>@ModalHandler<br/>@SelectMenuHandler"]
         ON_ENABLE["Call @OnEnable methods"]
-        SYNC["Auto syncCommands()<br/>to Discord"]
+        SYNC["syncCommands()<br/>core→global<br/>plugins→per-guild"]
         ENABLED[["🟢 ENABLED"]]
     end
 
-    subgraph Disabling["⏹️ Disable Phase"]
+    subgraph GuildControl["🏠 Guild-Level Control"]
+        GUILD_TOGGLE{"Guild admin<br/>toggles plugin?"}
+        GUILD_ENABLE["Remove from<br/>disabled_plugins CSV"]
+        GUILD_DISABLE["Add to<br/>disabled_plugins CSV"]
+        GUILD_SYNC["syncGuildCommands()<br/>slash commands appear/disappear<br/>for that guild only"]
+    end
+
+    subgraph Disabling["⏹️ Disable Phase (Global)"]
         ON_DISABLE["Call @OnDisable methods"]
         UNREGISTER["Unregister all handlers"]
-        SYNC_REMOVE["Auto syncCommands()<br/>to remove from Discord"]
+        SYNC_REMOVE["syncCommands()<br/>remove from all guilds"]
         DISABLED[["🟡 DISABLED"]]
     end
 
@@ -58,7 +65,15 @@ flowchart TD
     ON_ENABLE --> SYNC
     SYNC --> ENABLED
 
-    %% Disable flow
+    %% Guild control (while globally enabled)
+    ENABLED --> GUILD_TOGGLE
+    GUILD_TOGGLE -->|"enable"| GUILD_ENABLE
+    GUILD_TOGGLE -->|"disable"| GUILD_DISABLE
+    GUILD_ENABLE --> GUILD_SYNC
+    GUILD_DISABLE --> GUILD_SYNC
+    GUILD_SYNC --> ENABLED
+
+    %% Disable flow (global)
     ENABLED -->|"disablePlugin()"| ON_DISABLE
     ON_DISABLE --> UNREGISTER
     UNREGISTER --> SYNC_REMOVE
@@ -78,8 +93,10 @@ flowchart TD
     classDef state fill:#2d5a3d,stroke:#4CAF50,color:#fff
     classDef action fill:#3d3d5a,stroke:#9c27b0,color:#fff
     classDef decision fill:#5a3d3d,stroke:#f44336,color:#fff
+    classDef guild fill:#5a4d3d,stroke:#ff9800,color:#fff
 
     class JAR,MANIFEST,CLASSLOADER,INSTANTIATE,EXTRACT phase
     class LOADED,ENABLED,DISABLED,UNLOADED state
     class PROCESSOR,SCAN_SLASH,SCAN_TEXT,SCAN_INTERACT,ON_ENABLE,ON_DISABLE,SYNC,SYNC_REMOVE,UNREGISTER,SHUTDOWN,GRACEFUL,FORCE,CLOSE action
-    class CHECK_RETURN decision
+    class CHECK_RETURN,GUILD_TOGGLE decision
+    class GUILD_ENABLE,GUILD_DISABLE,GUILD_SYNC guild

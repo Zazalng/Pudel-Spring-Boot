@@ -1,4 +1,4 @@
-%% Pudel Plugin Hot-Reload v2.0.0
+%% Pudel Plugin Hot-Reload vWorld Standard.group
 
 flowchart TD
     subgraph FileSystem["📁 File System"]
@@ -8,7 +8,7 @@ flowchart TD
         JAR_DELETE["removed-plugin.jar<br/>(deleted)"]
     end
 
-    subgraph Watcher["👁️ PluginClassLoader.startWatcher()"]
+    subgraph Watcher["👁️ PluginWatcherService"]
         WATCH["WatchService"]
         POLL["poll() every 1 second"]
     end
@@ -33,10 +33,9 @@ flowchart TD
         UNLOAD["unloadPlugin()<br/>• Call @OnShutdown<br/>• Unregister handlers<br/>• Close ClassLoader"]
     end
 
-    subgraph Sync["🔄 Discord Sync"]
-        SYNC_ADD["syncCommands()<br/>(add new)"]
-        SYNC_UPDATE["syncCommands()<br/>(update)"]
-        SYNC_REMOVE["syncCommands()<br/>(remove)"]
+    subgraph Sync["🔄 Discord Sync (Two-Tier)"]
+        SYNC_GLOBAL["syncCommands()<br/>core→global"]
+        SYNC_GUILDS["syncCommands()<br/>plugins→per-guild<br/>(respects disabled_plugins)"]
     end
 
     %% File system connections
@@ -60,9 +59,12 @@ flowchart TD
     ON_REM --> UNLOAD
 
     %% Actions to sync
-    LOAD --> SYNC_ADD
-    RELOAD --> SYNC_UPDATE
-    UNLOAD --> SYNC_REMOVE
+    LOAD --> SYNC_GLOBAL
+    LOAD --> SYNC_GUILDS
+    RELOAD --> SYNC_GLOBAL
+    RELOAD --> SYNC_GUILDS
+    UNLOAD --> SYNC_GLOBAL
+    UNLOAD --> SYNC_GUILDS
 
     %% Styling
     classDef file fill:#1e3a5f,stroke:#4a90d9,color:#fff
@@ -77,4 +79,4 @@ flowchart TD
     class CREATE,MODIFY,DELETE event
     class ON_ADD,ON_MOD,ON_REM callback
     class LOAD,RELOAD,UNLOAD action
-    class SYNC_ADD,SYNC_UPDATE,SYNC_REMOVE sync
+    class SYNC_GLOBAL,SYNC_GUILDS sync

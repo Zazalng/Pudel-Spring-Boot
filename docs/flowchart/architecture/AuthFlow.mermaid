@@ -1,14 +1,16 @@
-%% Pudel Authentication Flow v2.0.0
+%% Pudel Authentication Flow vWorld Standard.group
+%% OAuth2 + Optional DPoP Binding
 
 sequenceDiagram
     participant User as User
     participant Vue as Vue Frontend
     participant API as Pudel API
     participant JWT as JWT Util (RSA)
+    participant DPoP as DPoPService
     participant Discord as Discord OAuth2
     participant DB as PostgreSQL
 
-    Note over User,DB: OAuth2 Login Flow
+    Note over User,DB: OAuth2 Login Flow (Standard or DPoP-Enhanced)
 
     User->>Vue: Click "Login with Discord"
     Vue->>Discord: Redirect to OAuth2 authorize
@@ -17,7 +19,7 @@ sequenceDiagram
     Discord->>Vue: Redirect with code
 
     Vue->>API: POST /api/auth/discord/callback
-    Note right of Vue: { code, redirectUri }
+    Note right of Vue: Body: { code, redirectUri }<br/>Optional: DPoP header (proof JWT)
 
     API->>Discord: Exchange code for tokens
     Discord-->>API: access_token, refresh_token
@@ -28,18 +30,35 @@ sequenceDiagram
     API->>DB: Find or create user
     DB-->>API: User entity
 
-    API->>JWT: Generate JWT (RSA private key)
-    Note right of JWT: Claims: userId, discordId, roles
-    JWT-->>API: Signed JWT token
+    alt DPoP Header Present
+        API->>DPoP: validateProofForTokenRequest(proof)
+        DPoP-->>API: ✓ thumbprint
+        API->>JWT: generateDPoPBoundToken(userId, claims, thumbprint)
+        Note right of JWT: JWT contains cnf.jkt = thumbprint
+        JWT-->>API: DPoP-bound JWT
+        API->>DPoP: bindTokenToThumbprint(jwt, thumbprint)
+        API-->>Vue: { token, user, token_type: "DPoP" }
+    else No DPoP Header
+        API->>JWT: generateToken(userId, claims)
+        Note right of JWT: Standard Bearer JWT
+        JWT-->>API: Signed JWT token
+        API-->>Vue: { token, user, token_type: "Bearer" }
+    end
 
-    API-->>Vue: { token, user }
     Vue->>Vue: Store token in localStorage
 
     Note over User,DB: Authenticated API Requests
 
     User->>Vue: View guilds
-    Vue->>API: GET /api/guilds
-    Note right of Vue: Authorization: Bearer <token>
+
+    alt Bearer Token
+        Vue->>API: GET /api/guilds
+        Note right of Vue: Authorization: Bearer <token>
+    else DPoP Token
+        Vue->>Vue: Create fresh DPoP proof
+        Vue->>API: GET /api/guilds
+        Note right of Vue: Authorization: DPoP <token><br/>DPoP: <fresh proof JWT>
+    end
 
     API->>JWT: Validate JWT (RSA public key)
     JWT-->>API: Valid / Invalid
@@ -54,9 +73,9 @@ sequenceDiagram
         Vue->>Vue: Redirect to login
     end
 
-    Note over User,DB: Token Refresh
+    Note over User,DB: Logout
 
-    Vue->>API: POST /api/auth/refresh
-    Note right of Vue: { refreshToken }
-    API->>JWT: Generate new access token
-    API-->>Vue: { token: newToken }
+    Vue->>API: POST /api/auth/logout
+    Note right of Vue: Authorization: Bearer/DPoP <token>
+    API->>DPoP: revokeTokenBinding(token)
+    API-->>Vue: 200 OK

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -12,7 +12,7 @@
  *
  * See the LICENSE and PLUGIN_EXCEPTION files in the project root for details.
  */
-package group.worldstandard.pudel.core.security;
+package group.worldstandard.pudel.core.service;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.SignatureException;

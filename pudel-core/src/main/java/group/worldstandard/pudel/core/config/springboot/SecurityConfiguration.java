@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -14,11 +14,9 @@
  */
 package group.worldstandard.pudel.core.config.springboot;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,7 +29,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Spring Security configuration for JWT-based authentication.
@@ -39,9 +36,6 @@ import java.util.Set;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
-    private static final Set<String> LOCALHOST_ADDRESSES = Set.of(
-            "127.0.0.1", "0:0:0:0:0:0:0:1", "::1", "localhost"
-    );
 
     @Value("${pudel.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -52,13 +46,6 @@ public class SecurityConfiguration {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    /**
-     * Check if request is from localhost.
-     */
-    private boolean isLocalhost(HttpServletRequest request) {
-        String remoteAddr = request.getRemoteAddr();
-        return LOCALHOST_ADDRESSES.contains(remoteAddr);
-    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
@@ -72,6 +59,9 @@ public class SecurityConfiguration {
                                 "/api/bot/**",
                                 "/api/plugins",
                                 "/api/plugins/*",
+                                "/api/plugins/installed",
+                                "/api/plugins/installed/*",
+                                "/api/plugins/enabled",
                                 // Admin public endpoints (for challenge/key fetching)
                                 "/api/admin/challenge",
                                 "/api/admin/public-key",
@@ -91,24 +81,6 @@ public class SecurityConfiguration {
                         // Deprecated auth endpoints - return 410 GONE but allow access
                         .requestMatchers("/api/admin/auth", "/api/admin/auth/oauth").permitAll()
 
-                        // Plugin management - allow localhost OR authenticated
-                        .requestMatchers(
-                                "/api/plugins/*/enable",
-                                "/api/plugins/*/disable",
-                                "/api/plugins/*/unload"
-                        ).access((authentication, context) -> {
-                            HttpServletRequest request = context.getRequest();
-                            // Allow localhost without authentication (for bot hosters)
-                            if (isLocalhost(request)) {
-                                return new AuthorizationDecision(true);
-                            }
-                            // Otherwise require authentication
-                            return new AuthorizationDecision(
-                                    authentication.get() != null &&
-                                    authentication.get().isAuthenticated() &&
-                                    !authentication.get().getPrincipal().equals("anonymousUser")
-                            );
-                        })
 
                         // Admin endpoints - require authentication
                         .requestMatchers("/api/admin/**").authenticated()

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard.group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -27,9 +27,12 @@ import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.dto.PluginResponse;
 import group.worldstandard.pudel.core.dto.PublishPluginRequest;
 import group.worldstandard.pudel.core.dto.UpdatePluginRequest;
+import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.service.MarketPluginService;
+import group.worldstandard.pudel.core.service.PluginService;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * REST controller for plugin marketplace.
@@ -45,10 +48,51 @@ public class MarketPluginController {
     private static final Logger log = LoggerFactory.getLogger(MarketPluginController.class);
 
     private final MarketPluginService marketPluginService;
+    private final PluginService pluginService;
 
-    public MarketPluginController(MarketPluginService marketPluginService) {
+    public MarketPluginController(MarketPluginService marketPluginService, PluginService pluginService) {
         this.marketPluginService = marketPluginService;
+        this.pluginService = pluginService;
     }
+
+    // =====================================================
+    // Local Installed Plugins (public read-only)
+    // =====================================================
+
+    /**
+     * Get all installed plugins on this instance.
+     * GET /api/plugins/installed
+     */
+    @GetMapping("/installed")
+    public ResponseEntity<?> getInstalledPlugins() {
+        List<PluginMetadata> plugins = pluginService.getAllPlugins();
+        return ResponseEntity.ok(new PluginListResponse(plugins));
+    }
+
+    /**
+     * Get a specific installed plugin by name.
+     * GET /api/plugins/installed/{name}
+     */
+    @GetMapping("/installed/{name}")
+    public ResponseEntity<?> getInstalledPlugin(@PathVariable("name") String name) {
+        Optional<PluginMetadata> plugin = pluginService.getPlugin(name);
+        return plugin.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Get all enabled plugins on this instance.
+     * GET /api/plugins/enabled
+     */
+    @GetMapping("/enabled")
+    public ResponseEntity<?> getEnabledPlugins() {
+        List<PluginMetadata> plugins = pluginService.getEnabledPlugins();
+        return ResponseEntity.ok(new PluginListResponse(plugins));
+    }
+
+    // =====================================================
+    // Plugin Marketplace
+    // =====================================================
 
     /**
      * Get all plugins in the marketplace.
@@ -255,6 +299,27 @@ public class MarketPluginController {
 
         public String getMessage() {
             return message;
+        }
+    }
+
+    /**
+     * Response wrapper for local installed plugin lists.
+     */
+    static class PluginListResponse {
+        private final List<PluginMetadata> plugins;
+        private final int total;
+
+        public PluginListResponse(List<PluginMetadata> plugins) {
+            this.plugins = plugins;
+            this.total = plugins.size();
+        }
+
+        public List<PluginMetadata> getPlugins() {
+            return plugins;
+        }
+
+        public int getTotal() {
+            return total;
         }
     }
 }
