@@ -313,7 +313,7 @@ You may not assign these Terms without our consent. We may assign our rights fre
 For questions about these Terms, please contact:
 
 **World Standard Group**  
-Email: [Legal Team](mailto:legal.departure@worldstandard.group)\
+Email: [Legal Team](mailto:legal.department@worldstandard.group)\
 Discord: [Pudel Support Server (TBA)](https://discord.gg/pudel)
 
 ---

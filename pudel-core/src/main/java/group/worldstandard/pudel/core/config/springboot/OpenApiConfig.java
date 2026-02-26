@@ -68,7 +68,7 @@ public class OpenApiConfig {
                         .version(version)
                         .contact(new Contact()
                                 .name("World Standard Group")
-                                .email("it.departure@worldstandard.group")
+                                .email("it.department@worldstandard.group")
                                 .url("https://worldstandard.group"))
                         .license(new License()
                                 .name("AGPL-3.0 with Plugin Exception")

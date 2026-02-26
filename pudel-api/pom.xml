@@ -83,7 +83,6 @@
                 <version>3.12.0</version>
                 <configuration>
                     <doclint>none</doclint>
-
                     <tags>
                         <tag>
                             <name>implNote</name>
@@ -91,7 +90,7 @@
                             <head>Implementation Note:</head>
                         </tag>
                     </tags>
-                    <failOnError>false</failOnError>
+                    <failOnError>true</failOnError>
                 </configuration>
                 <executions>
                     <execution>

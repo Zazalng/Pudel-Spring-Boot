@@ -381,7 +381,7 @@ We review this policy at least annually and update as needed.
 For privacy-related questions or requests:
 
 **World Standard Group**  
-Email: [Legal Team](mailto:legal.departure@worldstandard.group)\
+Email: [Legal Team](mailto:legal.department@worldstandard.group)\
 Discord: [Pudel Support Server (TBA)](https://discord.gg/pudel)
 
 ### Data Protection Inquiries

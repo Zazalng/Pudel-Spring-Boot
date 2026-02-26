@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -476,7 +477,8 @@ public class DPoPService implements DisposableBean {
     private Map<String, Object> parseJson(String json) throws Exception {
         // Use a simple JSON parser approach
         // In production, you'd use Jackson or Gson
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        JsonMapper mapper = JsonMapper.builder().build();
         return mapper.readValue(json, Map.class);
     }
 
