@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 World Standard.group
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -19,6 +19,7 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
 import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
 import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
+import group.worldstandard.pudel.core.config.PudelProperties;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
@@ -90,22 +91,25 @@ public class BuiltinCommands {
     private final InteractionManager interactionManager;
     private final PluginService pluginService;
     private final GuildSettingsService guildSettingsService;
+    private final PudelProperties pudelProperties;
 
     // ==================== STATE ====================
     private final Map<Long, SettingsSession> activeSessions = new ConcurrentHashMap<>();
 
     public BuiltinCommands(GuildInitializationService guildInitializationService,
-                          CommandMetadataRegistry metadataRegistry,
-                          CommandRegistry commandRegistry,
-                          InteractionManager interactionManager,
-                          PluginService pluginService,
-                          GuildSettingsService guildSettingsService) {
+                           CommandMetadataRegistry metadataRegistry,
+                           CommandRegistry commandRegistry,
+                           InteractionManager interactionManager,
+                           PluginService pluginService,
+                           GuildSettingsService guildSettingsService,
+                           PudelProperties pudelProperties) {
         this.guildInitializationService = guildInitializationService;
         this.metadataRegistry = metadataRegistry;
         this.commandRegistry = commandRegistry;
         this.interactionManager = interactionManager;
         this.pluginService = pluginService;
         this.guildSettingsService = guildSettingsService;
+        this.pudelProperties = pudelProperties;
     }
 
     // =====================================================
@@ -727,7 +731,7 @@ public class BuiltinCommands {
     public void handleHelp(SlashCommandInteractionEvent event) {
         List<ContainerChildComponent> c = new ArrayList<>();
 
-        c.add(TextDisplay.of("# 📚 Pudel Commands"));
+        c.add(TextDisplay.of("# 📚 %s Commands".formatted(pudelProperties.getName())));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
         StringBuilder builtIn = new StringBuilder();
@@ -762,7 +766,7 @@ public class BuiltinCommands {
         }
 
         c.add(Separator.create(true, Separator.Spacing.SMALL));
-        c.add(TextDisplay.of("-# Pudel vWorld Standard.group • Use /settings to configure"));
+        c.add(TextDisplay.of("-# %s v%s • Use /settings to configure".formatted(pudelProperties.getName(), pudelProperties.getVersion())));
 
         event.reply(
                 new MessageCreateBuilder()

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 World Standard.group
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.audio.AudioReceiveHandler;
 import net.dv8tion.jda.api.audio.CombinedAudio;
 import net.dv8tion.jda.api.audio.UserAudio;
 import group.worldstandard.pudel.api.audio.AudioReceiver;
+import net.dv8tion.jda.api.entities.User;
 
 /**
  * Adapter that wraps a plugin's AudioReceiver for JDA's AudioReceiveHandler interface.
@@ -67,7 +68,7 @@ public class JDAAudioReceiveHandler implements AudioReceiveHandler {
     }
 
     @Override
-    public boolean includeUserInCombinedAudio(net.dv8tion.jda.api.entities.User user) {
+    public boolean includeUserInCombinedAudio(User user) {
         return true;
     }
 }

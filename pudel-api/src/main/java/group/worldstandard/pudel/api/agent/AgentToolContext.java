@@ -1,6 +1,6 @@
 /*
  * Pudel Plugin API (PDK) - Plugin Development Kit for Pudel Discord Bot
- * Copyright (c) 2026 World Standard.group
+ * Copyright (c) 2026 World Standard Group
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -131,7 +131,7 @@ public interface AgentToolContext {
     @SuppressWarnings("unchecked")
     default <T> T getContextValue(String key, Class<T> type) {
         Object value = getContextData().get(key);
-        if (value != null && type.isInstance(value)) {
+        if (type.isInstance(value)) {
             return (T) value;
         }
         return null;
