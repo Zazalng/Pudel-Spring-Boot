@@ -339,46 +339,47 @@ See: [SlashCommandFlow.mermaid](./SlashCommandFlow.mermaid)
 The `/settings` command opens a single ephemeral message with a rich interactive panel. Users navigate between views using buttons — all within one message, no subcommands needed. Inspired by community plugin patterns (PudelMusicPlugin's "Music Box").
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COMPONENTS V2 SETTINGS PANEL                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  User types /settings                                                       │
-│       │                                                                     │
-│       ▼                                                                     │
-│  ┌─────────────────────────────────────┐                                    │
-│  │ ⚙️ Settings Panel (Main View)      │ accent: blurple                    │
-│  │ Prefix: !  Verbosity: 3  AI: ✅    │                                    │
-│  │ ─────────────────────────────────── │                                    │
-│  │ [⚙ General] [🤖 AI] [📢 Channels] │                                    │
-│  │ [📝 Commands] [🧩 Plugins]         │                                    │
-│  └─────────────────────────────────────┘                                    │
-│       │                                                                     │
-│       ├── ⚙ General ──► Prefix (modal), Cooldown (modal), Verbosity (btns) │
-│       ├── 🤖 AI ──► Toggle, Nickname/Personality/Biography (modals)         │
-│       ├── 📢 Channels ──► Log/Bot channel (EntitySelectMenu modal),         │
-│       │                    Ignore/Unignore (EntitySelectMenu modal)          │
-│       ├── 📝 Commands ──► Paginated toggle buttons per text command          │
-│       └── 🧩 Plugins ──► Paginated toggle buttons per plugin                │
-│                           └─► syncGuildCommands() on toggle                  │
-│                                                                             │
-│  Pattern:                                                                   │
-│  ├── SettingsSession (per-user, ConcurrentHashMap<userId, Session>)         │
-│  ├── SettingsView enum: MAIN, GENERAL, AI, CHANNELS, COMMANDS, PLUGINS      │
-│  ├── View builders return Container.of(children).withAccentColor(color)     │
-│  ├── @ButtonHandler("settings:") routes all button clicks                    │
-│  ├── @ModalHandler("settings:modal:") routes text/channel inputs             │
-│  └── Channel selection uses EntitySelectMenu inside Modal (native picker)    │
-│                                                                             │
-│  Accent Colors:                                                             │
-│  ├── Main: #5865F2 (Discord Blurple)                                        │
-│  ├── General: #57F287 (Green)                                               │
-│  ├── AI: #EB459E (Pink)                                                     │
-│  ├── Channels: #FEE75C (Yellow)                                             │
-│  ├── Commands: #ED4245 (Red)                                                │
-│  └── Plugins: #00D4AA (Teal)                                                │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    COMPONENTS V2 SETTINGS PANEL                               │
+├───────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  User types /settings                                                         │
+│       │                                                                       │
+│       ▼                                                                       │
+│  Accent Colors:                                                               │
+│  ┌─────────────────────────────────────┐                                      │
+│  │ ⚙️ Settings Panel (Main View)       │                                      │
+│  │ Prefix: !  Verbosity: 3  AI: ✅     │                                      │
+│  │ ─────────────────────────────────── │                                      │
+│  │ [⚙ General] [🤖 AI] [📢 Channels]  │                                      │
+│  │ [📝 Commands] [🧩 Plugins]         │                                      │
+│  └─────────────────────────────────────┘                                      │
+│       │                                                                       │
+│       ├── ⚙ General ──► Prefix (modal), Cooldown (modal), Verbosity (btns)    │
+│       ├── 🤖 AI ──► Toggle, Nickname/Personality/Biography (modals)           │
+│       ├── 📢 Channels ──► Log/Bot channel (EntitySelectMenu modal),           │
+│       │                    Ignore/Unignore (EntitySelectMenu modal)           │
+│       ├── 📝 Commands ──► Paginated toggle buttons per text command           │
+│       └── 🧩 Plugins ──► Paginated toggle buttons per plugin                  │
+│                           └─► syncGuildCommands() on toggle                   │
+│                                                                               │
+│  Pattern:                                                                     │
+│  ├── SettingsSession (per-user, ConcurrentHashMap<userId, Session>)           │
+│  ├── SettingsView enum: MAIN, GENERAL, AI, CHANNELS, COMMANDS, PLUGINS        │
+│  ├── View builders return Container.of(children).withAccentColor(color)       │
+│  ├── @ButtonHandler("settings:") routes all button clicks                     │
+│  ├── @ModalHandler("settings:modal:") routes text/channel inputs              │
+│  └── Channel selection uses EntitySelectMenu inside Modal (native picker)     │
+│                                                                               │
+│  Accent Colors:                                                               │
+│  ├── Main: #5865F2 (Discord Blurple)                                          │
+│  ├── General: #57F287 (Green)                                                 │
+│  ├── AI: #EB459E (Pink)                                                       │
+│  ├── Channels: #FEE75C (Yellow)                                               │
+│  ├── Commands: #ED4245 (Red)                                                  │
+│  └── Plugins: #00D4AA (Teal)                                                  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

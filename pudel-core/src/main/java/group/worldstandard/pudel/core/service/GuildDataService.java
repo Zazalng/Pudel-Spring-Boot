@@ -216,7 +216,7 @@ public class GuildDataService {
     public Optional<String> getPreferredName(long guildId, long userId) {
         return getUserPreference(guildId, userId)
                 .map(prefs -> (String) prefs.get("preferred_name"))
-                .filter(name -> name != null && !name.isEmpty());
+                .filter(name -> !name.isEmpty());
     }
 
 }

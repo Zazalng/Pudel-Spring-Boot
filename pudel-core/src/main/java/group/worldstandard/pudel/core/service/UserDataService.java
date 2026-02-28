@@ -117,7 +117,7 @@ public class UserDataService {
     public Optional<String> getPudelSetting(long userId, String field) {
         return getPudelSettings(userId)
                 .map(settings -> (String) settings.get(field))
-                .filter(value -> value != null && !value.isEmpty());
+                .filter(value -> !value.isEmpty());
     }
 
     // ===========================================

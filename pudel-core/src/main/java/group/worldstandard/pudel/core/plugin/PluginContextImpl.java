@@ -51,7 +51,7 @@ public class PluginContextImpl implements PluginContext {
     private final PluginDatabaseService databaseService;
 
     // Lazily initialized database manager
-    private PluginDatabaseManager databaseManager;
+    private volatile PluginDatabaseManager databaseManager;
 
     public PluginContextImpl(String pluginName, String pluginVersion, JDA jda, CommandRegistry commandRegistry,
                              PluginEventManager eventManager, VoiceManager voiceManager,

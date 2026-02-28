@@ -78,7 +78,7 @@ We use collected information to:
 ### 3.3 Security and Compliance
 
 - Detect and prevent abuse or fraud
-- Enforce our Terms of Service
+- Enforce our Terms of Service & Security Policy
 - Comply with legal obligations
 - Protect users and our systems
 
@@ -114,6 +114,7 @@ PostgreSQL Database
 - Guild data is never shared with other guilds
 - User DM data is stored in separate schemas
 - Database credentials are isolated per schema
+- Each plugin has its own sandbox managed by `pudel-core`
 
 ### 4.2 Memory and Conversation Data
 
@@ -415,4 +416,3 @@ We will respond within 30 days.
 ---
 
 *Last updated: February 26, 2026*
-

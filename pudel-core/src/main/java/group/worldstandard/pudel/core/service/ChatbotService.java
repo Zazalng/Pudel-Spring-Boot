@@ -712,7 +712,7 @@ public class ChatbotService {
                 for (var snapshot : snapshots) {
                     // MessageSnapshot provides direct access to content
                     String content = snapshot.getContentRaw();
-                    if (content != null && !content.isEmpty()) {
+                    if (!content.isEmpty()) {
                         if (content.length() > 500) {
                             content = content.substring(0, 500) + "...";
                         }

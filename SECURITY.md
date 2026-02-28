@@ -192,7 +192,7 @@ We actively monitor dependencies for known vulnerabilities (CVEs). If you discov
 
 ### For Plugin Developers
 
-- Only depend on the official `pudel-api` (`group.worldstandard:pudel-api`) published to Maven Central
+- Only depend on the official `pudel-api` (`group.worldstandard:pudel-api`) that published on Maven Central to interact with `pudel-core`
 - Keep your plugin dependencies up to date
 - Do not bundle vulnerable or unnecessary transitive dependencies in your plugin JAR
 - Follow the [Plugin Development Guide](https://worldstandard.group/wiki) for security best practices

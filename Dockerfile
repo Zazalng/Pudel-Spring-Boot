@@ -57,7 +57,7 @@ COPY --from=builder /app/${PUDEL_CORE}/target/*.jar app.jar
 
 # Create directories for plugins, data, logs, and keys
 # Keys directory will be mounted at runtime for RSA private/public keys
-RUN mkdir -p /app/plugins /app/data /app/logs /app/keys \
+RUN mkdir -p /app/plugins /app/data /app/logs /app/keys /app/src \
     && chown -R pudel:pudel /app
 
 # Copy entrypoint script
@@ -65,7 +65,7 @@ COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Define volumes for persistent data and keys
-VOLUME ["/app/plugins", "/app/data", "/app/logs", "/app/keys"]
+VOLUME ["/app/plugins", "/app/data", "/app/logs", "/app/keys", "/app/src"]
 
 # Note: We start as root to fix bind mount permissions, then drop to pudel user
 # The entrypoint script handles this
@@ -113,6 +113,12 @@ ENV EMBEDDING_MODEL=qwen3-embedding:8b
 
 # Server Configuration
 ENV SERVER_PORT=8080
+ENV SWAGGER_ENABLED=false
+ENV AUTO_UPDATE=true
+ENV GIT_REPO=https://github.com/World-Standard-Group/Pudel-Spring-Boot.git
+# Don't forget to change Branch for local/stage env
+ENV GIT_BRANCH=main
+
 
 # JVM Options
 ENV JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication"

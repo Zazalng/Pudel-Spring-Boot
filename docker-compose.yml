@@ -92,6 +92,12 @@ services:
       # Note: Ollama dependency is removed - Pudel handles connection gracefully
       # If you need strict dependency, use: docker-compose --profile ollama up -d
     environment:
+      # Server
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      AUTO_UPDATE: ${AUTO_UPDATE:-true}
+      GIT_REPO: ${GIT_REPO:-https://github.com/World-Standard-Group/Pudel-Spring-Boot.git}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+
       # Database
       POSTGRES_HOST: postgres
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -155,6 +161,7 @@ services:
       # Keys: keys/pv.key (private) and keys/pb.key (public)
       - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
+      - pudel_src:/app/src
     ports:
       - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
     networks:
@@ -203,4 +210,6 @@ volumes:
   ollama_data:
     driver: local
   pudel_logs:
+    driver: local
+  pudel_src:
     driver: local
