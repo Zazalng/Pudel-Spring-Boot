@@ -27,16 +27,18 @@ RUN git clone --depth 1 --branch ${GIT_BRANCH} ${GIT_REPO} . || true
 COPY . .
 
 # Build the project
-RUN mvn clean package -DskipTests -pl ${PUDEL_CORE} -am
+RUN mvn clean package -DskipTests -pl "${PUDEL_CORE}" -am
 
 # Stage 2: Runtime Stage
-FROM ${JDK_VENDOR}:${JDK_VERSION}-jre AS runtime
+FROM ${JDK_VENDOR}:${JDK_VERSION}-jdk AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
 LABEL version="2.1.1"
 
-# Install required runtime packages
+ARG BUILDER_VERSION=3.9.12
+
+# Install required runtime packages and Maven (needed for AUTO_UPDATE rebuilds)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     git \
@@ -46,11 +48,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && gosu nobody true
 
+# Install Maven for auto-update rebuild support
+RUN curl -fsSL https://archive.apache.org/dist/maven/maven-3/${BUILDER_VERSION}/binaries/apache-maven-${BUILDER_VERSION}-bin.tar.gz \
+    | tar -xzC /opt \
+    && ln -s /opt/apache-maven-${BUILDER_VERSION}/bin/mvn /usr/local/bin/mvn
+
 # Create non-root user for security
 RUN groupadd -r pudel && useradd -r -g pudel pudel
 
 # Set working directory
 WORKDIR /app
+
+ARG PUDEL_CORE=pudel-core
 
 # Copy the built JAR from builder stage
 COPY --from=builder /app/${PUDEL_CORE}/target/*.jar app.jar

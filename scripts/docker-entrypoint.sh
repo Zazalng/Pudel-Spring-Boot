@@ -33,6 +33,8 @@ fi
 
 echo "[2/4] Permissions fixed"
 
+git config --global --add safe.directory /app/src
+
 # Check if source directory exists for auto-update mode
 if [ -d "/app/src" ]; then
     cd /app/src
