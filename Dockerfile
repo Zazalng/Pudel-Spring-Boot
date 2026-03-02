@@ -36,9 +36,10 @@ LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
 LABEL version="2.1.1"
 
+# Re-declare global ARGs needed in this stage (ARGs don't cross FROM boundaries)
 ARG BUILDER_VERSION=3.9.12
 
-# Install required runtime packages and Maven (needed for AUTO_UPDATE rebuilds)
+# Install required runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     git \
@@ -51,7 +52,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Maven for auto-update rebuild support
 RUN curl -fsSL https://archive.apache.org/dist/maven/maven-3/${BUILDER_VERSION}/binaries/apache-maven-${BUILDER_VERSION}-bin.tar.gz \
     | tar -xzC /opt \
-    && ln -s /opt/apache-maven-${BUILDER_VERSION}/bin/mvn /usr/local/bin/mvn
+    && ln -s /opt/apache-maven-${BUILDER_VERSION}/bin/mvn /usr/local/bin/mvn \
+    && mvn --version
 
 # Create non-root user for security
 RUN groupadd -r pudel && useradd -r -g pudel pudel

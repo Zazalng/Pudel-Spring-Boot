@@ -2,7 +2,7 @@
 
 # ===========================================
 # Pudel Discord Bot - Docker Entrypoint
-# Handles permissions fix and application startup
+# Handles permissions fix, auto-update, and application startup
 # ===========================================
 
 set -e
@@ -11,65 +11,108 @@ echo "========================================="
 echo "   Pudel Discord Bot - Starting...      "
 echo "========================================="
 
-# Fix permissions for bind-mounted directories
-# This is needed because bind mounts from host may have different ownership
+# Ensure Maven and Git are on PATH
+export PATH="/usr/local/bin:/opt/apache-maven-*/bin:$PATH"
+
+# ===========================================
+# [1/4] Fix permissions for bind-mounted directories
+# ===========================================
 echo "[1/4] Fixing directory permissions..."
 
-# Ensure plugins directory is writable
-if [ -d "/app/plugins" ]; then
-    chown -R pudel:pudel /app/plugins 2>/dev/null || true
-    chmod -R 755 /app/plugins 2>/dev/null || true
-fi
-
-# Ensure data directory is writable
-if [ -d "/app/data" ]; then
-    chown -R pudel:pudel /app/data 2>/dev/null || true
-fi
-
-# Ensure logs directory is writable
-if [ -d "/app/logs" ]; then
-    chown -R pudel:pudel /app/logs 2>/dev/null || true
-fi
+for dir in /app/plugins /app/data /app/logs; do
+    if [ -d "$dir" ]; then
+        chown -R pudel:pudel "$dir" 2>/dev/null || true
+        chmod -R 755 "$dir" 2>/dev/null || true
+    fi
+done
 
 echo "[2/4] Permissions fixed"
 
+# ===========================================
+# [3/4] Auto-update from Git (if enabled)
+# ===========================================
+# How auto-update works:
+#
+#   1. The Dockerfile builds app.jar in the multi-stage build (Stage 1)
+#      and copies it into the runtime image. This is the "initial" JAR.
+#
+#   2. When AUTO_UPDATE=true, at EVERY container start/restart, this
+#      entrypoint script:
+#        a) Clones or pulls the latest code from GIT_REPO/GIT_BRANCH
+#           into the /app/src volume (persisted across restarts)
+#        b) Runs `mvn clean package` to rebuild from source
+#        c) Copies the fresh JAR to /app/app.jar, replacing the original
+#
+#   3. The bot then starts from the updated JAR.
+#
+# To trigger an update after pushing to GitHub:
+#   - Simply restart the container: `docker compose restart pudel`
+#   - Or use the updater service: `docker compose run --rm pudel-updater`
+#     then `docker compose restart pudel`
+#   - Or set up a GitHub webhook / cron to auto-restart
+#
+# When AUTO_UPDATE=false:
+#   - The pre-built JAR from the Docker image is used as-is
+#   - To update, rebuild the image: `docker compose build --no-cache pudel`
+#
+# ===========================================
+
 git config --global --add safe.directory /app/src
 
-# Check if source directory exists for auto-update mode
-if [ -d "/app/src" ]; then
+if [ "${AUTO_UPDATE}" = "true" ]; then
+    echo "[3/4] Auto-update enabled — checking for updates from Git..."
+
+    # Ensure /app/src exists and is writable
+    mkdir -p /app/src
+    chown -R pudel:pudel /app/src 2>/dev/null || true
     cd /app/src
 
-    # Clone or update repository
-    if [ "$AUTO_UPDATE" = "true" ] || [ ! -f "/app/src/pom.xml" ]; then
-        echo "[3/4] Checking for updates from Git..."
+    GIT_BRANCH="${GIT_BRANCH:-main}"
+    GIT_REPO="${GIT_REPO:-https://github.com/World-Standard-Group/Pudel-Spring-Boot.git}"
 
-        if [ -d "/app/src/.git" ]; then
-            echo "Updating existing repository..."
-            git fetch origin ${GIT_BRANCH:-main}
-            git reset --hard origin/${GIT_BRANCH:-main}
-        else
-            echo "Cloning repository..."
-            rm -rf /app/src/*
-            git clone --depth 1 --branch ${GIT_BRANCH:-main} ${GIT_REPO} .
-        fi
-
-        echo "Building application..."
-        mvn clean package -DskipTests -pl pudel-core -am
-
-        echo "Copying built JAR..."
-        cp pudel-core/target/*.jar /app/app.jar
+    if [ -d "/app/src/.git" ]; then
+        # Existing clone — pull latest
+        echo "Updating existing repository (branch: ${GIT_BRANCH})..."
+        git fetch origin "${GIT_BRANCH}" 2>&1 || { echo "WARNING: git fetch failed, using cached source"; }
+        git reset --hard "origin/${GIT_BRANCH}" 2>&1 || true
     else
-        echo "[3/4] Skipping update (AUTO_UPDATE=false)"
+        # First run — clone fresh
+        echo "Cloning repository (branch: ${GIT_BRANCH})..."
+        rm -rf /app/src/*
+        git clone --depth 1 --branch "${GIT_BRANCH}" "${GIT_REPO}" . 2>&1
     fi
 
-    # Copy plugins if they exist in the build
+    # Verify Maven is available
+    if ! command -v mvn &> /dev/null; then
+        echo "ERROR: Maven not found in PATH. Falling back to pre-built JAR."
+        echo "PATH=$PATH"
+        ls -la /usr/local/bin/mvn /opt/apache-maven-*/bin/mvn 2>/dev/null || true
+    elif [ -f "/app/src/pom.xml" ]; then
+        echo "Building application with Maven..."
+        mvn clean package -DskipTests -pl pudel-core -am 2>&1
+
+        if [ -f pudel-core/target/*.jar ]; then
+            echo "Copying freshly built JAR..."
+            cp pudel-core/target/*.jar /app/app.jar
+            echo "Build successful — using updated JAR"
+        else
+            echo "WARNING: Build produced no JAR, using previous app.jar"
+        fi
+    else
+        echo "WARNING: No pom.xml found in /app/src, using pre-built JAR"
+    fi
+
+    # Copy plugins if they exist in the repo
     if [ -d "/app/src/plugins" ]; then
         cp /app/src/plugins/*.jar /app/plugins/ 2>/dev/null || true
     fi
 else
-    echo "[3/4] Using pre-built JAR"
+    echo "[3/4] Auto-update disabled (AUTO_UPDATE=false) — using pre-built JAR"
 fi
 
+# ===========================================
+# [4/4] Start the application
+# ===========================================
 echo "[4/4] Starting Pudel Bot..."
 
 cd /app
