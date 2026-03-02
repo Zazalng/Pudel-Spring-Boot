@@ -1,4 +1,5 @@
 %% Pudel Agent System v2.1.1
+%% Unified Tool Pipeline — Built-in + Plugin tools use the same AgentToolRegistry
 
 flowchart TD
     subgraph Input["📨 User Request"]
@@ -12,17 +13,24 @@ flowchart TD
 
     subgraph Agent["🤖 Agent Service"]
         AGENT_SVC["PudelAgentService<br/>(LangChain4j AI Service)"]
-        TOOLS["Available Tools"]
+        ADAPTER["PluginToolAdapter<br/>(per-request bridge)"]
     end
 
-    subgraph BuiltinTools["🔧 Built-in Agent Tools"]
-        CREATE["createTable<br/>Create new data table"]
-        STORE["storeData<br/>Save data to table"]
-        SEARCH["searchData<br/>Query table data"]
-        UPDATE["updateData<br/>Update existing data"]
-        DELETE["deleteData<br/>Remove data"]
+    subgraph Registry["📋 AgentToolRegistry"]
+        REG["AgentToolRegistryImpl"]
+        REG_BUILTIN["pudel-core-tools<br/>(BuiltinAgentTools)"]
+        REG_PLUGIN["plugin tools<br/>(via registerProvider)"]
+    end
+
+    subgraph BuiltinTools["🔧 Built-in Agent Tools<br/>(BuiltinAgentTools.java)"]
+        CREATE["create_table<br/>Create new data table"]
+        STORE["store_data<br/>Save data to table"]
+        SEARCH["search_data<br/>Query table data"]
+        UPDATE["update_data<br/>Update existing data"]
+        DELETE["delete_data<br/>Remove data"]
         REMEMBER["remember<br/>Quick fact storage"]
         RECALL["recall<br/>Retrieve facts"]
+        DATETIME["get_current_datetime"]
     end
 
     subgraph PluginTools["🔌 Plugin Agent Tools"]
@@ -36,20 +44,30 @@ flowchart TD
         TABLES["agent_* tables"]
     end
 
+    subgraph Startup["🚀 Registration<br/>(BuiltinSlashCommandRegistrar)"]
+        REGISTRAR["@PostConstruct"]
+    end
+
     subgraph Response["📤 Response"]
         RESULT[/"Operation result<br/>'Table created successfully!'"/]
     end
 
-    %% Flow
+    %% Registration at startup
+    REGISTRAR -->|"registerProvider()"| REG
+    REG --> REG_BUILTIN
+    REG --> REG_PLUGIN
+    REG_BUILTIN -.-> BuiltinTools
+    REG_PLUGIN -.-> PluginTools
+
+    %% Request flow
     MESSAGE --> INTENT
     INTENT --> DETECT
 
     DETECT -->|"No"| RESULT
     DETECT -->|"Yes"| AGENT_SVC
 
-    AGENT_SVC --> TOOLS
-    TOOLS --> BuiltinTools
-    TOOLS --> PluginTools
+    AGENT_SVC --> ADAPTER
+    ADAPTER -->|"executeTool()"| REG
 
     CREATE --> EXECUTOR
     STORE --> EXECUTOR
@@ -59,8 +77,8 @@ flowchart TD
     REMEMBER --> EXECUTOR
     RECALL --> EXECUTOR
 
-    PLUGIN_TOOL1 --> EXECUTOR
-    PLUGIN_TOOL2 --> EXECUTOR
+    PLUGIN_TOOL1 -.-> EXECUTOR
+    PLUGIN_TOOL2 -.-> EXECUTOR
 
     EXECUTOR --> SCHEMA
     SCHEMA --> TABLES
@@ -74,11 +92,15 @@ flowchart TD
     classDef plugin fill:#f57c00,stroke:#e65100,color:#fff
     classDef executor fill:#455a64,stroke:#263238,color:#fff
     classDef response fill:#c62828,stroke:#b71c1c,color:#fff
+    classDef registry fill:#1a237e,stroke:#0d47a1,color:#fff
+    classDef startup fill:#33691e,stroke:#1b5e20,color:#fff
 
     class MESSAGE input
     class INTENT,DETECT analysis
-    class AGENT_SVC,TOOLS agent
-    class CREATE,STORE,SEARCH,UPDATE,DELETE,REMEMBER,RECALL builtin
+    class AGENT_SVC,ADAPTER agent
+    class CREATE,STORE,SEARCH,UPDATE,DELETE,REMEMBER,RECALL,DATETIME builtin
     class PLUGIN_TOOL1,PLUGIN_TOOL2 plugin
     class EXECUTOR,SCHEMA,TABLES executor
     class RESULT response
+    class REG,REG_BUILTIN,REG_PLUGIN registry
+    class REGISTRAR startup

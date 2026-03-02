@@ -139,16 +139,28 @@ java -jar pudel-core/target/pudel-core-2.1.1.jar
 
 ## Built-in Commands
 
-All built-in commands use the new annotation-based system internally.
+All built-in commands follow the same `@Plugin` annotation pattern as plugins.
+
+### Slash Commands (`pudel-core`)
 
 | Command | Description |
 |---------|-------------|
-| `/settings` | Configure guild settings (prefix, verbosity, cooldown, channels) |
-| `/ai` | Configure AI behavior (toggle, personality, biography, nickname) |
-| `/channel` | Manage ignored channels |
-| `/command` | Enable/disable text commands |
+| `/settings` | Components V2 interactive panel — General, AI, Channels, Commands, Plugins views |
 | `/ping` | Check bot latency |
-| `/help` | Show available commands |
+| `/help` | Show available commands overview |
+
+> `/ai`, `/channel`, `/command` were merged into the `/settings` panel.
+
+### Text Commands (`pudel-core-text`)
+
+| Command | Description |
+|---------|-------------|
+| `!ping` | Bot latency with rich embed |
+| `!help` | Paginated command listing (⏮ ◀ ▶ ⏭ navigation, 8 per page) |
+
+### Agent Tools (`pudel-core-tools`)
+
+14 AI agent tools registered via `AgentToolRegistry` — same standard as plugin tools. See [Agent System](docs/AGENT_SYSTEM.md).
 
 ---
 

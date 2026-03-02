@@ -138,20 +138,17 @@ public class PudelAgentService {
         }
 
         try {
-            // Create core tools for this context
-            PudelAgentTools coreTools = new PudelAgentTools(dataExecutor, targetId, isGuild, requestingUserId);
-
             // Get or create session memory
             String sessionKey = (isGuild ? "guild:" : "user:") + targetId + ":" + requestingUserId;
             ChatMemory memory = sessionMemories.computeIfAbsent(sessionKey,
                     k -> MessageWindowChatMemory.withMaxMessages(20));
 
-            // Build tools list - core tools + any plugin tools
+            // Build tools list — all tools (built-in + plugins) come through pluginTools
+            // Built-in tools are registered in AgentToolRegistry and flow through PluginToolAdapter
             List<Object> allTools = new ArrayList<>();
-            allTools.add(coreTools);
             if (pluginTools != null && !pluginTools.isEmpty()) {
                 allTools.addAll(pluginTools);
-                logger.debug("Agent includes {} plugin tool adapters", pluginTools.size());
+                logger.debug("Agent includes {} tool adapters (built-in + plugins)", pluginTools.size());
             }
 
             // Create the AI service with all tools

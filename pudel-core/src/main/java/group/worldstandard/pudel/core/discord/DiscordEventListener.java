@@ -223,7 +223,7 @@ public class DiscordEventListener extends ListenerAdapter {
 
             // Check if the command's plugin is disabled for this guild
             var textMeta = commandMetadataRegistry.getTextCommandMetadata(command);
-            if (textMeta.isPresent() && !"core".equals(textMeta.get().pluginId())) {
+            if (textMeta.isPresent() && !textMeta.get().isBuiltIn()) {
                 String pluginId = textMeta.get().pluginId();
                 if (!guildSettingsService.isPluginEnabledForGuild(event.getGuild().getId(), pluginId)) {
                     event.getChannel().sendMessage("❌ The plugin providing this command is disabled on this server.").queue();

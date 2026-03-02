@@ -229,6 +229,29 @@ public class BuiltinCommands {
                     "biography", "Bot backstory/biography", settings.getBiography())).queue();
             case "ai:nickname" -> event.replyModal(buildModal("nickname", "Set Nickname",
                     "nickname", "Bot nickname", settings.getNickname(), 1, 100, true)).queue();
+            case "ai:language" -> event.replyModal(buildModal("language", "Set Language",
+                    "language", "Language code (en, th, ja, ko, zh, de, fr, es...)",
+                    settings.getLanguage() != null ? settings.getLanguage() : "en", 2, 5, true)).queue();
+
+            // ---- AI Behavior Settings ----
+            case "ai:resplength:short", "ai:resplength:medium", "ai:resplength:long" -> {
+                String value = id.substring("ai:resplength:".length());
+                settings.setResponseLength(value);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                editView(event, buildAIView(settings));
+            }
+            case "ai:formality:casual", "ai:formality:balanced", "ai:formality:formal" -> {
+                String value = id.substring("ai:formality:".length());
+                settings.setFormality(value);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                editView(event, buildAIView(settings));
+            }
+            case "ai:emote:none", "ai:emote:minimal", "ai:emote:moderate", "ai:emote:frequent" -> {
+                String value = id.substring("ai:emote:".length());
+                settings.setEmoteUsage(value);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                editView(event, buildAIView(settings));
+            }
 
             // ---- Channel Actions ----
             case "channels:setlog" -> showChannelSelect(event, "log");
@@ -342,6 +365,17 @@ public class BuiltinCommands {
                 session.view = SettingsView.AI;
                 editModalView(event, session, buildAIView(settings));
             }
+            case "language" -> {
+                String value = getModalValue(event, "language").toLowerCase().trim();
+                if (value.isEmpty() || value.length() > 5) {
+                    event.reply("❌ Language code must be 2–5 characters (e.g., `en`, `th`, `ja`)").setEphemeral(true).queue();
+                    return;
+                }
+                settings.setLanguage(value);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                session.view = SettingsView.AI;
+                editModalView(event, session, buildAIView(settings));
+            }
             default -> {
                 // Channel selection modals: channel:log, channel:bot, channel:ignore, channel:unignore
                 if (modalId.startsWith("channel:")) {
@@ -433,26 +467,70 @@ public class BuiltinCommands {
         List<ContainerChildComponent> c = new ArrayList<>();
         boolean aiOn = Boolean.TRUE.equals(settings.getAiEnabled());
 
+        String lang = settings.getLanguage() != null ? settings.getLanguage() : "en";
+        String respLen = settings.getResponseLength() != null ? settings.getResponseLength() : "medium";
+        String formality = settings.getFormality() != null ? settings.getFormality() : "balanced";
+        String emoteUsage = settings.getEmoteUsage() != null ? settings.getEmoteUsage() : "moderate";
+
         c.add(TextDisplay.of("# 🤖 AI Settings"));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
         c.add(TextDisplay.of("**Status:** " + (aiOn ? "✅ Enabled" : "❌ Disabled")
                 + "\u2003**Nickname:** " + (settings.getNickname() != null ? settings.getNickname() : "Pudel")
-                + "\u2003**Language:** " + (settings.getLanguage() != null ? settings.getLanguage() : "en")));
+                + "\u2003**Language:** " + getLanguageDisplay(lang)));
 
         c.add(TextDisplay.of("**Personality:** " + truncate(settings.getPersonality(), 120)
                 + "\n**Biography:** " + truncate(settings.getBiography(), 120)));
+
+        c.add(TextDisplay.of("**Response Length:** " + capitalize(respLen)
+                + "\u2003**Formality:** " + capitalize(formality)
+                + "\u2003**Emote Usage:** " + capitalize(emoteUsage)));
 
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
         c.add(ActionRow.of(
                 Button.of(aiOn ? ButtonStyle.DANGER : ButtonStyle.SUCCESS,
                         BTN + "ai:toggle", aiOn ? "🔴 Disable AI" : "🟢 Enable AI"),
-                Button.secondary(BTN + "ai:nickname", "✏ Nickname")
+                Button.secondary(BTN + "ai:nickname", "✏ Nickname"),
+                Button.secondary(BTN + "ai:language", "🌐 Language")
         ));
         c.add(ActionRow.of(
                 Button.secondary(BTN + "ai:personality", "✏ Personality"),
                 Button.secondary(BTN + "ai:biography", "✏ Biography")
+        ));
+
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
+        c.add(TextDisplay.of("-# Response Length"));
+        c.add(ActionRow.of(
+                Button.of("short".equals(respLen) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:resplength:short", "short".equals(respLen) ? "▸ Short" : "Short"),
+                Button.of("medium".equals(respLen) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:resplength:medium", "medium".equals(respLen) ? "▸ Medium" : "Medium"),
+                Button.of("long".equals(respLen) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:resplength:long", "long".equals(respLen) ? "▸ Long" : "Long")
+        ));
+
+        c.add(TextDisplay.of("-# Formality"));
+        c.add(ActionRow.of(
+                Button.of("casual".equals(formality) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:formality:casual", "casual".equals(formality) ? "▸ Casual" : "Casual"),
+                Button.of("balanced".equals(formality) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:formality:balanced", "balanced".equals(formality) ? "▸ Balanced" : "Balanced"),
+                Button.of("formal".equals(formality) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:formality:formal", "formal".equals(formality) ? "▸ Formal" : "Formal")
+        ));
+
+        c.add(TextDisplay.of("-# Emote Usage"));
+        c.add(ActionRow.of(
+                Button.of("none".equals(emoteUsage) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:emote:none", "none".equals(emoteUsage) ? "▸ None" : "None"),
+                Button.of("minimal".equals(emoteUsage) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:emote:minimal", "minimal".equals(emoteUsage) ? "▸ Minimal" : "Minimal"),
+                Button.of("moderate".equals(emoteUsage) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:emote:moderate", "moderate".equals(emoteUsage) ? "▸ Moderate" : "Moderate"),
+                Button.of("frequent".equals(emoteUsage) ? ButtonStyle.SUCCESS : ButtonStyle.SECONDARY,
+                        BTN + "ai:emote:frequent", "frequent".equals(emoteUsage) ? "▸ Frequent" : "Frequent")
         ));
 
         c.add(Separator.create(true, Separator.Spacing.SMALL));
@@ -841,6 +919,31 @@ public class BuiltinCommands {
     private String truncate(String text, int maxLen) {
         if (text == null) return "_Not set_";
         return text.length() > maxLen ? text.substring(0, maxLen - 3) + "..." : text;
+    }
+
+    private String capitalize(String text) {
+        if (text == null || text.isEmpty()) return text;
+        return text.substring(0, 1).toUpperCase() + text.substring(1);
+    }
+
+    private String getLanguageDisplay(String code) {
+        return switch (code) {
+            case "th" -> "🇹🇭 Thai";
+            case "ja" -> "🇯🇵 Japanese";
+            case "ko" -> "🇰🇷 Korean";
+            case "zh" -> "🇨🇳 Chinese";
+            case "de" -> "🇩🇪 German";
+            case "fr" -> "🇫🇷 French";
+            case "es" -> "🇪🇸 Spanish";
+            case "pt" -> "🇵🇹 Portuguese";
+            case "ru" -> "🇷🇺 Russian";
+            case "it" -> "🇮🇹 Italian";
+            case "nl" -> "🇳🇱 Dutch";
+            case "pl" -> "🇵🇱 Polish";
+            case "vi" -> "🇻🇳 Vietnamese";
+            case "id" -> "🇮🇩 Indonesian";
+            default -> "🇬🇧 English";
+        };
     }
 
     // =====================================================

@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.interaction.builtin;
 
+import group.worldstandard.pudel.api.agent.AgentToolRegistry;
 import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
 import group.worldstandard.pudel.core.plugin.PluginContextFactory;
 import jakarta.annotation.PostConstruct;
@@ -22,43 +23,70 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Registers all built-in slash commands for Pudel core functionality.
+ * Registers all built-in commands (slash, text, and agent tools) for Pudel core functionality.
  * <p>
- * Uses the same annotation processor as plugins, demonstrating that
- * the core follows the same patterns as the plugin API.
+ * Uses the same annotation processor and agent tool registry as plugins,
+ * ensuring the core follows the same patterns as the plugin API.
  */
 @Component
 public class BuiltinSlashCommandRegistrar {
 
     private static final Logger logger = LoggerFactory.getLogger(BuiltinSlashCommandRegistrar.class);
     private static final String BUILTIN_PLUGIN_ID = "pudel-core";
+    private static final String BUILTIN_TEXT_PLUGIN_ID = "pudel-core-text";
 
     private final PluginAnnotationProcessor annotationProcessor;
     private final PluginContextFactory pluginContextFactory;
     private final BuiltinCommands builtinCommands;
+    private final BuiltinTextCommands builtinTextCommands;
+    private final BuiltinAgentTools builtinAgentTools;
+    private final AgentToolRegistry agentToolRegistry;
 
     public BuiltinSlashCommandRegistrar(PluginAnnotationProcessor annotationProcessor,
                                         PluginContextFactory pluginContextFactory,
-                                        BuiltinCommands builtinCommands) {
+                                        BuiltinCommands builtinCommands,
+                                        BuiltinTextCommands builtinTextCommands,
+                                        BuiltinAgentTools builtinAgentTools,
+                                        AgentToolRegistry agentToolRegistry) {
         this.annotationProcessor = annotationProcessor;
         this.pluginContextFactory = pluginContextFactory;
         this.builtinCommands = builtinCommands;
+        this.builtinTextCommands = builtinTextCommands;
+        this.builtinAgentTools = builtinAgentTools;
+        this.agentToolRegistry = agentToolRegistry;
     }
 
     @PostConstruct
     public void registerBuiltinCommands() {
-        logger.info("Registering built-in slash commands using annotation processor...");
+        logger.info("Registering built-in commands using annotation processor...");
 
-        // Use the same annotation processor as plugins
+        // Register slash commands (settings, ping, help)
         int registered = annotationProcessor.processAndRegister(
                 BUILTIN_PLUGIN_ID,
                 builtinCommands,
                 pluginContextFactory.getContext(BUILTIN_PLUGIN_ID)
         );
 
-        logger.info("Registered {} built-in commands via annotations", registered);
+        logger.info("Registered {} built-in slash commands via annotations", registered);
 
-        // Sync to Discord
+        // Register text commands (ping, help)
+        int textRegistered = annotationProcessor.processAndRegister(
+                BUILTIN_TEXT_PLUGIN_ID,
+                builtinTextCommands,
+                pluginContextFactory.getContext(BUILTIN_TEXT_PLUGIN_ID)
+        );
+
+        logger.info("Registered {} built-in text commands via annotations", textRegistered);
+
+        // Register built-in agent tools (data management, memory, etc.)
+        int toolsRegistered = agentToolRegistry.registerProvider(
+                BuiltinAgentTools.PLUGIN_ID,
+                builtinAgentTools
+        );
+
+        logger.info("Registered {} built-in agent tools via AgentToolRegistry", toolsRegistered);
+
+        // Sync slash commands to Discord
         annotationProcessor.syncCommands();
     }
 }

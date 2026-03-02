@@ -134,8 +134,10 @@ pudel/
 │   │   ├── InteractionManagerImpl.java  # Two-tier sync (global + per-guild)
 │   │   ├── InteractionEventListener.java
 │   │   └── builtin/
-│   │       ├── BuiltinCommands.java   # Components V2 /settings panel
-│   │       └── BuiltinSlashCommandRegistrar.java
+│   │       ├── BuiltinCommands.java          # Components V2 /settings panel + /ping + /help
+│   │       ├── BuiltinTextCommands.java      # !ping + !help (with paged navigation)
+│   │       ├── BuiltinAgentTools.java        # AI agent data management tools
+│   │       └── BuiltinSlashCommandRegistrar.java  # Registers all 3 at startup
 │   ├── controller/                     # REST API (Vue Dashboard)
 │   │   ├── AdminController.java       # Admin-only: global plugin management
 │   │   ├── GuildSettingsController.java # Guild plugin enable/disable + settings
@@ -313,16 +315,41 @@ BuiltinCommands.handlePluginToggle()
 
 ### Built-in Commands (v2.1.1)
 
+**Slash Commands** (`BuiltinCommands` — `pudel-core`):
+
 | Command | Description | Scope |
 |---------|-------------|-------|
 | `/settings` | Components V2 interactive Settings Panel | Global |
 | `/ping` | Bot latency (Components V2) | Global |
-| `/help` | Available commands (Components V2) | Global |
+| `/help` | Available commands overview (Components V2) | Global |
+
+**Text Commands** (`BuiltinTextCommands` — `pudel-core-text`):
+
+| Command | Description | Features |
+|---------|-------------|----------|
+| `!ping` | Bot latency (rich embed) | Gateway + round-trip |
+| `!help` | Full command listing | Paged (8/page), ⏮◀▶⏭ buttons, `!help <cmd>` detail |
+
+**Agent Tools** (`BuiltinAgentTools` — `pudel-core-tools`):
+
+14 tools registered via `AgentToolRegistry.registerProvider()`. See [AGENT_SYSTEM.md](../../AGENT_SYSTEM.md).
 
 **Removed** (merged into `/settings` panel):
 - ~~`/ai`~~ → Settings Panel > AI view
-- ~~`/channel`~~ → Settings Panel > Channels view  
+- ~~`/channel`~~ → Settings Panel > Channels view
 - ~~`/command`~~ → Settings Panel > Commands view
+
+### Registration (BuiltinSlashCommandRegistrar)
+
+All built-in components are registered at `@PostConstruct`:
+
+```
+BuiltinSlashCommandRegistrar
+├── processAndRegister("pudel-core", builtinCommands)        → slash commands
+├── processAndRegister("pudel-core-text", builtinTextCommands) → text commands
+├── agentToolRegistry.registerProvider("pudel-core-tools", builtinAgentTools) → agent tools
+└── syncCommands()                                            → push to Discord
+```
 
 ### Annotation-Based Commands
 
@@ -356,7 +383,9 @@ The `/settings` command opens a single ephemeral message with a rich interactive
 │  └─────────────────────────────────────┘                                      │
 │       │                                                                       │
 │       ├── ⚙ General ──► Prefix (modal), Cooldown (modal), Verbosity (btns)    │
-│       ├── 🤖 AI ──► Toggle, Nickname/Personality/Biography (modals)           │
+│       ├── 🤖 AI ──► Toggle, Nickname/Language/Personality/Biography (modals)  │
+│       │              Response Length (btns), Formality (btns),                │
+│       │              Emote Usage (btns)                                       │
 │       ├── 📢 Channels ──► Log/Bot channel (EntitySelectMenu modal),           │
 │       │                    Ignore/Unignore (EntitySelectMenu modal)           │
 │       ├── 📝 Commands ──► Paginated toggle buttons per text command           │
@@ -396,7 +425,8 @@ TextAnalyzerService (LangChain4j + Ollama)
     ├── Entity Extraction
     └── Language Detection
     │
-    ├── [Agent intent?] ──► PudelAgentService → Agent Tools → Data Executor
+    ├── [Agent intent?] ──► PudelAgentService → PluginToolAdapter → AgentToolRegistry
+    │                                         (BuiltinAgentTools + Plugin Tools → Data Executor)
     │
     ▼
 MemoryManager → pgvector Semantic Search → Relevant Context
@@ -648,4 +678,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2569-02-25 for Pudel v2.1.1*
+*Last updated: 2026-03-02 for Pudel v2.1.1*
