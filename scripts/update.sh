@@ -22,9 +22,16 @@ echo -e "${BLUE}=========================================${NC}"
 if [ -f .env ]; then
     # Only load simple key=value pairs needed by this script
     # JAVA_OPTS is used by Docker/Java, not needed here
-    while IFS='=' read -r key value; do
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Strip Windows carriage return
+        line="${line%$'\r'}"
         # Skip comments and empty lines
-        [[ "$key" =~ ^#.*$ ]] && continue
+        [[ "$line" =~ ^#.*$ ]] && continue
+        [[ -z "$line" ]] && continue
+        # Extract key and value
+        key="${line%%=*}"
+        value="${line#*=}"
+        # Skip empty keys
         [[ -z "$key" ]] && continue
         # Skip JAVA_OPTS (has spaces that break shell)
         [[ "$key" == "JAVA_OPTS" ]] && continue

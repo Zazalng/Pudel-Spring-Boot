@@ -47,9 +47,16 @@ if grep -q "your_discord_bot_token_here" .env; then
 fi
 
 # Load environment variables (filter out JAVA_OPTS which contains spaces)
-while IFS='=' read -r key value; do
+while IFS= read -r line || [ -n "$line" ]; do
+    # Strip Windows carriage return
+    line="${line%$'\r'}"
     # Skip comments and empty lines
-    [[ "$key" =~ ^#.*$ ]] && continue
+    [[ "$line" =~ ^#.*$ ]] && continue
+    [[ -z "$line" ]] && continue
+    # Extract key and value
+    key="${line%%=*}"
+    value="${line#*=}"
+    # Skip empty keys
     [[ -z "$key" ]] && continue
     # Skip JAVA_OPTS (has spaces that break shell)
     [[ "$key" == "JAVA_OPTS" ]] && continue
