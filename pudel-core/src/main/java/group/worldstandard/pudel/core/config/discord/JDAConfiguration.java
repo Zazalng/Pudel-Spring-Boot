@@ -24,15 +24,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import group.worldstandard.pudel.core.command.builtin.AICommandHandler;
-import group.worldstandard.pudel.core.command.builtin.SettingsCommandHandler;
 import group.worldstandard.pudel.core.discord.DiscordEventListener;
-import group.worldstandard.pudel.core.discord.ReactionNavigationListener;
 import group.worldstandard.pudel.core.interaction.InteractionEventListener;
-
-import java.time.LocalDate;
-import java.time.Month;
-import java.time.temporal.ChronoUnit;
 
 /**
  * Configuration for JDA Discord bot with DAVE support.
@@ -45,10 +38,7 @@ import java.time.temporal.ChronoUnit;
  */
 @Configuration
 public class JDAConfiguration {
-
     private static final Logger logger = LoggerFactory.getLogger(JDAConfiguration.class);
-
-    private static final LocalDate DAVE_DEADLINE = LocalDate.of(2026, Month.MARCH, 1);
 
     @Value("${pudel.audio.enabled:true}")
     private boolean audioEnabled;
@@ -56,9 +46,6 @@ public class JDAConfiguration {
     @Bean
     public JDA jda(DiscordBotProperties properties,
                    DiscordEventListener eventListener,
-                   ReactionNavigationListener reactionNavigationListener,
-                   AICommandHandler aiCommandHandler,
-                   SettingsCommandHandler settingsCommandHandler,
                    InteractionEventListener interactionEventListener) {
         try {
             String token = properties.getToken();
@@ -68,9 +55,6 @@ public class JDAConfiguration {
             }
 
             logger.info("Initializing JDA with token: {}...", token.substring(0, Math.min(10, token.length())));
-
-            // Check DAVE deadline and warn
-            checkDAVEDeadline();
 
             JDABuilder builder = JDABuilder.createDefault(token)
                     .enableIntents(
@@ -83,14 +67,12 @@ public class JDAConfiguration {
                     )
                     .addEventListeners(
                             eventListener,
-                            reactionNavigationListener,
-                            aiCommandHandler,
-                            settingsCommandHandler,
                             interactionEventListener
                     );
 
             // Configure audio settings
             if (audioEnabled) {
+                logger.info("DAVE protocol now required for all voice connections (effective March 1st, 2026)");
                 logger.info("Audio support enabled - DAVE will be configured via plugins");
                 configureDAVE(builder);
             } else {
@@ -136,36 +118,12 @@ public class JDAConfiguration {
             logger.info("Voice connections are ready for Discord's E2EE requirement (March 1st, 2026)");
         } catch (UnsatisfiedLinkError e) {
             logger.error("JDAVE native library not found for this platform: {}", e.getMessage());
-            logger.error("Voice connections will fail after March 1st, 2026!");
             logger.error("Ensure jdave-native for your platform is in the classpath");
         } catch (Exception e) {
             logger.error("Failed to configure DAVE: {} - voice encryption will not be available", e.getMessage());
             if (logger.isDebugEnabled()) {
                 logger.debug("DAVE configuration error details", e);
             }
-        }
-    }
-
-    /**
-     * Check the DAVE deadline and log appropriate warnings.
-     */
-    private void checkDAVEDeadline() {
-        LocalDate now = LocalDate.now();
-
-        if (now.isBefore(DAVE_DEADLINE)) {
-            long daysUntilDeadline = ChronoUnit.DAYS.between(now, DAVE_DEADLINE);
-
-            if (daysUntilDeadline <= 30) {
-                logger.warn("╔════════════════════════════════════════════════════════════════╗");
-                logger.warn("║                    DAVE DEADLINE IMMINENT                      ║");
-                logger.warn("║  {} days until March 1st, 2026 - Voice E2EE required!          ║", String.format("%3d", daysUntilDeadline));
-                logger.warn("║  Ensure JDAVE or libdave-jvm plugin is installed               ║");
-                logger.warn("╚════════════════════════════════════════════════════════════════╝");
-            } else if (daysUntilDeadline <= 60) {
-                logger.warn("DAVE deadline in {} days (March 1st, 2026). Ensure DAVE plugin is ready.", daysUntilDeadline);
-            }
-        } else {
-            logger.info("DAVE protocol now required for all voice connections (effective March 1st, 2026)");
         }
     }
 }

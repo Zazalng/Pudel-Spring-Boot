@@ -30,7 +30,7 @@ import java.io.IOException;
  * and placing the Vue build output in src/main/resources/static/
  */
 @Configuration
-@ConditionalOnProperty(name = "pudel.spa.enabled", havingValue = "true", matchIfMissing =    false)
+@ConditionalOnProperty(name = "pudel.spa.enabled", havingValue = "true", matchIfMissing = false)
 public class SpaWebConfig implements WebMvcConfigurer {
 
     @Override

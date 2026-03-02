@@ -436,8 +436,9 @@ public class InteractionManagerImpl implements InteractionManager {
                 guildCmds.add(handler.getCommandData());
             }
 
+            CompletableFuture<Void> future;
             if (!guildCmds.isEmpty()) {
-                CompletableFuture<Void> future = guild.updateCommands()
+                future = guild.updateCommands()
                         .addCommands(guildCmds)
                         .submit()
                         .thenAccept(commands ->
@@ -446,10 +447,9 @@ public class InteractionManagerImpl implements InteractionManager {
                             logger.error("Failed to sync plugin commands to guild {}: {}", guildId, e.getMessage());
                             return null;
                         });
-                guildFutures.add(future);
             } else {
                 // Clear any previously registered guild commands if no plugin commands remain
-                CompletableFuture<Void> future = guild.updateCommands()
+                future = guild.updateCommands()
                         .submit()
                         .thenAccept(commands ->
                                 logger.debug("Cleared guild commands for {} (no active plugin commands)", guild.getName()))
@@ -457,8 +457,8 @@ public class InteractionManagerImpl implements InteractionManager {
                             logger.error("Failed to clear guild commands for {}: {}", guildId, e.getMessage());
                             return null;
                         });
-                guildFutures.add(future);
             }
+            guildFutures.add(future);
         }
 
         return CompletableFuture.allOf(

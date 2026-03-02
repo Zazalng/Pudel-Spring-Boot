@@ -14,7 +14,7 @@
  */
 package group.worldstandard.pudel.core.controller;
 
-import group.worldstandard.pudel.core.config.PudelProperties;
+import group.worldstandard.pudel.core.config.PudelPropertiesImpl;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDAInfo;
 import net.dv8tion.jda.api.entities.Guild;
@@ -40,11 +40,11 @@ public class BotStatusController {
     private static final Logger log = LoggerFactory.getLogger(BotStatusController.class);
 
     private final JDA jda;
-    private final PudelProperties branding;
+    private final PudelPropertiesImpl branding;
 
     private final long startup = System.currentTimeMillis();
 
-    public BotStatusController(JDA jda, PudelProperties pudelProperties) {
+    public BotStatusController(JDA jda, PudelPropertiesImpl pudelProperties) {
         this.jda = jda;
         this.branding = pudelProperties;
     }

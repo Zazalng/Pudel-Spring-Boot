@@ -1,5 +1,6 @@
 package group.worldstandard.pudel.core.config;
 
+import group.worldstandard.pudel.api.PudelProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -8,11 +9,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "pudel.branding")
-public class PudelProperties {
+public class PudelPropertiesImpl implements PudelProperties {
     private String name;
     private String codename;
     private String version;
 
+    @Override
     public String getName() {
         return name;
     }
@@ -21,6 +23,7 @@ public class PudelProperties {
         this.name = name;
     }
 
+    @Override
     public String getCodename() {
         return codename;
     }
@@ -29,11 +32,17 @@ public class PudelProperties {
         this.codename = codename;
     }
 
+    @Override
     public String getVersion() {
         return version;
     }
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    @Override
+    public String getUserAgent(){
+        return "%s (v%s) - %s".formatted(name, version, codename);
     }
 }

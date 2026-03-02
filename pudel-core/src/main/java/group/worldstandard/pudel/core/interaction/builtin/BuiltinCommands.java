@@ -19,7 +19,7 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
 import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
 import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
-import group.worldstandard.pudel.core.config.PudelProperties;
+import group.worldstandard.pudel.core.config.PudelPropertiesImpl;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
@@ -91,7 +91,7 @@ public class BuiltinCommands {
     private final InteractionManager interactionManager;
     private final PluginService pluginService;
     private final GuildSettingsService guildSettingsService;
-    private final PudelProperties pudelProperties;
+    private final PudelPropertiesImpl pudelProperties;
 
     // ==================== STATE ====================
     private final Map<Long, SettingsSession> activeSessions = new ConcurrentHashMap<>();
@@ -102,7 +102,7 @@ public class BuiltinCommands {
                            InteractionManager interactionManager,
                            PluginService pluginService,
                            GuildSettingsService guildSettingsService,
-                           PudelProperties pudelProperties) {
+                           PudelPropertiesImpl pudelProperties) {
         this.guildInitializationService = guildInitializationService;
         this.metadataRegistry = metadataRegistry;
         this.commandRegistry = commandRegistry;

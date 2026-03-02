@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.plugin;
 
+import group.worldstandard.pudel.core.config.PudelPropertiesImpl;
 import net.dv8tion.jda.api.JDA;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -34,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class PluginContextFactory {
-
+    private final PudelPropertiesImpl pudel;
     private final JDA jda;
     private final CommandRegistry commandRegistry;
     private final PluginEventManager eventManager;
@@ -44,10 +45,11 @@ public class PluginContextFactory {
     private final PluginDatabaseService databaseService;
     private final Map<String, PluginContextImpl> contexts = new ConcurrentHashMap<>();
 
-    public PluginContextFactory(@Lazy JDA jda, CommandRegistry commandRegistry,
+    public PluginContextFactory(PudelPropertiesImpl pudel, @Lazy JDA jda, CommandRegistry commandRegistry,
                                 PluginEventManager eventManager, @Lazy VoiceManager voiceManager,
                                 AgentToolRegistry agentToolRegistry, InteractionManager interactionManager,
                                 PluginDatabaseService databaseService) {
+        this.pudel = pudel;
         this.jda = jda;
         this.commandRegistry = commandRegistry;
         this.eventManager = eventManager;
@@ -76,7 +78,7 @@ public class PluginContextFactory {
      */
     public PluginContext getContext(String pluginName, String pluginVersion) {
         return contexts.computeIfAbsent(pluginName,
-                name -> new PluginContextImpl(name, pluginVersion, jda, commandRegistry, eventManager,
+                name -> new PluginContextImpl(name, pluginVersion, pudel, jda, commandRegistry, eventManager,
                         voiceManager, agentToolRegistry, interactionManager, databaseService));
     }
 
