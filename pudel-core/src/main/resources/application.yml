@@ -15,7 +15,7 @@ spring:
       hibernate:
         format_sql: true
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/pudel
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pudel}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASS:}
     driver-class-name: org.postgresql.Driver
