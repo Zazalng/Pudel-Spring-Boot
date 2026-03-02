@@ -58,7 +58,7 @@
         <spring.boot.version>4.1.0-M2</spring.boot.version>
         <jda.version>6.3.1</jda.version>
         <pudel.version>2.1.1</pudel.version>
-        <tool.jackson.version>3.0.4</tool.jackson.version>
+        <tool.jackson.version>3.1.0</tool.jackson.version>
         <log.version>2.0.17</log.version>
         <mvn.compiler.version>3.15.0</mvn.compiler.version>
         <maven.deploy.skip>true</maven.deploy.skip>

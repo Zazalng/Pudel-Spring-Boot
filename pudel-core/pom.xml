@@ -44,7 +44,7 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jdave.version>0.1.6</jdave.version>
+        <jdave.version>0.1.7</jdave.version>
         <jwt.version>0.13.0</jwt.version>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>

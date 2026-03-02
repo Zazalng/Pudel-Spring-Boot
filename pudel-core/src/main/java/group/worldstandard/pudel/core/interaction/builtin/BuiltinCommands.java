@@ -188,6 +188,10 @@ public class BuiltinCommands {
                 session.view = SettingsView.AI;
                 editView(event, buildAIView(settings));
             }
+            case "nav:ai_advanced" -> {
+                session.view = SettingsView.AI_ADVANCED;
+                editView(event, buildAIAdvancedView(settings));
+            }
             case "nav:channels" -> {
                 session.view = SettingsView.CHANNELS;
                 editView(event, buildChannelsView(settings));
@@ -223,15 +227,17 @@ public class BuiltinCommands {
                 guildInitializationService.updateGuildSettings(session.guildId, settings);
                 editView(event, buildAIView(settings));
             }
-            case "ai:personality" -> event.replyModal(buildLongModal("personality", "Set Personality",
-                    "personality", "Personality traits", settings.getPersonality())).queue();
-            case "ai:biography" -> event.replyModal(buildLongModal("biography", "Set Biography",
-                    "biography", "Bot backstory/biography", settings.getBiography())).queue();
+            case "ai:personality_bio" -> event.replyModal(buildPersonalityBioModal(settings)).queue();
             case "ai:nickname" -> event.replyModal(buildModal("nickname", "Set Nickname",
                     "nickname", "Bot nickname", settings.getNickname(), 1, 100, true)).queue();
             case "ai:language" -> event.replyModal(buildModal("language", "Set Language",
-                    "language", "Language code (en, th, ja, ko, zh, de, fr, es...)",
+                    "language", "Language code (e.g. en, th, ja)",
                     settings.getLanguage() != null ? settings.getLanguage() : "en", 2, 5, true)).queue();
+
+            // ---- AI Advanced Settings ----
+            case "ai:prefs_dialogue" -> event.replyModal(buildPrefsDialogueModal(settings)).queue();
+            case "ai:quirks_prompt" -> event.replyModal(buildQuirksPromptModal(settings)).queue();
+            case "ai:topics" -> event.replyModal(buildTopicsModal(settings)).queue();
 
             // ---- AI Behavior Settings ----
             case "ai:resplength:short", "ai:resplength:medium", "ai:resplength:long" -> {
@@ -344,16 +350,11 @@ public class BuiltinCommands {
                     event.reply("❌ Invalid number").setEphemeral(true).queue();
                 }
             }
-            case "personality" -> {
-                String value = getModalValue(event, "personality");
-                settings.setPersonality(value.isEmpty() ? null : value);
-                guildInitializationService.updateGuildSettings(session.guildId, settings);
-                session.view = SettingsView.AI;
-                editModalView(event, session, buildAIView(settings));
-            }
-            case "biography" -> {
-                String value = getModalValue(event, "biography");
-                settings.setBiography(value.isEmpty() ? null : value);
+            case "personality_bio" -> {
+                String personality = getModalValue(event, "personality");
+                String biography = getModalValue(event, "biography");
+                settings.setPersonality(personality.isEmpty() ? null : personality);
+                settings.setBiography(biography.isEmpty() ? null : biography);
                 guildInitializationService.updateGuildSettings(session.guildId, settings);
                 session.view = SettingsView.AI;
                 editModalView(event, session, buildAIView(settings));
@@ -375,6 +376,33 @@ public class BuiltinCommands {
                 guildInitializationService.updateGuildSettings(session.guildId, settings);
                 session.view = SettingsView.AI;
                 editModalView(event, session, buildAIView(settings));
+            }
+            case "prefs_dialogue" -> {
+                String preferences = getModalValue(event, "preferences");
+                String dialoguestyle = getModalValue(event, "dialoguestyle");
+                settings.setPreferences(preferences.isEmpty() ? null : preferences);
+                settings.setDialogueStyle(dialoguestyle.isEmpty() ? null : dialoguestyle);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                session.view = SettingsView.AI_ADVANCED;
+                editModalView(event, session, buildAIAdvancedView(settings));
+            }
+            case "quirks_prompt" -> {
+                String quirks = getModalValue(event, "quirks");
+                String systemprompt = getModalValue(event, "systemprompt");
+                settings.setQuirks(quirks.isEmpty() ? null : quirks);
+                settings.setSystemPromptPrefix(systemprompt.isEmpty() ? null : systemprompt);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                session.view = SettingsView.AI_ADVANCED;
+                editModalView(event, session, buildAIAdvancedView(settings));
+            }
+            case "topics" -> {
+                String interest = getModalValue(event, "topics_interest");
+                String avoid = getModalValue(event, "topics_avoid");
+                settings.setTopicsInterest(interest.isEmpty() ? null : interest);
+                settings.setTopicsAvoid(avoid.isEmpty() ? null : avoid);
+                guildInitializationService.updateGuildSettings(session.guildId, settings);
+                session.view = SettingsView.AI_ADVANCED;
+                editModalView(event, session, buildAIAdvancedView(settings));
             }
             default -> {
                 // Channel selection modals: channel:log, channel:bot, channel:ignore, channel:unignore
@@ -495,8 +523,7 @@ public class BuiltinCommands {
                 Button.secondary(BTN + "ai:language", "🌐 Language")
         ));
         c.add(ActionRow.of(
-                Button.secondary(BTN + "ai:personality", "✏ Personality"),
-                Button.secondary(BTN + "ai:biography", "✏ Biography")
+                Button.secondary(BTN + "ai:personality_bio", "✏ Personality & Biography")
         ));
 
         c.add(Separator.create(false, Separator.Spacing.SMALL));
@@ -534,7 +561,52 @@ public class BuiltinCommands {
         ));
 
         c.add(Separator.create(true, Separator.Spacing.SMALL));
-        c.add(ActionRow.of(Button.primary(BTN + "nav:main", "🔙 Back")));
+        c.add(ActionRow.of(
+                Button.primary(BTN + "nav:main", "🔙 Back"),
+                Button.secondary(BTN + "nav:ai_advanced", "🔧 Advanced ▸")
+        ));
+
+        return Container.of(c).withAccentColor(ACCENT_AI);
+    }
+
+    private Container buildAIAdvancedView(GuildSettings settings) {
+        List<ContainerChildComponent> c = new ArrayList<>();
+
+        c.add(TextDisplay.of("# 🔧 AI Advanced Settings"));
+        c.add(TextDisplay.of("-# Extended personality, dialogue style, and LLM tuning"));
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
+        c.add(TextDisplay.of("**Preferences:** " + truncate(settings.getPreferences(), 100)
+                + "\n**Dialogue Style:** " + truncate(settings.getDialogueStyle(), 100)));
+
+        c.add(ActionRow.of(
+                Button.secondary(BTN + "ai:prefs_dialogue", "✏ Preferences & Dialogue Style")
+        ));
+
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
+        c.add(TextDisplay.of("**Quirks:** " + truncate(settings.getQuirks(), 100)
+                + "\n**System Prompt Prefix:** " + truncate(settings.getSystemPromptPrefix(), 100)
+                + "\n-# Prepended to the LLM system prompt. Use for custom instructions."));
+
+        c.add(ActionRow.of(
+                Button.secondary(BTN + "ai:quirks_prompt", "✏ Quirks & System Prompt")
+        ));
+
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
+        c.add(TextDisplay.of("**Topics of Interest:** " + truncate(settings.getTopicsInterest(), 100)
+                + "\n**Topics to Avoid:** " + truncate(settings.getTopicsAvoid(), 100)));
+
+        c.add(ActionRow.of(
+                Button.secondary(BTN + "ai:topics", "✏ Topics Interest & Avoid")
+        ));
+
+        c.add(Separator.create(true, Separator.Spacing.SMALL));
+        c.add(ActionRow.of(
+                Button.primary(BTN + "nav:ai", "🔙 AI Settings"),
+                Button.primary(BTN + "nav:main", "🏠 Main")
+        ));
 
         return Container.of(c).withAccentColor(ACCENT_AI);
     }
@@ -887,21 +959,91 @@ public class BuiltinCommands {
                 .setMaxLength(maxLen)
                 .setRequired(required);
         if (defaultValue != null && !defaultValue.isEmpty()) input.setValue(defaultValue);
+        String labelText = placeholder.length() > 45 ? placeholder.substring(0, 42) + "..." : placeholder;
         return Modal.create(MODAL_PREFIX + id, title)
-                .addComponents(Label.of(placeholder, input.build()))
+                .addComponents(Label.of(labelText, input.build()))
                 .build();
     }
 
-    private Modal buildLongModal(String id, String title, String inputId, String placeholder, String defaultValue) {
-        TextInput.Builder input = TextInput.create(inputId, TextInputStyle.PARAGRAPH)
-                .setPlaceholder(placeholder)
-                .setMinLength(0)
-                .setMaxLength(2000)
-                .setRequired(false);
-        if (defaultValue != null && !defaultValue.isEmpty()) input.setValue(defaultValue);
-        return Modal.create(MODAL_PREFIX + id, title)
-                .addComponents(Label.of(placeholder, input.build()))
-                .build();
+
+    private Modal buildPersonalityBioModal(GuildSettings settings) {
+        TextInput.Builder personality = TextInput.create("personality", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Describe the bot's personality traits")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getPersonality() != null && !settings.getPersonality().isEmpty())
+            personality.setValue(settings.getPersonality());
+
+        TextInput.Builder biography = TextInput.create("biography", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Describe the bot's backstory/biography")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getBiography() != null && !settings.getBiography().isEmpty())
+            biography.setValue(settings.getBiography());
+
+        return Modal.create(MODAL_PREFIX + "personality_bio", "Personality & Biography")
+                .addComponents(
+                        Label.of("Personality", personality.build()),
+                        Label.of("Biography", biography.build())
+                ).build();
+    }
+
+    private Modal buildPrefsDialogueModal(GuildSettings settings) {
+        TextInput.Builder prefs = TextInput.create("preferences", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Style preferences for the bot")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getPreferences() != null && !settings.getPreferences().isEmpty())
+            prefs.setValue(settings.getPreferences());
+
+        TextInput.Builder dialogue = TextInput.create("dialoguestyle", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Speech patterns and style")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getDialogueStyle() != null && !settings.getDialogueStyle().isEmpty())
+            dialogue.setValue(settings.getDialogueStyle());
+
+        return Modal.create(MODAL_PREFIX + "prefs_dialogue", "Preferences & Dialogue Style")
+                .addComponents(
+                        Label.of("Preferences", prefs.build()),
+                        Label.of("Dialogue Style", dialogue.build())
+                ).build();
+    }
+
+    private Modal buildQuirksPromptModal(GuildSettings settings) {
+        TextInput.Builder quirks = TextInput.create("quirks", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Catchphrases or speech quirks")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getQuirks() != null && !settings.getQuirks().isEmpty())
+            quirks.setValue(settings.getQuirks());
+
+        TextInput.Builder prompt = TextInput.create("systemprompt", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Custom LLM system prompt prefix")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getSystemPromptPrefix() != null && !settings.getSystemPromptPrefix().isEmpty())
+            prompt.setValue(settings.getSystemPromptPrefix());
+
+        return Modal.create(MODAL_PREFIX + "quirks_prompt", "Quirks & System Prompt")
+                .addComponents(
+                        Label.of("Quirks", quirks.build()),
+                        Label.of("System Prompt Prefix", prompt.build())
+                ).build();
+    }
+
+    private Modal buildTopicsModal(GuildSettings settings) {
+        TextInput.Builder interest = TextInput.create("topics_interest", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Topics the bot is interested in")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getTopicsInterest() != null && !settings.getTopicsInterest().isEmpty())
+            interest.setValue(settings.getTopicsInterest());
+
+        TextInput.Builder avoid = TextInput.create("topics_avoid", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("Topics the bot should avoid")
+                .setMinLength(0).setMaxLength(2000).setRequired(false);
+        if (settings.getTopicsAvoid() != null && !settings.getTopicsAvoid().isEmpty())
+            avoid.setValue(settings.getTopicsAvoid());
+
+        return Modal.create(MODAL_PREFIX + "topics", "Topics Interest & Avoid")
+                .addComponents(
+                        Label.of("Topics of Interest", interest.build()),
+                        Label.of("Topics to Avoid", avoid.build())
+                ).build();
     }
 
     private String getModalValue(ModalInteractionEvent event, String id) {
@@ -950,7 +1092,7 @@ public class BuiltinCommands {
     // Inner Types
     // =====================================================
 
-    private enum SettingsView { MAIN, GENERAL, AI, CHANNELS, COMMANDS, PLUGINS }
+    private enum SettingsView { MAIN, GENERAL, AI, AI_ADVANCED, CHANNELS, COMMANDS, PLUGINS }
 
     private static class SettingsSession {
         final long userId;
