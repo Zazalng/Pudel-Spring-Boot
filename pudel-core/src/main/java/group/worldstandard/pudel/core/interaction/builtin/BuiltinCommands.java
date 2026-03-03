@@ -570,6 +570,17 @@ public class BuiltinCommands {
         c.add(TextDisplay.of("-# Extended personality, dialogue style, and LLM tuning"));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
+        c.add(TextDisplay.of("**System Prompt Prefix:** " + truncate(settings.getSystemPromptPrefix(), 100)
+                + "\n-# Prepended to the LLM system prompt. Use for custom instructions."
+                + "\n**Quirks:** " + truncate(settings.getQuirks(), 100)
+        ));
+
+        c.add(ActionRow.of(
+                Button.secondary(BTN + "ai:quirks_prompt", "✏ System Prompt & Quirks")
+        ));
+
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
         c.add(TextDisplay.of("**Personality:** " + truncate(settings.getPersonality(), 120)
                 + "\n**Biography:** " + truncate(settings.getBiography(), 120)));
 
@@ -577,21 +588,13 @@ public class BuiltinCommands {
                 Button.secondary(BTN + "ai:personality_bio", "✏ Personality & Biography")
         ));
 
+        c.add(Separator.create(false, Separator.Spacing.SMALL));
+
         c.add(TextDisplay.of("**Preferences:** " + truncate(settings.getPreferences(), 100)
                 + "\n**Dialogue Style:** " + truncate(settings.getDialogueStyle(), 100)));
 
         c.add(ActionRow.of(
                 Button.secondary(BTN + "ai:prefs_dialogue", "✏ Preferences & Dialogue Style")
-        ));
-
-        c.add(Separator.create(false, Separator.Spacing.SMALL));
-
-        c.add(TextDisplay.of("**Quirks:** " + truncate(settings.getQuirks(), 100)
-                + "\n**System Prompt Prefix:** " + truncate(settings.getSystemPromptPrefix(), 100)
-                + "\n-# Prepended to the LLM system prompt. Use for custom instructions."));
-
-        c.add(ActionRow.of(
-                Button.secondary(BTN + "ai:quirks_prompt", "✏ Quirks & System Prompt")
         ));
 
         c.add(Separator.create(false, Separator.Spacing.SMALL));
