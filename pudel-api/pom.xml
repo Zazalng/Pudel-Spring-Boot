@@ -11,7 +11,7 @@
 
     <artifactId>pudel-api</artifactId>
     <name>Pudel Plugin API (PDK)</name>
-    <description>Plugin Development Kit for Pudel Discord Bot instance</description>
+    <description>Plugin Development Kit for Pudel Discord Bot</description>
     <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot</url>
 
     <licenses>
