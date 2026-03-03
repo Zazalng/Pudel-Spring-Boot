@@ -15,7 +15,7 @@ spring:
       hibernate:
         format_sql: true
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/pudel
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pudel}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASS:}
     driver-class-name: org.postgresql.Driver
@@ -49,6 +49,10 @@ springdoc:
 # ===========================================
 
 pudel:
+  branding:
+    name: ${PUDEL_BRANDING_NAME:Pudel}
+    codename: ${PUDEL_BRANDING_CODENAME:Canis Lupus Familiaris}
+    version: ${PUDEL_BRANDING_VERSION:1.0.0}
   discord:
     token: ${DISCORD_BOT_TOKEN:}
     prefix: "!"

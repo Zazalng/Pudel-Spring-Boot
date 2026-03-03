@@ -232,5 +232,5 @@ For PDK support and commercial licensing questions:
 
 ---
 
-*Pudel Plugin API (PDK) - Copyright (c) 2026 Napapon Kamanee - MIT License*
+*Pudel Plugin API (PDK) - Copyright (c) 2026 World Standard Group - MIT License*
 

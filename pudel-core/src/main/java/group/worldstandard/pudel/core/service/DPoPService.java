@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -12,7 +12,7 @@
  *
  * See the LICENSE and PLUGIN_EXCEPTION files in the project root for details.
  */
-package group.worldstandard.pudel.core.security;
+package group.worldstandard.pudel.core.service;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.SignatureException;
@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -476,7 +477,8 @@ public class DPoPService implements DisposableBean {
     private Map<String, Object> parseJson(String json) throws Exception {
         // Use a simple JSON parser approach
         // In production, you'd use Jackson or Gson
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        JsonMapper mapper = JsonMapper.builder().build();
         return mapper.readValue(json, Map.class);
     }
 

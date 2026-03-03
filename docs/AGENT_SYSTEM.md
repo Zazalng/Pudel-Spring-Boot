@@ -25,12 +25,22 @@ Should use Agent? ─── No ───→ [Normal Brain/Chat Response]
      ↓
 [PudelAgentService]
      ↓
-[PudelAgentTools] ←→ [AgentDataExecutor]
+[PluginToolAdapter] ←→ [AgentToolRegistry]
      ↓                      ↓
-[LLM + Tools]         [PostgreSQL Schema]
-     ↓
-Agent Response
+[LLM + Tools]        ┌─────┴──────┐
+     ↓               │            │
+Agent Response   BuiltinAgent  Plugin
+                 Tools         Tools
+                 (@AgentTool)  (@AgentTool)
+                     │
+              [AgentDataExecutor]
+                     │
+              [PostgreSQL Schema]
 ```
+
+> **Unified Pipeline (v2.1.1):** Built-in tools are registered through the same
+> `AgentToolRegistry` as plugin tools. `PudelAgentService` no longer instantiates
+> tools directly — everything flows through `PluginToolAdapter`.
 
 ## Components
 
@@ -41,31 +51,56 @@ The orchestrator that:
 - Builds personality-aware system prompts
 - Routes to agent mode when data management intent is detected
 
-### PudelAgentTools (`pudel-model`)
-Tool definitions that Pudel can use:
+### BuiltinAgentTools (`pudel-core`)
+
+Registered as a Spring `@Component` implementing `AgentToolProvider`. Uses Pudel's `@AgentTool` annotation — the same standard as plugin tools. Registered at startup by `BuiltinSlashCommandRegistrar` via `AgentToolRegistry.registerProvider()`.
 
 | Tool | Description |
 |------|-------------|
-| `createTable` | Create a new data table to organize information |
-| `listTables` | List all custom tables in the guild/user schema |
-| `storeData` | Store a piece of information in a table |
-| `archiveMessage` | Archive a Discord message |
-| `searchData` | Search for data by keyword |
-| `getAllData` | Get all entries from a table |
-| `getDataById` | Get specific entry by ID |
-| `updateData` | Update an existing entry |
-| `deleteData` | Delete an entry by ID |
-| `deleteTable` | Delete a table and all its data |
+| `create_table` | Create a new data table to organize information |
+| `list_tables` | List all custom tables in the guild/user schema |
+| `store_data` | Store a piece of information in a table |
+| `archive_message` | Archive a Discord message |
+| `search_data` | Search for data by keyword |
+| `get_all_data` | Get all entries from a table |
+| `get_data_by_id` | Get specific entry by ID |
+| `update_data` | Update an existing entry |
+| `delete_data` | Delete an entry by ID |
+| `delete_table` | Delete a table and all its data (requires `GUILD_MANAGER`) |
 | `remember` | Quick key-value memory storage |
 | `recall` | Retrieve a remembered value |
-| `listMemories` | List all remembered facts |
-| `getCurrentDateTime` | Get current timestamp |
+| `list_memories` | List all remembered facts |
+| `get_current_datetime` | Get current timestamp |
 
 ### AgentDataExecutor (`pudel-core`)
 Database operations implementation that:
 - Manages custom tables with `agent_` prefix
 - Handles CRUD operations within schema boundaries
 - Tracks table metadata for organization
+
+### PluginToolAdapter (`pudel-core`)
+Bridge between the `AgentToolRegistry` and LangChain4j's agent system:
+- Created per-request with the appropriate `AgentToolContext`
+- Exposes `@Tool` annotated methods that delegate to registered tools
+- Both built-in and plugin tools flow through this adapter
+
+## Registration Flow
+
+```
+                  BuiltinSlashCommandRegistrar (@PostConstruct)
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+        pudel-core      pudel-core-text   pudel-core-tools
+        (slash cmds)    (text cmds)       (agent tools)
+              │               │               │
+    PluginAnnotation   PluginAnnotation   AgentToolRegistry
+    Processor          Processor          .registerProvider()
+              │               │               │
+    InteractionManager CommandRegistry   AgentToolRegistryImpl
+              │               │               │
+        syncCommands()  ready for use    ready for LLM
+```
 
 ## Usage Examples
 
@@ -112,6 +147,7 @@ The agent is activated when messages contain keywords like:
 2. **Table Prefix**: All agent-created tables are prefixed with `agent_` for identification
 3. **Input Sanitization**: Table names are sanitized to prevent SQL injection
 4. **User Attribution**: All data records the creating user's ID
+5. **Permission Control**: `delete_table` requires `GUILD_MANAGER` permission via `@AgentTool(permission)`
 
 ## Database Schema
 
@@ -163,7 +199,7 @@ See [SUBSCRIPTION_SYSTEM.md](./SUBSCRIPTION_SYSTEM.md) for tier limits.
 
 ## Plugin Tools API
 
-Plugins can extend the agent's capabilities by registering custom tools.
+Plugins can extend the agent's capabilities by registering custom tools — using the **exact same API** as the built-in tools.
 
 ### Overview
 
@@ -232,6 +268,8 @@ public interface AgentToolContext {
     boolean isGuild();         // True if in guild channel
     long getRequestingUserId(); // User who triggered the agent
     long getGuildId();         // Guild ID (0 if DM)
+    boolean isAdmin();         // Is the user an admin?
+    boolean canManageGuild();  // Can manage the guild?
     Map<String, Object> getContextData(); // Additional data
 }
 ```
@@ -243,7 +281,7 @@ See `examples/WeatherToolsPlugin.java` for a complete example.
 ### How It Works
 
 1. Plugin registers tools via `AgentToolRegistry`
-2. When agent mode is triggered, plugin tools are included
+2. When agent mode is triggered, all tools (built-in + plugins) are included via `PluginToolAdapter`
 3. The AI agent decides which tools to use based on:
    - Tool descriptions
    - Keywords
@@ -258,5 +296,6 @@ See `examples/WeatherToolsPlugin.java` for a complete example.
 3. **Handle Errors**: Return helpful error messages, don't throw exceptions
 4. **Be Concise**: Return formatted but concise results
 5. **Respect Context**: Use `guildOnly`/`dmOnly` for context-specific tools
+6. **Use Permissions**: Set `permission` for destructive or privileged tools
 
-
+*Last updated: 2026-03-02 for Pudel v2.1.1*

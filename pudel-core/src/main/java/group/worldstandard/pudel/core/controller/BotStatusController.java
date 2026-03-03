@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -14,11 +14,14 @@
  */
 package group.worldstandard.pudel.core.controller;
 
+import group.worldstandard.pudel.core.config.PudelPropertiesImpl;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDAInfo;
 import net.dv8tion.jda.api.entities.Guild;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.SpringBootVersion;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,10 +40,13 @@ public class BotStatusController {
     private static final Logger log = LoggerFactory.getLogger(BotStatusController.class);
 
     private final JDA jda;
+    private final PudelPropertiesImpl branding;
+
     private final long startup = System.currentTimeMillis();
 
-    public BotStatusController(JDA jda) {
+    public BotStatusController(JDA jda, PudelPropertiesImpl pudelProperties) {
         this.jda = jda;
+        this.branding = pudelProperties;
     }
 
     /**
@@ -76,11 +82,12 @@ public class BotStatusController {
     public ResponseEntity<?> getBotVersion() {
         try {
             Map<String, Object> version = new HashMap<>();
-            version.put("version", "2.0.0");
-            version.put("name", "Pudel");
-            version.put("jdaVersion", net.dv8tion.jda.api.JDAInfo.VERSION);
+            version.put("version", branding.getVersion());
+            version.put("name", branding.getName());
+            version.put("codename", branding.getCodename());
+            version.put("jdaVersion", JDAInfo.VERSION);
             version.put("javaVersion", System.getProperty("java.version"));
-            version.put("springBootVersion", org.springframework.boot.SpringBootVersion.getVersion());
+            version.put("springBootVersion", SpringBootVersion.getVersion());
 
             return ResponseEntity.ok(version);
         } catch (Exception e) {

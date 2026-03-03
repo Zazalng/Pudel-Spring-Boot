@@ -92,9 +92,15 @@ services:
       # Note: Ollama dependency is removed - Pudel handles connection gracefully
       # If you need strict dependency, use: docker-compose --profile ollama up -d
     environment:
+      # Server
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      AUTO_UPDATE: ${AUTO_UPDATE:-true}
+      GIT_REPO: ${GIT_REPO:-https://github.com/World-Standard-Group/Pudel-Spring-Boot.git}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+
       # Database
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASS: ${POSTGRES_PASS:-pudelpassword}
       POSTGRES_DB: ${POSTGRES_DB:-pudel}
@@ -127,8 +133,13 @@ services:
       # Server
       SERVER_PORT: ${SERVER_PORT:-8080}
 
-      # JVM (note: value must be quoted in .env file if it contains spaces)
+      # JVM (do NOT wrap value in quotes in .env file - Docker handles quoting)
       JAVA_OPTS: "${JAVA_OPTS:--Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseStringDeduplication}"
+
+      # Branding Configuration
+      PUDEL_BRANDING_NAME: ${PUDEL_BRANDING_NAME:-Pudel}
+      PUDEL_BRANDING_CODENAME: ${PUDEL_BRANDING_CODENAME:-Canis Lupus Familiaris}
+      PUDEL_BRANDING_VERSION: ${PUDEL_BRANDING_VERSION:-1.0.0}
 
       # Plugin Configuration
       PUDEL_PLUGIN_DIRECTORY: /app/plugins
@@ -150,21 +161,34 @@ services:
       # Keys: keys/pv.key (private) and keys/pb.key (public)
       - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
+      - pudel_src:/app/src
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
     networks:
       - pudel-network
 
   # ===========================================
-  # Pudel Updater Service (Auto-update from Git)
-  # Runs on a schedule to pull latest updates
+  # Pudel Updater Service (Trigger update from Git)
+  #
+  # HOW IT WORKS:
+  #   1. Pulls latest code from GIT_REPO/GIT_BRANCH into the shared
+  #      pudel_src volume (same volume mounted in the pudel container)
+  #   2. After pull, it restarts the pudel container via Docker socket
+  #   3. On restart, pudel's entrypoint detects AUTO_UPDATE=true,
+  #      rebuilds from the updated source, and starts the new JAR
+  #
+  # USAGE:
+  #   Manual:   docker compose run --rm pudel-updater
+  #   Cron:     0 */6 * * * cd /path/to/project && docker compose run --rm pudel-updater
+  #   Webhook:  Call from a GitHub webhook handler
+  #
   # ===========================================
   pudel-updater:
-    image: alpine/git:latest
+    image: docker:cli
     container_name: pudel-updater
     restart: "no"
     volumes:
-      - ./:/repo
+      - pudel_src:/app/src
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       GIT_REPO: ${GIT_REPO:-https://github.com/World-Standard-Group/Pudel-Spring-Boot.git}
@@ -172,10 +196,30 @@ services:
     entrypoint: /bin/sh
     command: >
       -c "
-        cd /repo &&
-        git fetch origin ${GIT_BRANCH:-main} &&
-        git reset --hard origin/${GIT_BRANCH:-main} &&
-        echo 'Repository updated successfully!'
+        apk add --no-cache git > /dev/null 2>&1 &&
+        cd /app/src &&
+        git config --global --add safe.directory /app/src &&
+
+        if [ -d .git ]; then
+          echo '[1/3] Fetching latest from $${GIT_BRANCH}...' &&
+          git fetch origin $${GIT_BRANCH} &&
+          LOCAL=$$(git rev-parse HEAD) &&
+          REMOTE=$$(git rev-parse origin/$${GIT_BRANCH}) &&
+          if [ \"$$LOCAL\" = \"$$REMOTE\" ]; then
+            echo 'Already up to date. No restart needed.' &&
+            exit 0;
+          fi &&
+          echo '[2/3] New commits found, pulling...' &&
+          git reset --hard origin/$${GIT_BRANCH};
+        else
+          echo '[1/3] Cloning repository...' &&
+          git clone --depth 1 --branch $${GIT_BRANCH} $${GIT_REPO} . &&
+          echo '[2/3] Clone complete.';
+        fi &&
+
+        echo '[3/3] Restarting pudel container to apply update...' &&
+        docker restart pudel-bot &&
+        echo 'Update triggered! The bot will rebuild and restart.'
       "
     profiles:
       - update
@@ -198,4 +242,6 @@ volumes:
   ollama_data:
     driver: local
   pudel_logs:
+    driver: local
+  pudel_src:
     driver: local

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -238,22 +238,19 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
      * Handles java.time types that PostgreSQL JDBC driver doesn't support directly.
      */
     private Object convertToJdbcValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        // Convert java.time.Instant to java.sql.Timestamp
-        if (value instanceof Instant instant) {
-            return Timestamp.from(instant);
-        }
-        // Convert java.time.LocalDateTime to java.sql.Timestamp
-        if (value instanceof LocalDateTime ldt) {
-            return Timestamp.valueOf(ldt);
-        }
-        // Convert java.time.OffsetDateTime to java.sql.Timestamp
-        if (value instanceof OffsetDateTime odt) {
-            return Timestamp.from(odt.toInstant());
-        }
-        return value;
+        return switch (value) {
+            case null -> null;
+
+            // Convert java.time.Instant to java.sql.Timestamp
+            case Instant instant -> Timestamp.from(instant);
+
+            // Convert java.time.LocalDateTime to java.sql.Timestamp
+            case LocalDateTime ldt -> Timestamp.valueOf(ldt);
+
+            // Convert java.time.OffsetDateTime to java.sql.Timestamp
+            case OffsetDateTime odt -> Timestamp.from(odt.toInstant());
+            default -> value;
+        };
     }
 
     /**

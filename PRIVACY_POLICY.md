@@ -1,7 +1,7 @@
 # Pudel Privacy Policy
 
 **Effective Date**: January 1, 2026
-**Last Updated**: January 17, 2026
+**Last Updated**: February 26, 2026
 
 ---
 
@@ -78,7 +78,7 @@ We use collected information to:
 ### 3.3 Security and Compliance
 
 - Detect and prevent abuse or fraud
-- Enforce our Terms of Service
+- Enforce our Terms of Service & Security Policy
 - Comply with legal obligations
 - Protect users and our systems
 
@@ -114,6 +114,7 @@ PostgreSQL Database
 - Guild data is never shared with other guilds
 - User DM data is stored in separate schemas
 - Database credentials are isolated per schema
+- Each plugin has its own sandbox managed by `pudel-core`
 
 ### 4.2 Memory and Conversation Data
 
@@ -247,6 +248,7 @@ We implement:
 - **Access Control**: Role-based access, principle of least privilege
 - **Schema Isolation**: PostgreSQL schema-level data separation
 - **Authentication**: JWT tokens with expiration, Discord OAuth
+- **DPoP**: Demonstrating Proof-of-Possession sign. This prevents the misuse of stolen tokens.
 - **Rate Limiting**: Protection against abuse and DDoS
 
 ### 8.2 Operational Measures
@@ -380,7 +382,7 @@ We review this policy at least annually and update as needed.
 For privacy-related questions or requests:
 
 **World Standard Group**  
-Email: -
+Email: [Legal Team](mailto:legal.department@worldstandard.group)\
 Discord: [Pudel Support Server (TBA)](https://discord.gg/pudel)
 
 ### Data Protection Inquiries
@@ -413,5 +415,4 @@ We will respond within 30 days.
 
 ---
 
-*Last updated: January 17, 2026*
-
+*Last updated: February 26, 2026*

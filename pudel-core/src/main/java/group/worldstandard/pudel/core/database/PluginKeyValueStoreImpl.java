@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -65,7 +65,7 @@ public class PluginKeyValueStoreImpl implements PluginKeyValueStore {
     public Optional<String> getString(String key) {
         String sql = "SELECT value FROM " + tableName + " WHERE key = ?";
         List<String> results = jdbcTemplate.queryForList(sql, String.class, key);
-        return results.isEmpty() ? Optional.empty() : Optional.ofNullable(results.get(0));
+        return results.isEmpty() ? Optional.empty() : Optional.ofNullable(results.getFirst());
     }
 
     @Override

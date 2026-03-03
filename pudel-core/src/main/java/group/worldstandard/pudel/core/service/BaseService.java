@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.service;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +47,7 @@ public abstract class BaseService {
                 return false;
             }
 
-            net.dv8tion.jda.api.entities.Guild guild = jda.getGuildById(guildId);
+            Guild guild = jda.getGuildById(guildId);
             return guild != null;
         } catch (Exception e) {
             logger.error("Error checking if bot is in guild {}", guildId, e);

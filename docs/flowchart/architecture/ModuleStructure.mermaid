@@ -1,14 +1,13 @@
-%% Pudel Module Structure v2.0.0
+%% Pudel Module Structure v2.1.1
 
 flowchart TD
     subgraph API["pudel-api (MIT License)"]
         direction TB
-        ANNOTATION["📌 annotation/<br/>@Plugin, @SlashCommand,<br/>@TextCommand, @OnEnable,<br/>@OnDisable, @OnShutdown"]
+        ANNOTATION["📌 annotation/<br/>@Plugin, @SlashCommand,<br/>@TextCommand, @ButtonHandler,<br/>@ModalHandler, @SelectMenuHandler,<br/>@OnEnable, @OnDisable, @OnShutdown"]
         CONTEXT["PluginContext"]
         INFO["PluginInfo"]
-        DEPRECATED["⚠️ DEPRECATED<br/>PudelPlugin, SimplePlugin"]
         CMD_API["command/<br/>CommandContext"]
-        INTERACT_API["interaction/<br/>InteractionManager"]
+        INTERACT_API["interaction/<br/>InteractionManager<br/>SlashCommandHandler<br/>ButtonHandler, ModalHandler<br/>SelectMenuHandler, ContextMenuHandler<br/>AutoCompleteHandler"]
         EVENT_API["event/<br/>EventListener"]
         AUDIO_API["audio/<br/>VoiceManager"]
         AGENT_API["agent/<br/>AgentToolRegistry"]
@@ -21,23 +20,36 @@ flowchart TD
         EMBED["embedding/<br/>EmbeddingService"]
         ANALYZER["analyzer/<br/>TextAnalyzerService"]
         AGENT_MODEL["agent/<br/>PudelAgentService"]
+        MODEL_CONFIG["model-config.yml"]
     end
 
     subgraph CORE["pudel-core (AGPL-3.0)"]
         direction TB
         MAIN["Pudel.java<br/>(Entry Point)"]
 
-        subgraph PluginSystem["🆕 Plugin System (v2.0.0)"]
+        subgraph PluginSystem["Plugin System"]
             CLASSLOADER["PluginClassLoader<br/>(JAR + hot-reload)"]
             PROCESSOR["PluginAnnotationProcessor<br/>(scan annotations)"]
-            PLUGIN_SVC["PluginService<br/>(lifecycle)"]
+            PLUGIN_SVC["PluginService<br/>(global lifecycle)"]
             WATCHER["PluginWatcherService<br/>(file watcher)"]
         end
 
-        subgraph Interaction["Interaction"]
-            INTERACT_IMPL["InteractionManagerImpl"]
-            BUILTIN["BuiltinCommands<br/>(@Plugin-based)"]
-            REGISTRAR["BuiltinSlashCommandRegistrar"]
+        subgraph Interaction["Interaction Layer"]
+            INTERACT_IMPL["InteractionManagerImpl<br/>Two-tier sync:<br/>core→global, plugin→guild"]
+            INTERACT_LISTENER["InteractionEventListener"]
+            BUILTIN["BuiltinCommands<br/>Components V2 /settings"]
+            BUILTIN_TEXT["BuiltinTextCommands<br/>!ping, !help (paged)"]
+            BUILTIN_TOOLS["BuiltinAgentTools<br/>14 @AgentTool methods"]
+            REGISTRAR["BuiltinSlashCommandRegistrar<br/>(registers all 3)"]
+        end
+
+        subgraph Controllers["REST API Controllers"]
+            ADMIN_CTRL["AdminController<br/>(global plugin mgmt)"]
+            GUILD_CTRL["GuildSettingsController<br/>(guild plugin toggle + settings)"]
+            AUTH_CTRL["AuthController"]
+            BOT_CTRL["BotStatusController<br/>BotInstanceController"]
+            BRAIN_CTRL["BrainController"]
+            MARKET_CTRL["MarketPluginController"]
         end
 
         subgraph Brain["Brain"]
@@ -50,7 +62,17 @@ flowchart TD
         subgraph Services["Services"]
             CHATBOT["ChatbotService"]
             CMD_EXEC["CommandExecutionService"]
-            GUILD_SVC["GuildInitializationService"]
+            GUILD_INIT["GuildInitializationService"]
+            GUILD_SETTINGS_SVC["GuildSettingsService<br/>(guild plugin enable/disable)"]
+            AUTH_SVC["AuthService + DPoPService"]
+            DISCORD_API["DiscordAPIService"]
+        end
+
+        subgraph Bootstrap["Bootstrap Runners"]
+            PLUGIN_BOOT["PluginBootstrapRunner"]
+            CMD_BOOT["CommandBootstrapRunner"]
+            SCHEMA_BOOT["SchemaBootstrapRunner"]
+            SLASH_BOOT["SlashCommandSyncRunner"]
         end
     end
 
@@ -58,6 +80,7 @@ flowchart TD
         DISCORD["Discord<br/>(JDA 6)"]
         POSTGRES["PostgreSQL<br/>+ pgvector"]
         OLLAMA_EXT["Ollama<br/>(LLM)"]
+        VUE_EXT["Vue Dashboard"]
     end
 
     %% API Dependencies
@@ -77,20 +100,25 @@ flowchart TD
     BRAIN --> EMBED
     CHATBOT --> AGENT_MODEL
 
+    %% Two-tier control
+    ADMIN_CTRL --> PLUGIN_SVC
+    GUILD_CTRL --> GUILD_SETTINGS_SVC
+    BUILTIN --> GUILD_SETTINGS_SVC
+    GUILD_SETTINGS_SVC --> INTERACT_IMPL
+
     %% External connections
     CORE --> DISCORD
     CORE --> POSTGRES
     MODEL --> OLLAMA_EXT
+    VUE_EXT --> Controllers
 
     %% Styling
     classDef api fill:#1565c0,stroke:#0d47a1,color:#fff
     classDef model fill:#7b1fa2,stroke:#4a148c,color:#fff
     classDef core fill:#2e7d32,stroke:#1b5e20,color:#fff
     classDef external fill:#f57c00,stroke:#e65100,color:#fff
-    classDef deprecated fill:#d32f2f,stroke:#b71c1c,color:#fff
 
     class ANNOTATION,CONTEXT,INFO,CMD_API,INTERACT_API,EVENT_API,AUDIO_API,AGENT_API,DB_API api
-    class OLLAMA,EMBED,ANALYZER,AGENT_MODEL model
-    class MAIN,CLASSLOADER,PROCESSOR,PLUGIN_SVC,WATCHER,INTERACT_IMPL,BUILTIN,REGISTRAR,BRAIN,MEMORY,PERSONALITY,RESPONSE,CHATBOT,CMD_EXEC,GUILD_SVC core
-    class DISCORD,POSTGRES,OLLAMA_EXT external
-    class DEPRECATED deprecated
+    class OLLAMA,EMBED,ANALYZER,AGENT_MODEL,MODEL_CONFIG model
+    class MAIN,CLASSLOADER,PROCESSOR,PLUGIN_SVC,WATCHER,INTERACT_IMPL,INTERACT_LISTENER,BUILTIN,BUILTIN_TEXT,BUILTIN_TOOLS,REGISTRAR,ADMIN_CTRL,GUILD_CTRL,AUTH_CTRL,BOT_CTRL,BRAIN_CTRL,MARKET_CTRL,BRAIN,MEMORY,PERSONALITY,RESPONSE,CHATBOT,CMD_EXEC,GUILD_INIT,GUILD_SETTINGS_SVC,AUTH_SVC,DISCORD_API,PLUGIN_BOOT,CMD_BOOT,SCHEMA_BOOT,SLASH_BOOT core
+    class DISCORD,POSTGRES,OLLAMA_EXT,VUE_EXT external

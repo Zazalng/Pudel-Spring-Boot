@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -165,7 +165,7 @@ public class QueryBuilderImpl<T> implements QueryBuilder<T> {
     @Override
     public Optional<T> findOne() {
         List<T> results = executeQuery(true);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
     }
 
     @Override
@@ -228,21 +228,24 @@ public class QueryBuilderImpl<T> implements QueryBuilder<T> {
         for (WhereClause clause : whereClauses) {
             String op = clause.operator;
 
-            if (op.equals("IS NULL") || op.equals("IS NOT NULL")) {
-                clauses.add(clause.column + " " + op);
-            } else if (op.equals("IN") || op.equals("NOT IN")) {
-                List<?> values = (List<?>) clause.value;
-                String placeholders = values.stream().map(v -> "?").collect(Collectors.joining(", "));
-                clauses.add(clause.column + " " + op + " (" + placeholders + ")");
-                params.addAll(values);
-            } else if (op.equals("BETWEEN")) {
-                Object[] range = (Object[]) clause.value;
-                clauses.add(clause.column + " BETWEEN ? AND ?");
-                params.add(range[0]);
-                params.add(range[1]);
-            } else {
-                clauses.add(clause.column + " " + op + " ?");
-                params.add(clause.value);
+            switch (op) {
+                case "IS NULL", "IS NOT NULL" -> clauses.add(clause.column + " " + op);
+                case "IN", "NOT IN" -> {
+                    List<?> values = (List<?>) clause.value;
+                    String placeholders = values.stream().map(v -> "?").collect(Collectors.joining(", "));
+                    clauses.add(clause.column + " " + op + " (" + placeholders + ")");
+                    params.addAll(values);
+                }
+                case "BETWEEN" -> {
+                    Object[] range = (Object[]) clause.value;
+                    clauses.add(clause.column + " BETWEEN ? AND ?");
+                    params.add(range[0]);
+                    params.add(range[1]);
+                }
+                default -> {
+                    clauses.add(clause.column + " " + op + " ?");
+                    params.add(clause.value);
+                }
             }
         }
 

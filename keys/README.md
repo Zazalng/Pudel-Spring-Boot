@@ -8,7 +8,7 @@ Run the following commands to generate the keys:
 
 ### Generate Private Key (PKCS#8 format)
 ```bash
-openssl genpkey -algorithm RSA -out pv.key -pkeyopt rsa_keygen_bits:2048
+openssl genpkey -algorithm RSA -out pv.key -pkeyopt rsa_keygen_bits:4096
 ```
 
 ### Extract Public Key

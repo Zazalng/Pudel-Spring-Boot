@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -117,7 +117,7 @@ public class UserDataService {
     public Optional<String> getPudelSetting(long userId, String field) {
         return getPudelSettings(userId)
                 .map(settings -> (String) settings.get(field))
-                .filter(value -> value != null && !value.isEmpty());
+                .filter(value -> !value.isEmpty());
     }
 
     // ===========================================

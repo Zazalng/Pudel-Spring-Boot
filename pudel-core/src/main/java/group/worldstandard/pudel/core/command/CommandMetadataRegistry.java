@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -123,11 +123,21 @@ public class CommandMetadataRegistry {
     }
 
     /**
+     * Check if a plugin ID is a built-in (core) plugin.
+     */
+    private boolean isCorePlugin(String pluginId) {
+        return "core".equals(pluginId)
+                || "pudel-core".equals(pluginId)
+                || "pudel-core-text".equals(pluginId)
+                || "pudel-core-tools".equals(pluginId);
+    }
+
+    /**
      * Check if a text command is from a plugin (not built-in).
      */
     public boolean isPluginTextCommand(String commandName) {
         CommandMetadata meta = textCommands.get(commandName.toLowerCase());
-        return meta != null && !"core".equals(meta.pluginId());
+        return meta != null && !isCorePlugin(meta.pluginId());
     }
 
     /**
@@ -135,7 +145,7 @@ public class CommandMetadataRegistry {
      */
     public boolean isPluginSlashCommand(String commandName) {
         CommandMetadata meta = slashCommands.get(commandName.toLowerCase());
-        return meta != null && !"core".equals(meta.pluginId());
+        return meta != null && !isCorePlugin(meta.pluginId());
     }
 
     /**
@@ -174,7 +184,10 @@ public class CommandMetadataRegistry {
          * Check if this is a built-in (core) command.
          */
         public boolean isBuiltIn() {
-            return "core".equals(pluginId);
+            return "core".equals(pluginId)
+                    || "pudel-core".equals(pluginId)
+                    || "pudel-core-text".equals(pluginId)
+                    || "pudel-core-tools".equals(pluginId);
         }
     }
 }

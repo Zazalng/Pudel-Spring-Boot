@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -52,7 +52,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 @Transactional
-@SuppressWarnings({"deprecation", "removal"}) // Supporting legacy PudelPlugin for backward compatibility
+@Deprecated
+@SuppressWarnings({"removal"}) // Supporting legacy PudelPlugin for backward compatibility
 public class PluginService extends BaseService implements PluginClassLoader.PluginUpdateCallback {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);

@@ -1,4 +1,5 @@
-%% Pudel Slash Command Flow v2.0.0
+%% Pudel Slash Command Flow v2.1.1
+%% Two-Tier Sync + Components V2 Settings Panel
 
 sequenceDiagram
     participant User as Discord User
@@ -7,6 +8,7 @@ sequenceDiagram
     participant Listener as InteractionEventListener
     participant Manager as InteractionManagerImpl
     participant Handler as @SlashCommand Handler
+    participant CV2 as Components V2 Panel
     participant Brain as PudelBrain (optional)
 
     Note over User,Brain: Slash Command Execution Flow
@@ -21,30 +23,55 @@ sequenceDiagram
     alt Handler Found
         Manager->>Handler: handle(event)
 
-        alt Simple Response
-            Handler->>Discord: event.reply("Response")
-            Discord->>User: Show response
-        else AI-Powered Response
-            Handler->>Brain: process(message)
-            Brain->>Brain: Analyze intent
-            Brain->>Brain: Apply personality
-            Brain-->>Handler: Generated response
-            Handler->>Discord: event.reply(response)
-            Discord->>User: Show AI response
-        else Deferred Response
-            Handler->>Discord: event.deferReply()
-            Discord->>User: "Bot is thinking..."
-            Handler->>Handler: Long operation
-            Handler->>Discord: event.getHook().editOriginal("Done!")
-            Discord->>User: Update message
+        alt /settings (Components V2 Panel)
+            Handler->>Handler: Create SettingsSession
+            Handler->>CV2: Build Main View Container
+            CV2->>Discord: reply(Container).ephemeral()
+            Discord->>User: Show Settings Panel
+
+            Note over User,CV2: User navigates via buttons
+            User->>Discord: Click button (e.g. "🧩 Plugins")
+            Discord->>Listener: ButtonInteractionEvent
+            Listener->>Manager: route to @ButtonHandler("settings:")
+            Manager->>CV2: Build Plugins View
+            CV2->>Discord: editMessage(Container)
+            Discord->>User: Show Plugins View
+
+            Note over User,CV2: User toggles plugin
+            User->>Discord: Click toggle button
+            Discord->>Listener: ButtonInteractionEvent
+            Listener->>Manager: handlePluginToggle()
+            Manager->>Manager: guildSettingsService.disablePluginForGuild()
+            Manager->>Manager: syncGuildCommands(guildId)
+            Manager->>Discord: guild.updateCommands().submit()
+            Discord->>User: Plugin slash commands disappear
+
+        else /ping (Components V2)
+            Handler->>Discord: reply(Container with latency)
+            Discord->>User: Show latency panel
+
+        else /help (Components V2)
+            Handler->>Discord: reply(Container with command list)
+            Discord->>User: Show commands panel
+
+        else Plugin Command
+            alt Simple Response
+                Handler->>Discord: event.reply("Response")
+                Discord->>User: Show response
+            else AI-Powered Response
+                Handler->>Brain: process(message)
+                Brain-->>Handler: Generated response
+                Handler->>Discord: event.reply(response)
+                Discord->>User: Show AI response
+            end
         end
     else Handler Not Found
         Manager->>Discord: event.reply("Unknown command").ephemeral()
         Discord->>User: Show error (ephemeral)
     end
 
-    Note over User,Brain: Registration (happens at plugin enable)
+    Note over User,Brain: Command Registration Strategy
 
     rect rgb(40, 60, 40)
-        Note right of Handler: @SlashCommand annotation<br/>automatically registered by<br/>PluginAnnotationProcessor
+        Note right of Manager: Core commands: registered GLOBALLY<br/>(/settings, /ping, /help)<br/><br/>Plugin commands: registered PER-GUILD<br/>Filtered by guild_settings.disabled_plugins<br/><br/>syncCommands() separates core vs plugin<br/>syncGuildCommands(id) updates one guild
     end

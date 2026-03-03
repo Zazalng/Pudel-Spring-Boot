@@ -29,14 +29,16 @@ If you fork Pudel, any plugin API you create remains AGPLv3.
 - Governed by:
     - Terms of Service
     - Privacy Policy
+    - Security Policy
 
 ## Self-Hosted Instances
 - You are the data controller
 - You must comply with AGPLv3
-- Official Terms/Privacy do not apply to your instance
+- Official Terms/Privacy/Security do not apply to your instance
 
 ## Legal Documents
 - License: [LICENSE](LICENSE)
 - Plugin Exception: [PLUGIN_EXCEPTION](PLUGIN_EXCEPTION)
 - Terms of Service: [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md)
 - Privacy Policy: [PRIVACY_POLICY.md](PRIVACY_POLICY.md)
+- Security Policy: [SECURITY.md](SECURITY.md)

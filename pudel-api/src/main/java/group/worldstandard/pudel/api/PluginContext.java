@@ -1,6 +1,6 @@
 /*
  * Pudel Plugin API (PDK) - Plugin Development Kit for Pudel Discord Bot
- * Copyright (c) 2026 Napapon Kamanee
+ * Copyright (c) 2026 World Standard Group
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +36,17 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
  * Plugins should use this context to interact with the bot and access shared services.
  */
 public interface PluginContext {
+    /**
+     * Gets the plugin name associated with this context.
+     * @return the plugin name
+     */
+    String getPluginName();
+
+    /**
+     * Gets the core properties for defining core version
+     * @return the PudelProperties instance
+     */
+    PudelProperties getPudel();
 
     /**
      * Gets the JDA instance.
@@ -76,21 +87,6 @@ public interface PluginContext {
      */
     TextCommandHandler getCommand(String commandName);
 
-    /**
-     * Logs a message.
-     * @param level the log level
-     * @param message the message
-     */
-    void log(String level, String message);
-
-    /**
-     * Logs a message with an exception.
-     * @param level the log level
-     * @param message the message
-     * @param throwable the exception
-     */
-    void log(String level, String message, Throwable throwable);
-
     // ============== Event Management ==============
 
     /**
@@ -126,12 +122,6 @@ public interface PluginContext {
      * @param <T> the event type
      */
     <T extends GenericEvent> void unregisterEventListener(PluginEventListener<T> listener);
-
-    /**
-     * Gets the plugin name associated with this context.
-     * @return the plugin name
-     */
-    String getPluginName();
 
     // ============== Voice/Audio Management ==============
 
@@ -218,5 +208,20 @@ public interface PluginContext {
      * @return the plugin database manager
      */
     PluginDatabaseManager getDatabaseManager();
+
+    /**
+     * Logs a message.
+     * @param level the log level
+     * @param message the message
+     */
+    void log(String level, String message);
+
+    /**
+     * Logs a message with an exception.
+     * @param level the log level
+     * @param message the message
+     * @param throwable the exception
+     */
+    void log(String level, String message, Throwable throwable);
 }
 

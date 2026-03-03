@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -22,6 +22,7 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -35,19 +36,24 @@ import java.util.List;
  */
 @Configuration
 public class OpenApiConfig {
-
+    @Value("${pudel.branding.name:Pudel}")
+    private String name;
+    @Value("${pudel.branding.version:1.0.0}")
+    private String version;
 
     @Bean
     public OpenAPI pudelOpenAPI() {
+
+
         final String dpopSchemeName = "DPoP";
         final String bearerSchemeName = "Bearer";
         final String adminBearerSchemeName = "AdminBearer";
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Pudel Discord Bot API")
+                        .title(name + " Discord Bot API")
                         .description("""
-                                REST API for the Pudel Discord Bot management platform.
+                                REST API for the %s Discord Bot management platform.
 
                                 ## Authentication
                                 - **Bearer**: Standard JWT token from Discord OAuth callback
@@ -58,11 +64,11 @@ public class OpenApiConfig {
                                 1. Authenticate via Discord OAuth at `/api/auth/discord/callback`
                                 2. Use the returned token in the `Authorization` header
                                 3. For DPoP tokens, include a DPoP proof in each request
-                                """)
-                        .version("2.1.0")
+                                """.formatted(name))
+                        .version(version)
                         .contact(new Contact()
                                 .name("World Standard Group")
-                                .email("kenghide@hotmail.com")
+                                .email("it.department@worldstandard.group")
                                 .url("https://worldstandard.group"))
                         .license(new License()
                                 .name("AGPL-3.0 with Plugin Exception")

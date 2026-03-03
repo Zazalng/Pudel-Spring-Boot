@@ -64,18 +64,19 @@ cd ..
 **Option A: Without AI (Ollama disabled)**
 ```bash
 # Start only PostgreSQL and Pudel
-docker-compose up -d
+docker compose up -d
 ```
 
 **Option B: With AI Features (Ollama enabled)**
 ```bash
 # Start with Ollama profile
-docker-compose --profile ollama up -d
+docker compose --profile ollama up -d
 ```
 
-**Option C: Auto-Update Mode (Development)**
+Or use the quick start script:
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+chmod +x scripts/start.sh
+./scripts/start.sh
 ```
 
 > **Note:** Ollama requires additional RAM (8GB+ recommended). If you don't need AI features, skip the `--profile ollama` flag to save resources.
@@ -84,10 +85,10 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ```bash
 # Pull the main chat model
-docker-compose exec ollama ollama pull qwen3:8b
+docker compose exec ollama ollama pull qwen3:8b
 
 # Pull the embedding model
-docker-compose exec ollama ollama pull qwen3-embedding:8b
+docker compose exec ollama ollama pull qwen3-embedding:8b
 ```
 
 ## Environment Variables Reference
@@ -123,10 +124,10 @@ Ollama is **optional** and only starts when using the `ollama` profile:
 
 ```bash
 # With Ollama
-docker-compose --profile ollama up -d
+docker compose --profile ollama up -d
 
 # Without Ollama (default)
-docker-compose up -d
+docker compose up -d
 ```
 
 | Variable | Default | Description |
@@ -145,75 +146,154 @@ docker-compose up -d
 | `SERVER_PORT` | `8080` | Application HTTP port |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g...` | JVM options |
 
-### Auto-Update Configuration (docker-compose.dev.yml only)
+### Auto-Update Configuration
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GIT_REPO` | `https://github.com/World-Standard-Group/Pudel-Spring-Boot.git` | Git repository URL |
+| `AUTO_UPDATE` | `true` | Pull latest code from Git and rebuild on every container start/restart |
+| `GIT_REPO` | `https://github.com/World-Standard-Group/Pudel-Spring-Boot.git` | Git repository URL to pull from |
 | `GIT_BRANCH` | `main` | Branch to track |
-| `AUTO_UPDATE` | `true` | Pull latest on container restart |
+
+## Auto-Update System
+
+Pudel's Docker deployment includes a built-in auto-update mechanism. Understanding how it works is key to avoiding confusion.
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     AUTO-UPDATE FLOW                                │
+│                                                                     │
+│  You push to GitHub                                                 │
+│       │                                                             │
+│       │  (GitHub does NOT auto-notify Docker)                       │
+│       │                                                             │
+│       ▼                                                             │
+│  Trigger needed:                                                    │
+│  ├── Manual:    docker compose restart pudel                        │
+│  ├── Script:    ./scripts/update.sh                                 │
+│  ├── Updater:   docker compose run --rm pudel-updater               │
+│  ├── Cron:      0 */6 * * * cd /path && docker compose restart pudel│
+│  └── Webhook:   GitHub webhook → your server → restart              │
+│       │                                                             │
+│       ▼                                                             │
+│  Container restarts → entrypoint runs                               │
+│       │                                                             │
+│       ▼                                                             │
+│  AUTO_UPDATE=true?                                                  │
+│  ├── YES:                                                           │
+│  │   ├── git fetch + reset in /app/src volume                       │
+│  │   ├── mvn clean package -DskipTests                              │
+│  │   ├── cp new JAR → /app/app.jar                                  │
+│  │   └── java -jar app.jar                                          │
+│  │                                                                  │
+│  └── NO:                                                            │
+│      └── java -jar app.jar (uses pre-built JAR from Docker image)   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Point
+
+**Pushing to GitHub does NOT automatically update the running container.** You need a trigger to restart the container. The auto-update part is: when the container starts, it automatically pulls the latest code and rebuilds before running.
+
+### Recommended Update Strategies
+
+#### Strategy 1: Manual restart (simplest)
+```bash
+docker compose restart pudel
+```
+
+#### Strategy 2: Cron job (periodic check)
+```bash
+# Add to crontab (runs every 6 hours)
+0 */6 * * * cd /path/to/Pudel-Spring-Boot && docker compose restart pudel
+```
+
+#### Strategy 3: Updater service (smart — skips if no changes)
+```bash
+docker compose run --rm pudel-updater
+# Only restarts the bot if new commits were found
+```
+
+#### Strategy 4: GitHub webhook (truly automatic)
+Set up a webhook endpoint on your server that runs `docker compose restart pudel` when GitHub sends a push event. This requires a webhook receiver service (e.g., [webhook](https://github.com/adnanh/webhook)).
+
+#### Strategy 5: Disable auto-update (production)
+```env
+AUTO_UPDATE=false
+```
+Then update manually:
+```bash
+git pull origin main
+docker compose build --no-cache pudel
+docker compose up -d pudel
+```
 
 ## Docker Files Overview
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Production multi-stage build |
-| `Dockerfile.dev` | Development/auto-update mode |
-| `docker-compose.yml` | Production deployment |
-| `docker-compose.dev.yml` | Development with auto-updates |
+| `Dockerfile` | Multi-stage build (build + runtime with Maven for auto-update) |
+| `docker compose.yml` | Full deployment (PostgreSQL, Ollama, Pudel, Updater) |
+| `scripts/start.sh` | First-time setup script |
+| `scripts/update.sh` | Update trigger script |
+| `scripts/docker-entrypoint.sh` | Container entrypoint (auto-update + startup) |
 | `.env.example` | Environment template |
 
 ## Updating the Bot
 
-### Production Mode
+### With AUTO_UPDATE=true (default)
 ```bash
-# Pull latest changes
+# Simply restart — the container pulls latest code and rebuilds automatically
+docker compose restart pudel
+
+# Or use the update script
+./scripts/update.sh
+
+# Or use the smart updater (only restarts if new commits exist)
+docker compose run --rm pudel-updater
+```
+
+### With AUTO_UPDATE=false
+```bash
+# Pull latest changes on host
 git pull origin main
 
-# Rebuild and restart
-docker-compose build --no-cache pudel
-docker-compose up -d pudel
-```
+# Rebuild the Docker image
+docker compose build --no-cache pudel
 
-### Auto-Update Mode
-```bash
-# Simply restart the container - it will pull latest automatically
-docker-compose -f docker-compose.dev.yml restart pudel
-```
-
-### Using the Update Script
-```bash
-chmod +x scripts/update.sh
-./scripts/update.sh
+# Restart
+docker compose up -d pudel
 ```
 
 ## Common Commands
 
 ```bash
 # View logs
-docker-compose logs -f pudel
+docker compose logs -f pudel
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # Stop and remove volumes (WARNING: deletes data)
-docker-compose down -v
+docker compose down -v
 
 # Restart a specific service
-docker-compose restart pudel
+docker compose restart pudel
 
 # Check service status
-docker-compose ps
+docker compose ps
 
 # Execute command in container
-docker-compose exec pudel bash
+docker compose exec pudel bash
 
 # View Ollama models
-docker-compose exec ollama ollama list
+docker compose exec ollama ollama list
 ```
 
 ## GPU Support for Ollama
 
-To enable GPU acceleration for Ollama, uncomment the GPU section in `docker-compose.yml`:
+To enable GPU acceleration for Ollama, uncomment the GPU section in `docker compose.yml`:
 
 ```yaml
 ollama:
@@ -236,6 +316,7 @@ Make sure you have [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter
 | `postgres_data` | `/var/lib/postgresql/data` | Database files |
 | `ollama_data` | `/root/.ollama` | Downloaded AI models |
 | `pudel_logs` | `/app/logs` | Application logs |
+| `pudel_src` | `/app/src` | Cloned Git source (used by AUTO_UPDATE for rebuilds) |
 | `./plugins` (bind mount) | `/app/plugins` | Bot plugins (hot-reloadable) |
 | `./keys` (bind mount) | `/app/keys` | RSA keys for JWT (read-only) |
 
@@ -257,7 +338,7 @@ Pudel supports **live plugin installation** even while running in Docker. The pl
 cp my-awesome-plugin-1.0.0.jar ./plugins/
 
 # The plugin will be auto-detected and loaded within seconds
-docker-compose logs -f pudel | grep "New plugin discovered"
+docker compose logs -f pudel | grep "New plugin discovered"
 ```
 
 ### Updating Plugins
@@ -296,10 +377,10 @@ rm ./plugins/my-awesome-plugin-1.0.0.jar
 
 ```bash
 # Check plugin loading logs
-docker-compose logs pudel | grep -E "(plugin|Plugin)"
+docker compose logs pudel | grep -E "(plugin|Plugin)"
 
 # Watch for plugin changes in real-time
-docker-compose logs -f pudel | grep -i plugin
+docker compose logs -f pudel | grep -i plugin
 ```
 
 ### Failed Plugin Handling
@@ -324,7 +405,7 @@ volumes:
   - pudel_plugins:/app/plugins  # Isolated from host
 ```
 
-The production `docker-compose.yml` uses a bind mount for plugins to allow runtime management.
+The production `docker compose.yml` uses a bind mount for plugins to allow runtime management.
 
 ## Troubleshooting
 
@@ -333,7 +414,7 @@ The production `docker-compose.yml` uses a bind mount for plugins to allow runti
 #### Plugins not being detected
 1. Check the plugins directory is properly mounted:
    ```bash
-   docker-compose exec pudel ls -la /app/plugins
+   docker compose exec pudel ls -la /app/plugins
    ```
 2. Verify NIO WatchService is working (check logs for "NIO WatchService started")
 3. If WatchService fails, the polling fallback runs every 60 seconds
@@ -342,7 +423,7 @@ The production `docker-compose.yml` uses a bind mount for plugins to allow runti
 #### Plugin fails to load
 1. Check logs for specific error:
    ```bash
-   docker-compose logs pudel | grep -A5 "Failed to load"
+   docker compose logs pudel | grep -A5 "Failed to load"
    ```
 2. Verify plugin has valid `MANIFEST.MF` with `Plugin-Main` or a `plugin.yml`
 3. Try updating the JAR to trigger a reload
@@ -355,17 +436,35 @@ The production `docker-compose.yml` uses a bind mount for plugins to allow runti
 
 ### Bot not connecting to Discord
 1. Verify `DISCORD_BOT_TOKEN` is correct
-2. Check logs: `docker-compose logs pudel`
+2. Check logs: `docker compose logs pudel`
 3. Ensure bot has proper intents enabled in Discord Developer Portal
 
 ### Database connection issues
-1. Wait for PostgreSQL to be ready: `docker-compose logs postgres`
+1. Wait for PostgreSQL to be ready: `docker compose logs postgres`
 2. Verify credentials match between services
+3. **Windows `.env` line endings**: If you edited `.env` on Windows, it may have `\r` (carriage return) characters appended to your password. Fix with:
+   ```bash
+   # Convert .env to Unix line endings
+   sed -i 's/\r$//' .env
+   # OR in PowerShell:
+   (Get-Content .env -Raw).Replace("`r`n","`n") | Set-Content .env -NoNewline
+   ```
+4. **Password already set**: `POSTGRES_PASSWORD` only takes effect on first database initialization. If the `postgres_data` volume already exists with a different password:
+   ```bash
+   # WARNING: This deletes all database data!
+   docker compose down
+   docker volume rm pudel-spring-boot_postgres_data
+   docker compose up -d
+   ```
+   Or connect to the running database and change the password:
+   ```bash
+   docker compose exec postgres psql -U postgres -c "ALTER USER postgres PASSWORD 'your_new_password';"
+   ```
 
 ### Ollama not responding
-1. Check if Ollama is running: `docker-compose ps ollama`
-2. Verify models are downloaded: `docker-compose exec ollama ollama list`
-3. Check Ollama logs: `docker-compose logs ollama`
+1. Check if Ollama is running: `docker compose ps ollama`
+2. Verify models are downloaded: `docker compose exec ollama ollama list`
+3. Check Ollama logs: `docker compose logs ollama`
 
 ### Out of memory
 1. Adjust `JAVA_OPTS` in `.env` to reduce memory usage

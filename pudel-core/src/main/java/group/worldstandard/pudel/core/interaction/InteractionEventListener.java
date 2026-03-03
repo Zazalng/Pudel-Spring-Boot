@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,7 +15,9 @@
 package group.worldstandard.pudel.core.interaction;
 
 import group.worldstandard.pudel.api.interaction.*;
+import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.service.CommandExecutionService;
+import group.worldstandard.pudel.core.service.GuildSettingsService;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
@@ -44,11 +46,17 @@ public class InteractionEventListener extends ListenerAdapter {
 
     private final InteractionManagerImpl interactionManager;
     private final CommandExecutionService commandExecutionService;
+    private final GuildSettingsService guildSettingsService;
+    private final CommandMetadataRegistry commandMetadataRegistry;
 
     public InteractionEventListener(InteractionManagerImpl interactionManager,
-                                    CommandExecutionService commandExecutionService) {
+                                    CommandExecutionService commandExecutionService,
+                                    GuildSettingsService guildSettingsService,
+                                    CommandMetadataRegistry commandMetadataRegistry) {
         this.interactionManager = interactionManager;
         this.commandExecutionService = commandExecutionService;
+        this.guildSettingsService = guildSettingsService;
+        this.commandMetadataRegistry = commandMetadataRegistry;
     }
 
     // =====================================================
@@ -63,6 +71,22 @@ public class InteractionEventListener extends ListenerAdapter {
         if (handler == null) {
             logger.debug("No handler found for slash command: /{}", commandName);
             return;
+        }
+
+        // Check if the command's plugin is disabled for this guild
+        if (event.isFromGuild() && event.getGuild() != null) {
+            String guildId = event.getGuild().getId();
+            var metadata = commandMetadataRegistry.getSlashCommandMetadata(commandName);
+            if (metadata.isPresent() && !"core".equals(metadata.get().pluginId())) {
+                String pluginId = metadata.get().pluginId();
+                if (!guildSettingsService.isPluginEnabledForGuild(guildId, pluginId)) {
+                    logger.debug("Plugin '{}' is disabled for guild {}, blocking /{}", pluginId, guildId, commandName);
+                    event.reply("This command is disabled in this server.")
+                            .setEphemeral(true)
+                            .queue();
+                    return;
+                }
+            }
         }
 
         // Build the full command string including subcommands

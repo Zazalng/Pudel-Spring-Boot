@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -46,10 +46,7 @@ public record TextAnalysis(
             return true;
         }
         // Has keywords
-        if (keywords != null && keywords.size() >= 2) {
-            return true;
-        }
-        return false;
+        return keywords != null && keywords.size() >= 2;
     }
 
     /**

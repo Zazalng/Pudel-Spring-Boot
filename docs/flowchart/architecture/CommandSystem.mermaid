@@ -1,19 +1,18 @@
-%% Pudel Command System v2.0.0
-%% Annotation-Based Commands
+%% Pudel Command System v2.1.1
+%% Components V2 + Two-Tier Sync + Unified Built-in Architecture
 
 flowchart TD
     subgraph Input["📨 User Input"]
         SLASH[/"User types /command"/]
         TEXT[/"User types !command"/]
         BUTTON[/"User clicks button"/]
-        MODAL[/"User submits modal"/]
-        SELECT[/"User selects option"/]
+        MODAL[/"User submits modal<br/>(text input or<br/>EntitySelectMenu)"/]
     end
 
     subgraph SlashFlow["⚡ Slash Command Flow"]
         SLASH_LISTENER["InteractionEventListener"]
         SLASH_MANAGER["InteractionManagerImpl<br/>(lookup handler)"]
-        SLASH_BUILTIN["BuiltinCommands<br/>@SlashCommand"]
+        SLASH_BUILTIN["BuiltinCommands<br/>(pudel-core)<br/>/settings /ping /help"]
         SLASH_PLUGIN["Plugin Class<br/>@SlashCommand"]
     end
 
@@ -21,29 +20,43 @@ flowchart TD
         TEXT_LISTENER["DiscordEventListener"]
         TEXT_EXEC["CommandExecutionService"]
         TEXT_REGISTRY["CommandRegistry<br/>(lookup handler)"]
-        TEXT_BUILTIN["BuiltinCommands<br/>@TextCommand"]
+        TEXT_BUILTIN["BuiltinTextCommands<br/>(pudel-core-text)<br/>!ping !help"]
         TEXT_PLUGIN["Plugin Class<br/>@TextCommand"]
     end
 
     subgraph InteractionFlow["🔘 Interaction Flow"]
         INTERACT_LISTENER["InteractionEventListener"]
         INTERACT_MANAGER["InteractionManagerImpl"]
-        BUTTON_HANDLER["@ButtonHandler"]
-        MODAL_HANDLER["@ModalHandler"]
-        SELECT_HANDLER["@SelectMenuHandler"]
+        BUTTON_SETTINGS["@ButtonHandler('settings:')<br/>BuiltinCommands"]
+        BUTTON_HELP["@ButtonHandler('help:')<br/>BuiltinTextCommands"]
+        BUTTON_PLUGIN["@ButtonHandler('prefix')<br/>Plugin"]
+        MODAL_HANDLER["@ModalHandler<br/>(prefix match)"]
     end
 
-    subgraph Registration["📋 Annotation Processing"]
-        PROCESSOR["PluginAnnotationProcessor"]
-        SCAN["Scan annotated methods"]
-        REGISTER["Register handlers"]
-        SYNC["syncCommands() to Discord"]
+    subgraph Registration["📋 Registration & Sync<br/>(BuiltinSlashCommandRegistrar)"]
+        REGISTRAR["@PostConstruct"]
+        PROC_SLASH["processAndRegister<br/>(pudel-core)"]
+        PROC_TEXT["processAndRegister<br/>(pudel-core-text)"]
+        PROC_TOOLS["registerProvider<br/>(pudel-core-tools)"]
+        SYNC_GLOBAL["syncCommands()<br/>core → global"]
+        SYNC_GUILD["syncCommands()<br/>plugins → per-guild<br/>(filter disabled_plugins)"]
+    end
+
+    subgraph SettingsPanel["⚙️ /settings Panel"]
+        CV2["Components V2 Container"]
+        VIEWS["Views: Main / General /<br/>AI / Channels / Commands /<br/>Plugins"]
+        SESSION["SettingsSession<br/>(per-user state)"]
+    end
+
+    subgraph HelpPanel["📚 !help Paging"]
+        HELP_EMBED["Paginated Embed<br/>(8 per page)"]
+        HELP_BUTTONS["⏮ ◀ ▶ ⏭<br/>Navigation Buttons"]
+        HELP_SESSION["HelpSession<br/>(per-message state)"]
     end
 
     subgraph Response["💬 Response"]
-        REPLY["Reply to user"]
-        EPHEMERAL["Ephemeral<br/>(private)"]
-        PUBLIC["Public<br/>message"]
+        REPLY_EPH["Ephemeral<br/>(Components V2)"]
+        REPLY_PUB["Public<br/>message"]
     end
 
     %% Slash flow
@@ -52,6 +65,11 @@ flowchart TD
     SLASH_MANAGER --> SLASH_BUILTIN
     SLASH_MANAGER --> SLASH_PLUGIN
 
+    %% /settings opens Components V2
+    SLASH_BUILTIN --> CV2
+    CV2 --> VIEWS
+    VIEWS --> SESSION
+
     %% Text flow
     TEXT --> TEXT_LISTENER
     TEXT_LISTENER --> TEXT_EXEC
@@ -59,39 +77,50 @@ flowchart TD
     TEXT_REGISTRY --> TEXT_BUILTIN
     TEXT_REGISTRY --> TEXT_PLUGIN
 
+    %% !help opens paged embed
+    TEXT_BUILTIN --> HELP_EMBED
+    HELP_EMBED --> HELP_BUTTONS
+    HELP_BUTTONS --> HELP_SESSION
+
     %% Interaction flow
     BUTTON --> INTERACT_LISTENER
     MODAL --> INTERACT_LISTENER
-    SELECT --> INTERACT_LISTENER
     INTERACT_LISTENER --> INTERACT_MANAGER
-    INTERACT_MANAGER --> BUTTON_HANDLER
+    INTERACT_MANAGER --> BUTTON_SETTINGS
+    INTERACT_MANAGER --> BUTTON_HELP
+    INTERACT_MANAGER --> BUTTON_PLUGIN
     INTERACT_MANAGER --> MODAL_HANDLER
-    INTERACT_MANAGER --> SELECT_HANDLER
 
-    %% Registration (happens at enable time)
-    PROCESSOR --> SCAN
-    SCAN --> REGISTER
-    REGISTER --> SYNC
+    %% Registration
+    REGISTRAR --> PROC_SLASH
+    REGISTRAR --> PROC_TEXT
+    REGISTRAR --> PROC_TOOLS
+    PROC_SLASH --> SYNC_GLOBAL
+    PROC_SLASH --> SYNC_GUILD
 
     %% All handlers lead to response
-    SLASH_BUILTIN --> REPLY
-    SLASH_PLUGIN --> REPLY
-    TEXT_BUILTIN --> REPLY
-    TEXT_PLUGIN --> REPLY
-    BUTTON_HANDLER --> REPLY
-    MODAL_HANDLER --> REPLY
-    SELECT_HANDLER --> REPLY
-
-    REPLY --> EPHEMERAL
-    REPLY --> PUBLIC
+    SLASH_BUILTIN --> REPLY_EPH
+    SLASH_PLUGIN --> REPLY_PUB
+    TEXT_BUILTIN --> REPLY_PUB
+    TEXT_PLUGIN --> REPLY_PUB
+    BUTTON_SETTINGS --> REPLY_EPH
+    BUTTON_HELP --> REPLY_PUB
+    BUTTON_PLUGIN --> REPLY_EPH
+    MODAL_HANDLER --> REPLY_EPH
 
     %% Styling
     classDef input fill:#1e3a5f,stroke:#4a90d9,color:#fff
     classDef handler fill:#2d5a3d,stroke:#4CAF50,color:#fff
     classDef system fill:#3d3d5a,stroke:#9c27b0,color:#fff
     classDef response fill:#5a4d3d,stroke:#ff9800,color:#fff
+    classDef cv2 fill:#5865F2,stroke:#4752C4,color:#fff
+    classDef help fill:#00796b,stroke:#004d40,color:#fff
+    classDef registration fill:#33691e,stroke:#1b5e20,color:#fff
 
-    class SLASH,TEXT,BUTTON,MODAL,SELECT input
-    class SLASH_BUILTIN,SLASH_PLUGIN,TEXT_BUILTIN,TEXT_PLUGIN,BUTTON_HANDLER,MODAL_HANDLER,SELECT_HANDLER handler
-    class SLASH_LISTENER,SLASH_MANAGER,TEXT_LISTENER,TEXT_EXEC,TEXT_REGISTRY,INTERACT_LISTENER,INTERACT_MANAGER,PROCESSOR,SCAN,REGISTER,SYNC system
-    class REPLY,EPHEMERAL,PUBLIC response
+    class SLASH,TEXT,BUTTON,MODAL input
+    class SLASH_BUILTIN,SLASH_PLUGIN,TEXT_BUILTIN,TEXT_PLUGIN,BUTTON_SETTINGS,BUTTON_HELP,BUTTON_PLUGIN,MODAL_HANDLER handler
+    class SLASH_LISTENER,SLASH_MANAGER,TEXT_LISTENER,TEXT_EXEC,TEXT_REGISTRY,INTERACT_LISTENER,INTERACT_MANAGER system
+    class REPLY_EPH,REPLY_PUB response
+    class CV2,VIEWS,SESSION cv2
+    class HELP_EMBED,HELP_BUTTONS,HELP_SESSION help
+    class REGISTRAR,PROC_SLASH,PROC_TEXT,PROC_TOOLS,SYNC_GLOBAL,SYNC_GUILD registration

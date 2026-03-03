@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,10 +15,6 @@
 package group.worldstandard.pudel.core.bootstrap;
 
 import group.worldstandard.pudel.core.command.CommandRegistry;
-import group.worldstandard.pudel.core.command.builtin.AICommandHandler;
-import group.worldstandard.pudel.core.command.builtin.HelpCommandHandler;
-import group.worldstandard.pudel.core.command.builtin.PingCommandHandler;
-import group.worldstandard.pudel.core.command.builtin.SettingsCommandHandler;
 import net.dv8tion.jda.api.JDA;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,25 +44,13 @@ public class CommandBootstrapRunner implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(CommandBootstrapRunner.class);
 
     private final CommandRegistry commandRegistry;
-    private final SettingsCommandHandler settingsCommandHandler;
-    private final HelpCommandHandler helpCommandHandler;
-    private final PingCommandHandler pingCommandHandler;
-    private final AICommandHandler aiCommandHandler;
     private final GuildInitializationService guildInitializationService;
     private final JDA jda;
 
     public CommandBootstrapRunner(CommandRegistry commandRegistry,
-                                 SettingsCommandHandler settingsCommandHandler,
-                                 HelpCommandHandler helpCommandHandler,
-                                 PingCommandHandler pingCommandHandler,
-                                 AICommandHandler aiCommandHandler,
                                  GuildInitializationService guildInitializationService,
                                  JDA jda) {
         this.commandRegistry = commandRegistry;
-        this.settingsCommandHandler = settingsCommandHandler;
-        this.helpCommandHandler = helpCommandHandler;
-        this.pingCommandHandler = pingCommandHandler;
-        this.aiCommandHandler = aiCommandHandler;
         this.guildInitializationService = guildInitializationService;
         this.jda = jda;
     }
@@ -74,19 +58,6 @@ public class CommandBootstrapRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         logger.info("Initializing built-in commands...");
-
-        // Register core text commands that remain useful
-        // Wizards and multi-line text settings still work better as text commands
-        commandRegistry.registerCommand("help", helpCommandHandler);
-        commandRegistry.registerCommand("ping", pingCommandHandler);
-        commandRegistry.registerCommand("settings", settingsCommandHandler);
-        commandRegistry.registerCommand("ai", aiCommandHandler);
-
-        // Note: The following standalone commands have been migrated to slash commands:
-        // /settings - prefix, verbosity, cooldown, logchannel, botchannel
-        // /ai - enable, disable, nickname, language, length, formality, emotes, agent, tables, memories
-        // /channel - ignore, unignore, listen, list, clear
-        // /command - enable, disable, list
 
         logger.info("Registered {} built-in text commands", commandRegistry.getCommandCount());
         logger.info("Note: Additional functionality available via slash commands (/settings, /ai, /channel, /command)");

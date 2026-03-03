@@ -1,4 +1,4 @@
-%% Pudel Database Schema v2.0.0
+%% Pudel Database Schema v2.1.1
 
 erDiagram
     %% Public Schema (Shared)
@@ -35,7 +35,8 @@ erDiagram
         text topics_interest
         text topics_avoid
         text system_prompt_prefix
-        text disabled_commands
+        text disabled_commands "CSV of disabled text commands"
+        text disabled_plugins "CSV of disabled plugin names"
         boolean ai_enabled
         text ignored_channels
         boolean schema_created
@@ -88,6 +89,47 @@ erDiagram
         timestamp updated_at
     }
 
+    PLUGIN_DATABASE_REGISTRY {
+        bigint id PK
+        string plugin_id
+        string table_name
+        string schema_name
+        timestamp created_at
+    }
+
+    ADMIN_WHITELIST {
+        bigint id PK
+        string discord_user_id UK
+        string admin_role "OWNER ADMIN MODERATOR"
+        text public_key_pem
+        boolean has_public_key
+        timestamp last_login
+        timestamp created_at
+    }
+
+    MARKET_PLUGINS {
+        bigint id PK
+        string plugin_name UK
+        string display_name
+        text description
+        string author
+        string version
+        string download_url
+        string license_type
+        boolean verified
+        int downloads
+        timestamp published_at
+        timestamp updated_at
+    }
+
+    BOT_USERS {
+        bigint id PK
+        string discord_id UK
+        string username
+        timestamp first_seen
+        timestamp last_seen
+    }
+
     %% Guild Schema (Per-guild isolation: guild_{id})
 
     CONVERSATION_HISTORY {
@@ -104,7 +146,7 @@ erDiagram
         bigint id PK
         string user_id
         text content
-        vector embedding
+        vector embedding "pgvector"
         json metadata
         float importance
         timestamp created_at
@@ -131,6 +173,7 @@ erDiagram
 
     %% Relationships
     USERS ||--o{ USER_GUILDS : has
-    GUILD_SETTINGS ||--o{ CONVERSATION_HISTORY : contains
-    GUILD_SETTINGS ||--o{ MEMORY_EMBEDDINGS : contains
+    GUILD_SETTINGS ||--o{ CONVERSATION_HISTORY : "guild schema"
+    GUILD_SETTINGS ||--o{ MEMORY_EMBEDDINGS : "guild schema"
     PLUGIN_METADATA ||--o{ PLUGIN_KV_STORE : stores
+    PLUGIN_METADATA ||--o{ PLUGIN_DATABASE_REGISTRY : owns

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -246,35 +246,6 @@ public class AdminController {
     }
 
     /**
-     * Authenticate admin with Discord user ID.
-     * Checks whitelist in PostgreSQL and issues AdminJWT if valid.
-     * POST /api/admin/auth
-     * <p>
-    /**
-     * DEPRECATED: Old authentication method.
-     * Use POST /api/admin/auth/mutual with RSA signature instead.
-     * @deprecated Removed - use mutual RSA authentication
-     */
-    @PostMapping("/auth")
-    public ResponseEntity<?> authenticate(@RequestBody Map<String, Object> request) {
-        return ResponseEntity.status(HttpStatus.GONE)
-                .body(new ErrorResponse("This authentication method has been removed. Use /api/admin/auth/mutual with RSA signature."));
-    }
-
-    /**
-     * DEPRECATED: OAuth-based authentication.
-     * Use POST /api/admin/auth/mutual with RSA signature instead.
-     * @deprecated Removed - use mutual RSA authentication
-     */
-    @PostMapping("/auth/oauth")
-    public ResponseEntity<?> authenticateWithOAuth(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody Map<String, Object> request) {
-        return ResponseEntity.status(HttpStatus.GONE)
-                .body(new ErrorResponse("This authentication method has been removed. Use /api/admin/auth/mutual with RSA signature."));
-    }
-
-    /**
      * Check if the current Discord OAuth user is an admin.
      * GET /api/admin/check
      * <p>
@@ -304,7 +275,7 @@ public class AdminController {
                 ));
             }
 
-            String discordUserId = null;
+            String discordUserId;
 
             try {
                 Claims claims = Jwts.parser()

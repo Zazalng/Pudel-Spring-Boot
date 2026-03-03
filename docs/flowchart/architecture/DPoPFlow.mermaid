@@ -1,0 +1,91 @@
+%% Pudel DPoP (RFC 9449) Flow v2.1.1
+%% Demonstrating Proof-of-Possession
+
+sequenceDiagram
+    participant Client as Vue Frontend
+    participant Crypto as Web Crypto API
+    participant API as Pudel API
+    participant Filter as JwtAuthenticationFilter
+    participant DPoP as DPoPService
+    participant JWT as JwtUtil
+    participant Discord as Discord OAuth2
+
+    Note over Client,Discord: Step 1: Generate Client Keypair (one-time)
+
+    Client->>Crypto: generateKey("RSA-PSS" or "ECDSA")
+    Crypto-->>Client: { publicKey, privateKey }
+    Client->>Client: Store keypair in browser
+
+    Note over Client,Discord: Step 2: DPoP-Bound Token Request
+
+    Client->>Client: Create DPoP proof JWT
+    Note right of Client: Header: { typ: "dpop+jwt",<br/>alg: "RS256", jwk: publicKey }<br/>Payload: { jti: uuid, htm: "POST",<br/>htu: "/api/auth/discord/callback",<br/>iat: now }
+    Client->>Crypto: sign(proof, privateKey)
+    Crypto-->>Client: signed DPoP proof
+
+    Client->>API: POST /api/auth/discord/callback
+    Note right of Client: DPoP: <proof JWT><br/>Body: { code: "oauth_code" }
+
+    API->>DPoP: validateProofForTokenRequest(proof, "POST", uri)
+    DPoP->>DPoP: Verify proof signature (from JWK in header)
+    DPoP->>DPoP: Validate jti uniqueness (replay check)
+    DPoP->>DPoP: Validate htm = "POST"
+    DPoP->>DPoP: Validate htu matches URI
+    DPoP->>DPoP: Validate iat (within 5min, ±30s skew)
+    DPoP->>DPoP: Calculate JWK thumbprint (RFC 7638)
+    DPoP-->>API: ✓ thumbprint = "abc123..."
+
+    API->>Discord: Exchange code for access token
+    Discord-->>API: Discord user info
+
+    API->>JWT: generateDPoPBoundToken(userId, claims, thumbprint)
+    Note right of JWT: JWT contains cnf.jkt = thumbprint
+    JWT-->>API: DPoP-bound JWT
+
+    API->>DPoP: bindTokenToThumbprint(jwt, thumbprint)
+    API-->>Client: { token: "...", token_type: "DPoP" }
+
+    Note over Client,Discord: Step 3: Protected Resource Access
+
+    Client->>Client: Create fresh DPoP proof
+    Note right of Client: Payload: { jti: new_uuid,<br/>htm: "GET",<br/>htu: "/api/guilds/123/settings",<br/>iat: now,<br/>ath: SHA256(access_token) }
+    Client->>Crypto: sign(proof, privateKey)
+    Crypto-->>Client: fresh proof
+
+    Client->>Filter: GET /api/guilds/123/settings
+    Note right of Client: Authorization: DPoP <token><br/>DPoP: <fresh proof>
+
+    Filter->>Filter: Detect "DPoP" auth scheme
+    Filter->>JWT: validateToken(token)
+    JWT-->>Filter: ✓ valid
+
+    Filter->>DPoP: validateProofForResource(proof, "GET", uri, token)
+    DPoP->>DPoP: Verify proof signature
+    DPoP->>DPoP: Validate jti (not replayed)
+    DPoP->>DPoP: Validate htm = "GET"
+    DPoP->>DPoP: Validate htu matches URI
+    DPoP->>DPoP: Validate iat (fresh)
+    DPoP->>DPoP: Validate ath = SHA256(token)
+    DPoP->>DPoP: Verify thumbprint matches binding
+    DPoP-->>Filter: ✓ valid
+
+    Filter->>Filter: Set auth: [USER, DPOP_VERIFIED]
+    Filter-->>Client: 200 OK + guild settings
+
+    Note over Client,Discord: Error: Stolen Token (no private key)
+        Note over Client,Filter: Attacker intercepts DPoP-bound token
+        Client->>Filter: GET /api/guilds/123/settings
+        Note right of Client: Authorization: Bearer <stolen_token>
+        Filter->>JWT: isDPoPBoundToken(token)
+        JWT-->>Filter: true (has cnf.jkt claim)
+        Filter-->>Client: 401 Unauthorized
+        Note right of Filter: WWW-Authenticate: DPoP<br/>error="use_dpop_nonce"<br/>"Token is DPoP-bound"
+
+    Note over Client,Discord: Logout
+
+    Client->>API: POST /api/auth/logout
+    Note right of Client: Authorization: DPoP <token><br/>DPoP: <proof>
+    API->>DPoP: revokeTokenBinding(token)
+    DPoP->>DPoP: Remove tokenBindings[token]
+    API-->>Client: 200 OK
+

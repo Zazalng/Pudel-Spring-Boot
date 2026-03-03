@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.plugin;
 
+import group.worldstandard.pudel.api.PudelProperties;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
@@ -42,6 +43,7 @@ public class PluginContextImpl implements PluginContext {
 
     private final String pluginName;
     private final String pluginVersion;
+    private final PudelProperties pudel;
     private final JDA jda;
     private final CommandRegistry commandRegistry;
     private final PluginEventManager eventManager;
@@ -51,14 +53,15 @@ public class PluginContextImpl implements PluginContext {
     private final PluginDatabaseService databaseService;
 
     // Lazily initialized database manager
-    private PluginDatabaseManager databaseManager;
+    private volatile PluginDatabaseManager databaseManager;
 
-    public PluginContextImpl(String pluginName, String pluginVersion, JDA jda, CommandRegistry commandRegistry,
+    public PluginContextImpl(String pluginName, String pluginVersion, PudelProperties pudel, JDA jda, CommandRegistry commandRegistry,
                              PluginEventManager eventManager, VoiceManager voiceManager,
                              AgentToolRegistry agentToolRegistry, InteractionManager interactionManager,
                              PluginDatabaseService databaseService) {
         this.pluginName = pluginName;
         this.pluginVersion = pluginVersion;
+        this.pudel = pudel;
         this.jda = jda;
         this.commandRegistry = commandRegistry;
         this.eventManager = eventManager;
@@ -71,6 +74,11 @@ public class PluginContextImpl implements PluginContext {
     @Override
     public String getPluginName() {
         return pluginName;
+    }
+
+    @Override
+    public PudelProperties getPudel() {
+        return pudel;
     }
 
     @Override

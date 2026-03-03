@@ -1,7 +1,7 @@
 # Pudel Terms of Service
 
 **Effective Date**: January 1, 2026  
-**Last Updated**: January 17, 2026
+**Last Updated**: February 26, 2026
 
 ---
 
@@ -313,7 +313,7 @@ You may not assign these Terms without our consent. We may assign our rights fre
 For questions about these Terms, please contact:
 
 **World Standard Group**  
-Email: -
+Email: [Legal Team](mailto:legal.department@worldstandard.group)\
 Discord: [Pudel Support Server (TBA)](https://discord.gg/pudel)
 
 ---
@@ -324,5 +324,5 @@ By using Pudel, you acknowledge that you have read, understood, and agree to be 
 
 ---
 
-*Last updated: January 17, 2026*
+*Last updated: February 26, 2026*
 

@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -90,6 +90,9 @@ public class GuildSettingsService extends BaseService {
             if (updatedSettings.getDialogueStyle() != null) {
                 settings.setDialogueStyle(updatedSettings.getDialogueStyle());
             }
+            if (updatedSettings.getDisabledPlugins() != null) {
+                settings.setDisabledPlugins(updatedSettings.getDisabledPlugins());
+            }
 
             GuildSettings saved = guildSettingsRepository.save(settings);
             log.info("Updated settings for guild: {}", guildId);
@@ -115,11 +118,7 @@ public class GuildSettingsService extends BaseService {
         }
 
         // Validate cooldown
-        if (settings.getCooldown() != null && settings.getCooldown() < 0) {
-            return false;
-        }
-
-        return true;
+        return settings.getCooldown() == null || settings.getCooldown() >= 0;
     }
 
     /**
@@ -133,6 +132,65 @@ public class GuildSettingsService extends BaseService {
         } catch (Exception e) {
             log.error("Error deleting guild settings", e);
             throw new RuntimeException("Failed to delete guild settings", e);
+        }
+    }
+
+    // =====================================================
+    // Guild-Level Plugin Control
+    // =====================================================
+
+    /**
+     * Check if a plugin is enabled for a specific guild.
+     * <p>
+     * A plugin is considered enabled for a guild if:
+     * 1. The plugin is globally enabled by the admin (checked via PluginService)
+     * 2. The guild has NOT disabled it in their guild settings
+     * <p>
+     * If the guild has no settings yet, all globally-enabled plugins are available.
+     *
+     * @param guildId    the Discord guild ID
+     * @param pluginName the plugin name to check
+     * @return true if the plugin is usable in this guild
+     */
+    public boolean isPluginEnabledForGuild(String guildId, String pluginName) {
+        Optional<GuildSettings> settings = guildSettingsRepository.findByGuildId(guildId);
+        // No guild settings = all globally-enabled plugins are available
+        return settings.map(guildSettings -> !guildSettings.isPluginDisabled(pluginName)).orElse(true);
+    }
+
+    /**
+     * Disable a plugin for a specific guild.
+     *
+     * @param guildId    the Discord guild ID
+     * @param pluginName the plugin name to disable
+     */
+    public void disablePluginForGuild(String guildId, String pluginName) {
+        GuildSettings settings = getOrCreateGuildSettings(guildId);
+        if (!settings.isPluginDisabled(pluginName)) {
+            String current = settings.getDisabledPlugins();
+            String updated = (current == null || current.isBlank())
+                    ? pluginName
+                    : current + "," + pluginName;
+            settings.setDisabledPlugins(updated);
+            guildSettingsRepository.save(settings);
+            log.info("Plugin '{}' disabled for guild {}", pluginName, guildId);
+        }
+    }
+
+    /**
+     * Enable a plugin for a specific guild (remove from disabled list).
+     *
+     * @param guildId    the Discord guild ID
+     * @param pluginName the plugin name to enable
+     */
+    public void enablePluginForGuild(String guildId, String pluginName) {
+        GuildSettings settings = getOrCreateGuildSettings(guildId);
+        if (settings.isPluginDisabled(pluginName)) {
+            java.util.List<String> disabled = new java.util.ArrayList<>(settings.getDisabledPluginsList());
+            disabled.remove(pluginName);
+            settings.setDisabledPlugins(String.join(",", disabled));
+            guildSettingsRepository.save(settings);
+            log.info("Plugin '{}' enabled for guild {}", pluginName, guildId);
         }
     }
 }

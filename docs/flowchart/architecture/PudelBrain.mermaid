@@ -1,4 +1,4 @@
-%% Pudel Brain Architecture v2.0.0
+%% Pudel Brain Architecture v2.1.1
 
 flowchart TD
     subgraph Input["📨 Input"]
@@ -6,7 +6,7 @@ flowchart TD
     end
 
     subgraph Analysis["🔍 Text Analysis"]
-        ANALYZER["TextAnalyzerService<br/>(LangChain4j)"]
+        ANALYZER["TextAnalyzerService<br/>(LangChain4j + Ollama)"]
         INTENT["Intent Detection"]
         SENTIMENT["Sentiment Analysis"]
         ENTITIES["Entity Extraction"]
@@ -15,14 +15,14 @@ flowchart TD
 
     subgraph Memory["🧠 Memory System"]
         MEMORY_MGR["MemoryManager"]
-        EMBEDDINGS["Memory Embeddings<br/>(pgvector)"]
-        SEMANTIC["Semantic Search<br/>(IVFFlat)"]
+        EMBEDDINGS["Memory Embeddings<br/>(pgvector in guild_{id} schema)"]
+        SEMANTIC["Semantic Search<br/>(IVFFlat index)"]
         CONTEXT["Relevant Context"]
     end
 
     subgraph Personality["👤 Personality Engine"]
         PERSONALITY_ENGINE["PersonalityEngine"]
-        GUILD_SETTINGS["Guild Settings<br/>(biography, personality,<br/>preferences, quirks)"]
+        GUILD_SETTINGS["GuildSettings<br/>biography, personality,<br/>preferences, quirks,<br/>dialogue_style,<br/>topics_interest,<br/>topics_avoid,<br/>system_prompt_prefix"]
         TRAITS["Apply Traits"]
     end
 
@@ -35,8 +35,8 @@ flowchart TD
     subgraph Agent["🤖 Agent System (optional)"]
         AGENT_CHECK{"Data management<br/>intent?"}
         AGENT_SVC["PudelAgentService"]
-        AGENT_TOOLS["Agent Tools<br/>- createTable<br/>- storeData<br/>- searchData<br/>- remember"]
-        EXECUTOR["AgentDataExecutor"]
+        AGENT_TOOLS["Agent Tools<br/>- createTable<br/>- storeData<br/>- searchData<br/>- remember/recall"]
+        EXECUTOR["AgentDataExecutor<br/>(guild_{id} schema)"]
     end
 
     subgraph Output["📤 Output"]

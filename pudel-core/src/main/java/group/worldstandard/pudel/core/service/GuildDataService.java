@@ -1,6 +1,6 @@
 /*
  * Pudel - A Moderate Discord Chat Bot
- * Copyright (C) 2026 Napapon Kamanee
+ * Copyright (C) 2026 World Standard Group
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -132,7 +132,7 @@ public class GuildDataService {
         try {
             String sql = "SELECT value FROM " + schemaName + ".memory WHERE key = ?";
             List<String> results = jdbcTemplate.queryForList(sql, String.class, key);
-            return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+            return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
         } catch (Exception e) {
             logger.debug("Memory '{}' not found for guild {}: {}", key, guildId, e.getMessage());
             return Optional.empty();
@@ -203,7 +203,7 @@ public class GuildDataService {
         try {
             String sql = "SELECT * FROM " + schemaName + ".user_preferences WHERE user_id = ?";
             List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, userId);
-            return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+            return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
         } catch (Exception e) {
             logger.debug("User preferences not found for user {} in guild {}: {}", userId, guildId, e.getMessage());
             return Optional.empty();
@@ -216,7 +216,7 @@ public class GuildDataService {
     public Optional<String> getPreferredName(long guildId, long userId) {
         return getUserPreference(guildId, userId)
                 .map(prefs -> (String) prefs.get("preferred_name"))
-                .filter(name -> name != null && !name.isEmpty());
+                .filter(name -> !name.isEmpty());
     }
 
 }
