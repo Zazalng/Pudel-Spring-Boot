@@ -507,9 +507,6 @@ public class BuiltinCommands {
                 + "\u2003**Nickname:** " + (settings.getNickname() != null ? settings.getNickname() : "Pudel")
                 + "\u2003**Language:** " + getLanguageDisplay(lang)));
 
-        c.add(TextDisplay.of("**Personality:** " + truncate(settings.getPersonality(), 120)
-                + "\n**Biography:** " + truncate(settings.getBiography(), 120)));
-
         c.add(TextDisplay.of("**Response Length:** " + capitalize(respLen)
                 + "\u2003**Formality:** " + capitalize(formality)
                 + "\u2003**Emote Usage:** " + capitalize(emoteUsage)));
@@ -521,9 +518,6 @@ public class BuiltinCommands {
                         BTN + "ai:toggle", aiOn ? "🔴 Disable AI" : "🟢 Enable AI"),
                 Button.secondary(BTN + "ai:nickname", "✏ Nickname"),
                 Button.secondary(BTN + "ai:language", "🌐 Language")
-        ));
-        c.add(ActionRow.of(
-                Button.secondary(BTN + "ai:personality_bio", "✏ Personality & Biography")
         ));
 
         c.add(Separator.create(false, Separator.Spacing.SMALL));
@@ -575,6 +569,13 @@ public class BuiltinCommands {
         c.add(TextDisplay.of("# 🔧 AI Advanced Settings"));
         c.add(TextDisplay.of("-# Extended personality, dialogue style, and LLM tuning"));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
+
+        c.add(TextDisplay.of("**Personality:** " + truncate(settings.getPersonality(), 120)
+                + "\n**Biography:** " + truncate(settings.getBiography(), 120)));
+
+        c.add(ActionRow.of(
+                Button.secondary(BTN + "ai:personality_bio", "✏ Personality & Biography")
+        ));
 
         c.add(TextDisplay.of("**Preferences:** " + truncate(settings.getPreferences(), 100)
                 + "\n**Dialogue Style:** " + truncate(settings.getDialogueStyle(), 100)));
