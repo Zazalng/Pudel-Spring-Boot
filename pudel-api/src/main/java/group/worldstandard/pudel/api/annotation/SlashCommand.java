@@ -19,6 +19,8 @@
 package group.worldstandard.pudel.api.annotation;
 
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.interactions.IntegrationType;
+import net.dv8tion.jda.api.interactions.InteractionContextType;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -77,6 +79,14 @@ public @interface SlashCommand {
     String description();
 
     /**
+     * Whether this is a NSFW command.
+     * NSFW command can be used only channel designate to be NSFW
+     * <p>
+     * Default to {@code true}
+     */
+    boolean nsfw() default true;
+
+    /**
      * Command options.
      */
     CommandOption[] options() default {};
@@ -105,4 +115,24 @@ public @interface SlashCommand {
      * Uses Discord permission names.
      */
     Permission[] permissions() default {};
+
+    /**
+     * The installation scopes where this command is available.
+     * <p>
+     * Defaults to {@link IntegrationType#GUILD_INSTALL}.
+     * Use this to determine if the command is installed to a server or a user's account.
+     *
+     * @see IntegrationType
+     */
+    IntegrationType[] integrationTo() default {IntegrationType.GUILD_INSTALL};
+
+    /**
+     * The context scopes where this command is available.
+     * <p>
+     * Defaults to {@link InteractionContextType#GUILD}.
+     * Use this to determine if the command should be interacted with context scopes.
+     *
+     * @see InteractionContextType
+     */
+    InteractionContextType[] integrationContext() default {InteractionContextType.GUILD};
 }
