@@ -47,6 +47,7 @@ Thumbs.db
 
 # Web App
 Pudel-Vue/
+docs/vuedocs/
 
 # Runtime
 *.jar
