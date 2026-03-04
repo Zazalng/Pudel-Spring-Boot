@@ -14,8 +14,9 @@
  */
 package group.worldstandard.pudel.core.config.springboot;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.SignatureAlgorithm;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,13 +61,6 @@ public class JwtUtil {
      */
     public static final String DPOP_THUMBPRINT_CLAIM = "cnf";
     public static final String DPOP_JKT_CLAIM = "jkt";
-
-    /**
-     * Default JWT signing algorithm (RSA with SHA-512).
-     * Centralized here to use a strong asymmetric algorithm; currently not configurable,
-     * but this field can be adapted if algorithm configurability is introduced in the future.
-     */
-    private static final SignatureAlgorithm signatureAlgorithm = Jwts.SIG.RS512;
 
     @Value("${pudel.jwt.private-key-path:keys/private.key}")
     private String privateKeyPath;
@@ -147,7 +141,7 @@ public class JwtUtil {
                 .claims(claims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, signatureAlgorithm)
+                .signWith(privateKey, Jwts.SIG.RS512)
                 .compact();
     }
 
@@ -177,7 +171,7 @@ public class JwtUtil {
                 .claims(allClaims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, signatureAlgorithm)
+                .signWith(privateKey, Jwts.SIG.RS512)
                 .compact();
     }
 
