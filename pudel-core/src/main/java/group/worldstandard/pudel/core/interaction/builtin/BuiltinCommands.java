@@ -119,6 +119,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "settings",
         description = "Open the Settings Panel",
+        nsfw = false,
         permissions = {Permission.ADMINISTRATOR}
     )
     public void handleSettings(SlashCommandInteractionEvent event) {
@@ -863,7 +864,10 @@ public class BuiltinCommands {
     // /ping
     // =====================================================
 
-    @SlashCommand(name = "ping", description = "Check bot latency")
+    @SlashCommand(name = "ping",
+            description = "Check bot latency",
+            nsfw = false
+    )
     public void handlePing(SlashCommandInteractionEvent event) {
         long ping = event.getJDA().getGatewayPing();
         event.reply(
@@ -881,7 +885,10 @@ public class BuiltinCommands {
     // /help
     // =====================================================
 
-    @SlashCommand(name = "help", description = "Show available commands")
+    @SlashCommand(name = "help",
+            description = "Show available commands",
+            nsfw = false
+    )
     public void handleHelp(SlashCommandInteractionEvent event) {
         List<ContainerChildComponent> c = new ArrayList<>();
 

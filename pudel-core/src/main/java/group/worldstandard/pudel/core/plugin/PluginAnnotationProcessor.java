@@ -367,7 +367,7 @@ public class PluginAnnotationProcessor {
     private OptionData buildOptionData(CommandOption opt) {
         OptionType type;
         try {
-            type = OptionType.valueOf(opt.type().toUpperCase());
+            type = opt.type();
         } catch (IllegalArgumentException e) {
             type = OptionType.STRING;
         }

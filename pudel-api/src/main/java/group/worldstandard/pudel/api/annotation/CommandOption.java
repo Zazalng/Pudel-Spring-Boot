@@ -18,6 +18,8 @@
  */
 package group.worldstandard.pudel.api.annotation;
 
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -59,7 +61,7 @@ public @interface CommandOption {
      * Use JDA's OptionType enum values as strings:
      * STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, MENTIONABLE, NUMBER, ATTACHMENT
      */
-    String type() default "STRING";
+    OptionType type() default OptionType.STRING;
 
     /**
      * Whether this option is required.
