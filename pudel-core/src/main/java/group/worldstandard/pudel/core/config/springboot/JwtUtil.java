@@ -62,9 +62,11 @@ public class JwtUtil {
     public static final String DPOP_JKT_CLAIM = "jkt";
 
     /**
-     *
+     * Default JWT signing algorithm (RSA with SHA-512).
+     * Centralized here to use a strong asymmetric algorithm; currently not configurable,
+     * but this field can be adapted if algorithm configurability is introduced in the future.
      */
-    private SignatureAlgorithm keyStandard = Jwts.SIG.RS512;
+    private static final SignatureAlgorithm signatureAlgorithm = Jwts.SIG.RS512;
 
     @Value("${pudel.jwt.private-key-path:keys/private.key}")
     private String privateKeyPath;
@@ -145,7 +147,7 @@ public class JwtUtil {
                 .claims(claims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, keyStandard)
+                .signWith(privateKey, signatureAlgorithm)
                 .compact();
     }
 
@@ -175,7 +177,7 @@ public class JwtUtil {
                 .claims(allClaims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, keyStandard)
+                .signWith(privateKey, signatureAlgorithm)
                 .compact();
     }
 
