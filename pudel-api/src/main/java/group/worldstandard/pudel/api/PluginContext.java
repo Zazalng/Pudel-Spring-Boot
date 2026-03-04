@@ -37,10 +37,10 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
  */
 public interface PluginContext {
     /**
-     * Gets the plugin name associated with this context.
-     * @return the plugin name
+     * Gets the plugin information
+     * @return {@link PluginInfo}
      */
-    String getPluginName();
+    PluginInfo getInfo();
 
     /**
      * Gets the core properties for defining core version

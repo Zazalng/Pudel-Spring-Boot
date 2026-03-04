@@ -95,7 +95,7 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
         resetPluginStatesOnStartup();
 
         File pluginsDir = pluginClassLoader.getPluginsDirectory();
-        File[] files = pluginsDir.listFiles((dir, name) -> name.endsWith(".jar"));
+        File[] files = pluginsDir.listFiles((_, name) -> name.endsWith(".jar"));
 
         if (files == null || files.length == 0) {
             logger.info("No plugins found in directory: {}", pluginsDir.getAbsolutePath());
@@ -170,7 +170,7 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
                 registerPluginMetadata(info, jarFile.getName());
 
                 // Create plugin context with actual version for proper database registry
-                PluginContext context = pluginContextFactory.getContext(pluginName, pluginVersion);
+                PluginContext context = pluginContextFactory.getContext(info);
                 pluginContexts.put(pluginName, context);
 
                 logger.info("Plugin loaded: {} v{}", pluginName, pluginVersion);
@@ -265,7 +265,13 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
         try {
             Object instance = pluginClassLoader.getPluginInstance(pluginName);
             PluginContext context = pluginContexts.computeIfAbsent(pluginName,
-                    pluginContextFactory::getContext);
+                    name -> {
+                        PluginInfo info = pluginClassLoader.getPluginInfo(name);
+                        if (info == null) {
+                            throw new IllegalStateException("No PluginInfo found for plugin: " + name);
+                        }
+                        return pluginContextFactory.getContext(info);
+                    });
 
             // Legacy support: call onEnable for PudelPlugin (deprecated)
             if (instance instanceof PudelPlugin legacyPlugin) {
