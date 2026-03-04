@@ -38,7 +38,7 @@ Agent Response   BuiltinAgent  Plugin
               [PostgreSQL Schema]
 ```
 
-> **Unified Pipeline (v2.1.1):** Built-in tools are registered through the same
+> **Unified Pipeline (v2.1.1+):** Built-in tools are registered through the same
 > `AgentToolRegistry` as plugin tools. `PudelAgentService` no longer instantiates
 > tools directly — everything flows through `PluginToolAdapter`.
 
@@ -298,4 +298,4 @@ See `examples/WeatherToolsPlugin.java` for a complete example.
 5. **Respect Context**: Use `guildOnly`/`dmOnly` for context-specific tools
 6. **Use Permissions**: Set `permission` for destructive or privileged tools
 
-*Last updated: 2026-03-02 for Pudel v2.1.1*
+*Last updated: 2026-03-02 for Pudel v2.2.0*
