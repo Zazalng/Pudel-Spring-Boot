@@ -63,6 +63,7 @@ public class BotService extends BaseService {
      * Get the JDA instance.
      * @return the JDA instance
      */
+    @Override
     public JDA getJDA() {
         return super.getJDA();
     }

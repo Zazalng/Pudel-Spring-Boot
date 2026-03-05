@@ -105,28 +105,28 @@ Bridge between the `AgentToolRegistry` and LangChain4j's agent system:
 ## Usage Examples
 
 ### Creating a Document Table
-User: "Pudel, create a table called news_documents to store news articles"
+User: "Pudel, create a table called news_documents to store news articles" \
 Pudel: "Successfully created table 'agent_news_documents' for storing news articles"
 
 ### Storing Information
-User: "Save this: Today's headline is 'New Feature Released'"
+User: "Save this: Today's headline is 'New Feature Released'" \
 Pudel: "Got it! I've saved \"Today's headline\" in my agent_news_documents records (ID: 1)"
 
 ### Archiving Messages
-User: [forwards a message] "Archive this in the news"
+User: [forwards a message] "Archive this in the news" \
 Pudel: "Archived message from @User in agent_news (ID: 2)"
 
 ### Searching
-User: "Find all news about features"
+User: "Find all news about features" \
 Pudel: "Here's what I found in agent_news:
 **New Feature Released** (ID: 1)
 Today's headline is 'New Feature Released'..."
 
 ### Quick Memory
-User: "Remember that the meeting is on Friday"
+User: "Remember that the meeting is on Friday" \
 Pudel: "I'll remember that: meeting = Friday"
 
-User: "When is the meeting?"
+User: "When is the meeting?" \
 Pudel: "meeting: Friday"
 
 ## Intent Detection

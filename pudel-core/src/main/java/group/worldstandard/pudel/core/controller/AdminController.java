@@ -1164,6 +1164,13 @@ public class AdminController {
                     .body(new ErrorResponse("Only JAR files are allowed"));
         }
 
+        // Sanitize filename: extract only the base name to prevent path traversal
+        String sanitizedFilename = Path.of(originalFilename).getFileName().toString();
+        if (sanitizedFilename.isEmpty() || sanitizedFilename.startsWith(".") || !sanitizedFilename.toLowerCase().endsWith(".jar")) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse("Invalid filename"));
+        }
+
         try {
             // Ensure plugins directory exists
             File dir = new File(pluginsDirectory);
@@ -1174,8 +1181,13 @@ public class AdminController {
                 }
             }
 
-            // Check if a plugin with this JAR filename already exists
-            Path targetPath = dir.toPath().resolve(originalFilename);
+            // Resolve and validate that the target path is within the plugins directory
+            Path targetPath = dir.toPath().resolve(sanitizedFilename).normalize();
+            if (!targetPath.startsWith(dir.toPath().toAbsolutePath().normalize())) {
+                log.warn("Path traversal attempt detected in plugin upload by {}: {}", session.discordUserId, originalFilename);
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Invalid filename: path traversal detected"));
+            }
             boolean isOverwrite = Files.exists(targetPath);
             String existingPluginName = null;
             boolean wasEnabled = false;
@@ -1183,7 +1195,7 @@ public class AdminController {
             if (isOverwrite) {
                 // Find the plugin associated with this JAR file
                 Optional<PluginMetadata> existingPlugin = pluginService.getAllPlugins().stream()
-                        .filter(p -> originalFilename.equals(p.getJarFileName()))
+                        .filter(p -> sanitizedFilename.equals(p.getJarFileName()))
                         .findFirst();
 
                 if (existingPlugin.isPresent()) {
@@ -1203,7 +1215,7 @@ public class AdminController {
             // Save the file
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            log.info("Plugin JAR uploaded by {}: {} (overwrite={})", session.discordUserId, originalFilename, isOverwrite);
+            log.info("Plugin JAR uploaded by {}: {} (overwrite={})", session.discordUserId, sanitizedFilename, isOverwrite);
 
             // Wait for file to be fully written
             Thread.sleep(300);
@@ -1214,13 +1226,13 @@ public class AdminController {
             if (jarFile.exists() && jarFile.canRead()) {
                 // Trigger discovery for this specific file
                 // The file watcher might still fire, but loadPlugin handles duplicates gracefully
-                log.info("Triggering plugin load for: {}", originalFilename);
+                log.info("Triggering plugin load for: {}", sanitizedFilename);
             }
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "Plugin uploaded successfully: " + originalFilename);
-            response.put("filename", originalFilename);
+            response.put("message", "Plugin uploaded successfully: " + sanitizedFilename);
+            response.put("filename", sanitizedFilename);
             response.put("size", file.getSize());
             response.put("path", targetPath.toAbsolutePath().toString());
             response.put("uploadedBy", session.discordUserId);
@@ -1233,12 +1245,12 @@ public class AdminController {
 
             return ResponseEntity.ok(response);
         } catch (IOException e) {
-            log.error("Error uploading plugin: {}", originalFilename, e);
+            log.error("Error uploading plugin: {}", sanitizedFilename, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to upload plugin: " + e.getMessage()));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.error("Upload interrupted: {}", originalFilename, e);
+            log.error("Upload interrupted: {}", sanitizedFilename, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Upload interrupted: " + e.getMessage()));
         }
@@ -1393,14 +1405,20 @@ public class AdminController {
             // Remove plugin (unload and delete metadata from database)
             pluginService.removePlugin(name);
 
-            // Delete JAR file
+            // Delete JAR file (sanitize to prevent path traversal)
             if (jarFileName != null) {
-                File file = new File(pluginsDirectory, jarFileName);
-                if (file.exists()) {
-                    boolean deleted = file.delete();
-                    if (!deleted) {
-                        log.warn("Could not delete JAR file: {}", file.getAbsolutePath());
+                String safeJarName = Path.of(jarFileName).getFileName().toString();
+                Path jarPath = Path.of(pluginsDirectory).resolve(safeJarName).normalize();
+                if (jarPath.startsWith(Path.of(pluginsDirectory).toAbsolutePath().normalize())) {
+                    File file = jarPath.toFile();
+                    if (file.exists()) {
+                        boolean deleted = file.delete();
+                        if (!deleted) {
+                            log.warn("Could not delete JAR file: {}", file.getAbsolutePath());
+                        }
                     }
+                } else {
+                    log.warn("Path traversal attempt detected in plugin removal: {}", jarFileName);
                 }
             }
 

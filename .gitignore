@@ -62,6 +62,7 @@ Pudel-Vue/
 .project
 .settings/
 *.orig
+/docs/vuedocs/
 
 /pudel-core/src/main/resources/nlp/*
 
@@ -70,3 +71,4 @@ keys/*.key
 keys/*.pem
 *.key
 !keys/README.md
+
