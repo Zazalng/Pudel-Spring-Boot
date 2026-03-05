@@ -16,7 +16,6 @@ package group.worldstandard.pudel.core.service;
 
 import group.worldstandard.pudel.api.PluginContext;
 import group.worldstandard.pudel.api.PluginInfo;
-import group.worldstandard.pudel.api.PudelPlugin;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
 import group.worldstandard.pudel.core.plugin.PluginClassLoader;
@@ -38,23 +37,19 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Service for managing plugin lifecycle.
  * <p>
- * Handles the complete plugin lifecycle using annotation-based approach:
+ * Handles the complete plugin lifecycle using the annotation-based approach:
  * <ul>
  *   <li>Discovery and loading of JAR files</li>
  *   <li>Automatic command registration via annotations (@SlashCommand, @TextCommand, etc.)</li>
  *   <li>Automatic sync of slash commands to Discord</li>
  *   <li>Clean unregistration on disable</li>
  *   <li>Graceful shutdown with @OnShutdown (returns boolean for force-kill control)</li>
- *   <li>Hot-reload support via file watcher</li>
+ *   <li>Hot-reload support via PluginWatcherService</li>
  * </ul>
- * <p>
- * The legacy PudelPlugin interface is deprecated. Use @Plugin annotation instead.
  */
 @Service
 @Transactional
-@Deprecated
-@SuppressWarnings({"removal"}) // Supporting legacy PudelPlugin for backward compatibility
-public class PluginService extends BaseService implements PluginClassLoader.PluginUpdateCallback {
+public class PluginService extends BaseService {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);
 
@@ -87,7 +82,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
 
     /**
      * Scan for and load all plugins in the plugins directory.
-     * Also starts the file watcher for hot-reload.
      */
     public void discoverPlugins() {
         // Reset all plugin states in database on startup
@@ -107,9 +101,7 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
             }
         }
 
-        // Start watching for plugin updates
-        pluginClassLoader.startWatcher(this);
-        logger.info("Plugin file watcher started");
+        // NOTE: File watching is handled by PluginWatcherService (NIO WatchService + polling).
     }
 
     /**
@@ -121,9 +113,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
      *   <li>All plugins should be marked as not loaded (they will be loaded during discovery)</li>
      *   <li>All plugins should be marked as not enabled (admins need to re-enable them)</li>
      * </ul>
-     * <p>
-     * This fixes Issue #6 where plugins showed as enabled in PostgreSQL after reboot
-     * but were not actually enabled in memory.
      */
     private void resetPluginStatesOnStartup() {
         logger.info("Resetting plugin states in database on startup...");
@@ -231,8 +220,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
      *   <li>Calls @OnEnable methods</li>
      *   <li>Automatically syncs slash commands to Discord</li>
      * </ol>
-     * <p>
-     * For legacy PudelPlugin (deprecated), also calls onEnable().
      *
      * @param pluginName the plugin name
      */
@@ -273,13 +260,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
                         return pluginContextFactory.getContext(info);
                     });
 
-            // Legacy support: call onEnable for PudelPlugin (deprecated)
-            if (instance instanceof PudelPlugin legacyPlugin) {
-                logger.warn("[{}] Using deprecated PudelPlugin.onEnable(). Migrate to @OnEnable annotation.",
-                           pluginName);
-                legacyPlugin.onEnable(context);
-            }
-
             // Process annotations and call @OnEnable
             int registered = annotationProcessor.processAndRegister(pluginName, instance, context);
 
@@ -313,8 +293,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
      *   <li>Unregisters all annotation-based handlers</li>
      *   <li>Automatically syncs to remove slash commands from Discord</li>
      * </ol>
-     * <p>
-     * For legacy PudelPlugin (deprecated), also calls onDisable().
      *
      * @param pluginName the plugin name
      */
@@ -346,13 +324,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
 
             // Unregister all annotation-based handlers and call @OnDisable
             annotationProcessor.unregisterAll(pluginName, instance, context);
-
-            // Legacy support: call onDisable for PudelPlugin (deprecated)
-            if (instance instanceof PudelPlugin legacyPlugin && context != null) {
-                logger.warn("[{}] Using deprecated PudelPlugin.onDisable(). Migrate to @OnDisable annotation.",
-                           pluginName);
-                legacyPlugin.onDisable(context);
-            }
 
             // Unregister all event listeners
             pluginContextFactory.getEventManager().unregisterListeners(pluginName);
@@ -410,18 +381,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
 
             // Call @OnShutdown and check result
             boolean shutdownSuccess = annotationProcessor.invokeShutdown(pluginName, instance, context);
-
-            // Legacy support: call shutdown for PudelPlugin (deprecated)
-            if (instance instanceof PudelPlugin legacyPlugin && context != null) {
-                logger.warn("[{}] Using deprecated PudelPlugin.shutdown(). Migrate to @OnShutdown annotation.",
-                           pluginName);
-                try {
-                    legacyPlugin.shutdown(context);
-                } catch (Exception e) {
-                    logger.error("[{}] Legacy shutdown failed: {}", pluginName, e.getMessage());
-                    shutdownSuccess = false;
-                }
-            }
 
             // Remove context
             pluginContexts.remove(pluginName);
@@ -569,62 +528,6 @@ public class PluginService extends BaseService implements PluginClassLoader.Plug
         }
     }
 
-    // =====================================================
-    // Hot-Reload Callbacks
-    // =====================================================
-
-    @Override
-    public void onPluginAdded(File jarFile) {
-        logger.info("New plugin detected, loading: {}", jarFile.getName());
-        loadAndInitialize(jarFile);
-    }
-
-    @Override
-    public void onPluginModified(File jarFile) {
-        // Find plugin name by JAR file
-        String pluginName = findPluginNameByJar(jarFile.getName());
-
-        if (pluginName != null) {
-            // Check both in-memory AND database for enabled state
-            boolean wasEnabled = enabledPlugins.getOrDefault(pluginName, false);
-            if (!wasEnabled) {
-                // Also check database in case of state mismatch
-                wasEnabled = pluginMetadataRepository.findByPluginName(pluginName)
-                        .map(PluginMetadata::isEnabled)
-                        .orElse(false);
-            }
-
-            logger.info("Plugin {} modified, reloading... (wasEnabled={})", pluginName, wasEnabled);
-
-            // Unload old version
-            unloadPlugin(pluginName);
-
-            // Load new version
-            loadAndInitialize(jarFile);
-
-            // Re-enable if was enabled
-            if (wasEnabled) {
-                enablePlugin(pluginName);
-            }
-        } else {
-            // New plugin
-            loadAndInitialize(jarFile);
-        }
-    }
-
-    @Override
-    public void onPluginRemoved(String jarFileName) {
-        String pluginName = findPluginNameByJar(jarFileName);
-
-        if (pluginName != null) {
-            logger.info("Plugin JAR removed: {}, unloading: {}", jarFileName, pluginName);
-            unloadPlugin(pluginName);
-        }
-    }
-
-    private String findPluginNameByJar(String jarFileName) {
-        return pluginClassLoader.findPluginNameByJarFile(jarFileName);
-    }
 
     // =====================================================
     // Query Methods

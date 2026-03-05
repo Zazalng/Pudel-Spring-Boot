@@ -24,9 +24,21 @@ import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionE
 /**
  * Handler for select menu (dropdown) interactions.
  * <p>
- * Plugins implement this interface to handle select menu selections.
+ * <b>Preferred approach:</b> Use the {@code @SelectMenuHandler} annotation directly on methods
+ * in your {@code @Plugin} class:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @SelectMenuHandler("myplugin:select:")}
+ *     public void handleSelect(StringSelectInteractionEvent event) {
+ *         List&lt;String&gt; values = event.getValues();
+ *         event.reply("You selected: " + String.join(", ", values)).queue();
+ *     }
+ * }
+ * </pre>
  * <p>
- * Example:
+ * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
  * public class MySelectHandler implements SelectMenuHandler {
  *     &#064;Override

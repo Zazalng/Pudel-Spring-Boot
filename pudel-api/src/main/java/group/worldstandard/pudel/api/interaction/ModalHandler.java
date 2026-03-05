@@ -25,7 +25,21 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
  * <p>
  * Modals are popup forms that can collect text input from users.
  * <p>
- * Example:
+ * <b>Preferred approach:</b> Use the {@code @ModalHandler} annotation directly on methods
+ * in your {@code @Plugin} class:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @ModalHandler("myplugin:feedback")}
+ *     public void handleFeedback(ModalInteractionEvent event) {
+ *         String feedback = event.getValue("feedback-input").getAsString();
+ *         event.reply("Thanks for your feedback: " + feedback).setEphemeral(true).queue();
+ *     }
+ * }
+ * </pre>
+ * <p>
+ * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
  * public class FeedbackModal implements ModalHandler {
  *     &#064;Override
@@ -37,16 +51,6 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
  *     public void handle(ModalInteractionEvent event) {
  *         String feedback = event.getValue("feedback-input").getAsString();
  *         event.reply("Thanks for your feedback: " + feedback).setEphemeral(true).queue();
- *     }
- *
- *     // Call this to show the modal
- *     public Modal createModal() {
- *         return Modal.create("myplugin:feedback", "Submit Feedback")
- *             .addActionRow(TextInput.create("feedback-input", "Your Feedback", TextInputStyle.PARAGRAPH)
- *                 .setPlaceholder("Enter your feedback here...")
- *                 .setRequired(true)
- *                 .build())
- *             .build();
  *     }
  * }
  * </pre>

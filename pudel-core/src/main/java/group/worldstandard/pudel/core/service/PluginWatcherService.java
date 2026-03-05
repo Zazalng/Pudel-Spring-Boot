@@ -133,8 +133,9 @@ public class PluginWatcherService {
 
             watcherRunning = true;
 
-            // Initial scan
-            scanPluginsDirectory();
+            // NOTE: No initial scan here. Initial plugin loading is handled by
+            // PluginBootstrapRunner.discoverPlugins() to avoid double-loading plugins.
+            // This service only watches for runtime changes (new/modified/deleted JARs).
 
             // Start NIO WatchService for real-time detection
             startWatchService();
@@ -375,6 +376,42 @@ public class PluginWatcherService {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    /**
+     * Sync tracking maps with plugins already loaded by PluginBootstrapRunner.
+     * <p>
+     * Must be called after {@code PluginService.discoverPlugins()} so that
+     * the scheduled polling and NIO watcher don't treat existing plugins as new.
+     */
+    public void syncLoadedPlugins() {
+        File pluginsDir = pluginClassLoader.getPluginsDirectory();
+        List<PluginMetadata> allPlugins = pluginMetadataRepository.findAll();
+
+        for (PluginMetadata plugin : allPlugins) {
+            String pluginName = plugin.getPluginName();
+            String jarFileName = plugin.getJarFileName();
+
+            if (jarFileName == null || pluginName == null) {
+                continue;
+            }
+
+            File jarFile = new File(pluginsDir, jarFileName);
+            if (!jarFile.exists()) {
+                continue;
+            }
+
+            try {
+                String hash = computeFileHash(jarFile);
+                jarHashes.put(pluginName, hash);
+                jarToPlugin.put(jarFileName, pluginName);
+                logger.debug("Synced watcher state for plugin: {} ({})", pluginName, jarFileName);
+            } catch (Exception e) {
+                logger.warn("Could not compute hash for {}: {}", jarFileName, e.getMessage());
+            }
+        }
+
+        logger.info("Synced watcher state for {} loaded plugins", jarToPlugin.size());
     }
 
     /**

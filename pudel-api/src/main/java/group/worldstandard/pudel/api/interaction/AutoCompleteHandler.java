@@ -25,7 +25,7 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  * <p>
  * Provides dynamic suggestions as users type command options.
  * <p>
- * Example:
+ * Implement this interface and register via {@link InteractionManager}:
  * <pre>
  * public class CityAutocomplete implements AutoCompleteHandler {
  *     &#064;Override
@@ -50,6 +50,14 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  *
  *         event.replyChoices(choices).queue();
  *     }
+ * }
+ * </pre>
+ * <p>
+ * Register in your {@code @Plugin} class:
+ * <pre>
+ * {@code @OnEnable}
+ * public void onEnable(PluginContext context) {
+ *     context.getInteractionManager().registerAutoComplete("my-plugin", new CityAutocomplete());
  * }
  * </pre>
  */

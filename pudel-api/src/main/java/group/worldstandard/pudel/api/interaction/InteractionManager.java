@@ -28,28 +28,32 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Example usage in a plugin:
  * <pre>
- * &#064;Override
- * public void onEnable(PluginContext context) {
- *     InteractionManager manager = context.getInteractionManager();
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
  *
- *     // Register slash commands
- *     manager.registerSlashCommand("my-plugin", new PingCommand());
- *     manager.registerSlashCommand("my-plugin", new WeatherCommand());
+ *     {@code @OnEnable}
+ *     public void onEnable(PluginContext context) {
+ *         InteractionManager manager = context.getInteractionManager();
  *
- *     // Register button handlers
- *     manager.registerButtonHandler("my-plugin", new ConfirmButtonHandler());
+ *         // Register slash commands
+ *         manager.registerSlashCommand("my-plugin", new PingCommand());
+ *         manager.registerSlashCommand("my-plugin", new WeatherCommand());
  *
- *     // Register modal handlers
- *     manager.registerModalHandler("my-plugin", new FeedbackModalHandler());
+ *         // Register button handlers
+ *         manager.registerButtonHandler("my-plugin", new ConfirmButtonHandler());
  *
- *     // Sync commands to Discord (call once after registering all commands)
- *     manager.syncCommands();
- * }
+ *         // Register modal handlers
+ *         manager.registerModalHandler("my-plugin", new FeedbackModalHandler());
  *
- * &#064;Override
- * public void onDisable(PluginContext context) {
- *     // Unregister all handlers for this plugin
- *     context.getInteractionManager().unregisterAll("my-plugin");
+ *         // Sync commands to Discord (call once after registering all commands)
+ *         manager.syncCommands();
+ *     }
+ *
+ *     {@code @OnDisable}
+ *     public void onDisable(PluginContext context) {
+ *         // Unregister all handlers for this plugin
+ *         context.getInteractionManager().unregisterAll("my-plugin");
+ *     }
  * }
  * </pre>
  */

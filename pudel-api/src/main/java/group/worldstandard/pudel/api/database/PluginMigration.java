@@ -26,6 +26,7 @@ package group.worldstandard.pudel.api.database;
  * <p>
  * Example:
  * <pre>
+ * {@code @OnEnable}
  * public void onEnable(PluginContext context) {
  *     PluginDatabaseManager db = context.getDatabaseManager();
  *
