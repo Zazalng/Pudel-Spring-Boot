@@ -33,7 +33,32 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
 
 /**
  * Context provided to plugins for accessing bot services and Discord API.
+ * <p>
  * Plugins should use this context to interact with the bot and access shared services.
+ * The preferred approach is to use annotations in your {@code @Plugin} class instead
+ * of calling these methods directly.
+ * <p>
+ * Example:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @OnEnable}
+ *     public void onEnable(PluginContext context) {
+ *         context.log("info", "Plugin enabled on Pudel " + context.getPudel().getVersion());
+ *     }
+ *
+ *     {@code @SlashCommand(name = "hello", description = "Say hello")}
+ *     public void hello(SlashCommandInteractionEvent event) {
+ *         event.reply("Hello!").queue();
+ *     }
+ *
+ *     {@code @TextCommand(name = "ping", description = "Check bot latency")}
+ *     public void ping(CommandContext context) {
+ *         context.reply("Pong!");
+ *     }
+ * }
+ * </pre>
  */
 public interface PluginContext {
     /**
@@ -68,20 +93,29 @@ public interface PluginContext {
     Guild getGuild(long guildId);
 
     /**
-     * Registers a command handler.
+     * Registers a text command handler programmatically.
+     * <p>
+     * <b>Preferred:</b> Use the {@code @TextCommand} annotation on a method
+     * in your {@code @Plugin} class instead of calling this method directly.
+     *
      * @param commandName the command name
      * @param handler the command handler
      */
     void registerCommand(String commandName, TextCommandHandler handler);
 
     /**
-     * Unregisters a command handler.
+     * Unregisters a text command handler.
+     * <p>
+     * Not needed when using the {@code @TextCommand} annotation, as
+     * annotated commands are automatically unregistered on plugin disable.
+     *
      * @param commandName the command name
      */
     void unregisterCommand(String commandName);
 
     /**
-     * Gets a registered command handler.
+     * Gets a registered text command handler by name.
+     *
      * @param commandName the command name
      * @return the handler or null if not found
      */
@@ -91,33 +125,43 @@ public interface PluginContext {
 
     /**
      * Gets the event manager for registering event listeners.
+     *
      * @return the event manager
      */
     EventManager getEventManager();
 
     /**
-     * Registers a listener object with annotated event handlers.
-     * Convenience method for getEventManager().registerListener().
+     * Registers a listener object with annotated {@link group.worldstandard.pudel.api.event.EventHandler @EventHandler} methods.
+     * <p>
+     * Convenience method for {@code getEventManager().registerListener()}.
+     *
      * @param listener the listener object
      */
     void registerListener(Listener listener);
 
     /**
-     * Registers a typed event listener.
-     * Convenience method for getEventManager().registerEventListener().
+     * Registers a typed event listener programmatically.
+     * <p>
+     * <b>Preferred:</b> Use the {@link group.worldstandard.pudel.api.event.EventHandler @EventHandler}
+     * annotation on methods in a {@link Listener} class instead.
+     * <p>
+     * Convenience method for {@code getEventManager().registerEventListener()}.
+     *
      * @param listener the event listener
      * @param <T> the event type
      */
     <T extends GenericEvent> void registerEventListener(PluginEventListener<T> listener);
 
     /**
-     * Unregisters a listener object.
+     * Unregisters a listener object and all its event handlers.
+     *
      * @param listener the listener to unregister
      */
     void unregisterListener(Listener listener);
 
     /**
      * Unregisters a typed event listener.
+     *
      * @param listener the event listener to unregister
      * @param <T> the event type
      */

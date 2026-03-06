@@ -274,6 +274,17 @@ public interface InteractionManager {
     CompletableFuture<Void> syncGuildCommands(long guildId);
 
     /**
+     * Sync all commands (core + plugin) to a specific guild as guild-level commands.
+     * <p>
+     * This ensures commands are available instantly when the bot joins a new guild,
+     * instead of waiting up to 1 hour for global command propagation.
+     *
+     * @param guildId the guild ID
+     * @return future that completes when sync is done
+     */
+    CompletableFuture<Void> syncAllCommandsToGuild(long guildId);
+
+    /**
      * Get statistics about registered handlers.
      *
      * @return interaction stats

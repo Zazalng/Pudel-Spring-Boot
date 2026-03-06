@@ -1032,8 +1032,8 @@ public class BuiltinCommands {
 
         return Modal.create(MODAL_PREFIX + "quirks_prompt", "Quirks & System Prompt")
                 .addComponents(
-                        Label.of("Quirks", quirks.build()),
-                        Label.of("System Prompt Prefix", prompt.build())
+                        Label.of("System Prompt Prefix", prompt.build()),
+                        Label.of("Quirks", quirks.build())
                 ).build();
     }
 

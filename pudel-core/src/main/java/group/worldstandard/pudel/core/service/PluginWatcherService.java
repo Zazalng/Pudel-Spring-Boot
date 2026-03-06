@@ -396,7 +396,14 @@ public class PluginWatcherService {
                 continue;
             }
 
-            File jarFile = new File(pluginsDir, jarFileName);
+            // Validate filename to prevent path traversal
+            String sanitizedJarFileName = java.nio.file.Path.of(jarFileName).getFileName().toString();
+            if (!sanitizedJarFileName.equals(jarFileName) || jarFileName.contains("..")) {
+                logger.warn("Skipping plugin {} with suspicious JAR filename: {}", pluginName, jarFileName);
+                continue;
+            }
+
+            File jarFile = new File(pluginsDir, sanitizedJarFileName);
             if (!jarFile.exists()) {
                 continue;
             }

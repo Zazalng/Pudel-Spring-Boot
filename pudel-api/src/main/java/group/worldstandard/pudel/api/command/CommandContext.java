@@ -26,8 +26,22 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 /**
- * Context provided to command handlers.
- * Contains all necessary information about the command execution.
+ * Context provided to text command handlers during command execution.
+ * <p>
+ * Contains all necessary information about the command invocation,
+ * including the user, guild, channel, and parsed arguments.
+ * <p>
+ * Received as a parameter in {@code @TextCommand} annotated methods:
+ * <pre>
+ * {@code @TextCommand(name = "greet", description = "Greet someone")}
+ * public void greet(CommandContext context) {
+ *     if (context.hasArgs()) {
+ *         context.reply("Hello, " + context.getArg(0) + "!");
+ *     } else {
+ *         context.reply("Hello, " + context.getUser().getName() + "!");
+ *     }
+ * }
+ * </pre>
  */
 public interface CommandContext {
 

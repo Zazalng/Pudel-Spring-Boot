@@ -21,10 +21,36 @@ package group.worldstandard.pudel.api.event;
 import net.dv8tion.jda.api.events.GenericEvent;
 
 /**
- * Base interface for plugin event listeners.
- * Plugins can implement this interface to receive JDA events.
+ * Typed event listener interface for receiving specific JDA events.
+ * <p>
+ * <b>Preferred approach:</b> Use the {@link EventHandler @EventHandler} annotation
+ * on methods in a {@link Listener} class, which is simpler and supports
+ * priority and cancellation via annotation attributes:
+ * <pre>
+ * public class MyListener implements Listener {
  *
- * @param <T> the event type this listener handles
+ *     {@code @EventHandler(priority = EventPriority.NORMAL)}
+ *     public void onMessage(MessageReceivedEvent event) {
+ *         // Handle message
+ *     }
+ * }
+ * </pre>
+ * <p>
+ * <b>Alternative:</b> Implement this interface for programmatic event handling
+ * when you need more control over the event type at runtime:
+ * <pre>
+ * PluginEventListener&lt;MessageReceivedEvent&gt; listener = new PluginEventListener&lt;&gt;() {
+ *     public Class&lt;MessageReceivedEvent&gt; getEventClass() {
+ *         return MessageReceivedEvent.class;
+ *     }
+ *     public void onEvent(MessageReceivedEvent event) {
+ *         // Handle message
+ *     }
+ * };
+ * context.registerEventListener(listener);
+ * </pre>
+ *
+ * @param <T> the JDA event type this listener handles
  */
 public interface PluginEventListener<T extends GenericEvent> {
 

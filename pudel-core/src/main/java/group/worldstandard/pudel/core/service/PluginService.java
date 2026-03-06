@@ -314,7 +314,7 @@ public class PluginService extends BaseService {
         }
 
         // Sync in-memory state if database shows enabled but memory doesn't
-        if (!inMemoryEnabled && dbEnabled) {
+        if (!inMemoryEnabled) {
             logger.info("Plugin {} was enabled in database but not in memory, syncing state", pluginName);
         }
 
@@ -492,7 +492,15 @@ public class PluginService extends BaseService {
             }
 
             String jarFileName = metadata.get().getJarFileName();
-            File jarFile = new File(pluginClassLoader.getPluginsDirectory(), jarFileName);
+
+            // Validate filename to prevent path traversal
+            String sanitizedFileName = java.nio.file.Path.of(jarFileName).getFileName().toString();
+            if (!sanitizedFileName.equals(jarFileName) || jarFileName.contains("..")) {
+                logger.error("Cannot reload plugin {}: suspicious JAR filename: {}", pluginName, jarFileName);
+                return false;
+            }
+
+            File jarFile = new File(pluginClassLoader.getPluginsDirectory(), sanitizedFileName);
 
             if (!jarFile.exists()) {
                 logger.error("Cannot reload plugin {}: JAR file does not exist: {}", pluginName, jarFile.getAbsolutePath());

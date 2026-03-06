@@ -57,7 +57,7 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  * <pre>
  * {@code @OnEnable}
  * public void onEnable(PluginContext context) {
- *     context.getInteractionManager().registerAutoComplete("my-plugin", new CityAutocomplete());
+ *     context.getInteractionManager().registerAutoCompleteHandler("my-plugin", new CityAutocomplete());
  * }
  * </pre>
  */
