@@ -79,10 +79,10 @@ public @interface SlashCommand {
     String description();
 
     /**
-     * Whether this is a NSFW command.
-     * NSFW command can be used only channel designate to be NSFW
+     * Whether this is an NSFW command.
+     * NSFW commands can only be used in channels designated as NSFW.
      * <p>
-     * Default to {@code true}
+     * Defaults to {@code true}. Set this to {@code false} to mark the command as non-NSFW.
      */
     boolean nsfw() default true;
 

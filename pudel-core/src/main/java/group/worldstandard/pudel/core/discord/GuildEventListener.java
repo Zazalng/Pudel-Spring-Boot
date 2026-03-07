@@ -128,6 +128,7 @@ public class GuildEventListener extends ListenerAdapter {
                     for(TextChannel ch : event.getGuild().getTextChannels()){
                         if(ch.canTalk()){
                             ch.sendMessage(introductionText).queue();
+                            break;
                         }
                     }
                 }

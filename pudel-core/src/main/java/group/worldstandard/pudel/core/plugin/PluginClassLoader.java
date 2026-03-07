@@ -399,6 +399,41 @@ public class PluginClassLoader {
         logger.info("All plugin class loaders closed");
     }
 
+    /**
+     * Peek at a JAR file to read the plugin name from the @Plugin annotation
+     * without fully loading or instantiating the plugin.
+     *
+     * @param jarFile the JAR file to inspect
+     * @return the plugin name from the annotation, or null if not found
+     */
+    public String peekPluginName(File jarFile) {
+        if (!jarFile.exists() || !jarFile.getName().endsWith(".jar")) {
+            return null;
+        }
+
+        try {
+            String mainClassName = findMainClass(jarFile);
+            if (mainClassName == null) {
+                return null;
+            }
+
+            try (URLClassLoader tempLoader = new URLClassLoader(
+                    new URL[]{jarFile.toURI().toURL()},
+                    Thread.currentThread().getContextClassLoader())) {
+
+                Class<?> mainClass = tempLoader.loadClass(mainClassName);
+                Plugin pluginAnnotation = mainClass.getAnnotation(Plugin.class);
+                if (pluginAnnotation != null) {
+                    return pluginAnnotation.name();
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Could not peek plugin name from {}: {}", jarFile.getName(), e.getMessage());
+        }
+
+        return null;
+    }
+
     // Getters
 
     public Object getPluginInstance(String pluginName) {

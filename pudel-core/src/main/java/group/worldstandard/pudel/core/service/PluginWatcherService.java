@@ -438,6 +438,9 @@ public class PluginWatcherService {
 
     /**
      * Scan the plugins directory for new/updated plugins.
+     * <p>
+     * Deduplicates by plugin annotation name to prevent load/unload loops
+     * when multiple JAR files declare the same {@code @Plugin(name=...)}.
      */
     public void scanPluginsDirectory() {
         if (!watcherRunning) {
@@ -451,10 +454,40 @@ public class PluginWatcherService {
             return;
         }
 
+        // Sort by lastModified descending so newest JAR wins for duplicate names
+        Arrays.sort(jarFiles, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+
         Set<String> currentJars = new HashSet<>();
+
+        // Collect already-known plugin names from jarToPlugin
+        Set<String> seenPluginNames = new HashSet<>(jarToPlugin.values());
 
         for (File jarFile : jarFiles) {
             currentJars.add(jarFile.getName());
+
+            // If this JAR is already tracked, just process normally (for hash-based updates)
+            String existingPluginName = jarToPlugin.get(jarFile.getName());
+            if (existingPluginName != null) {
+                processJarFile(jarFile);
+                continue;
+            }
+
+            // For untracked JARs, peek at the plugin name to detect duplicates
+            String peekedName = pluginClassLoader.peekPluginName(jarFile);
+            if (peekedName != null && seenPluginNames.contains(peekedName)) {
+                // Duplicate plugin name from an untracked JAR - delete stale file
+                logger.warn("Scan found duplicate plugin name '{}' in untracked JAR '{}'. Deleting stale JAR.",
+                        peekedName, jarFile.getName());
+                if (!jarFile.delete()) {
+                    logger.warn("Could not delete stale duplicate JAR: {}", jarFile.getName());
+                }
+                continue;
+            }
+
+            if (peekedName != null) {
+                seenPluginNames.add(peekedName);
+            }
+
             processJarFile(jarFile);
         }
 
@@ -672,6 +705,9 @@ public class PluginWatcherService {
 
     /**
      * Load a new plugin.
+     * <p>
+     * Handles duplicate plugin names: if a JAR with the same {@code @Plugin(name=...)}
+     * already exists under a different filename, the old JAR is treated as stale and deleted.
      */
     private void loadNewPlugin(File jarFile, String hash) {
         if (!watcherRunning) {
@@ -680,6 +716,52 @@ public class PluginWatcherService {
 
         Path tempCopy = null;
         try {
+            // Peek at the JAR to get the plugin name before loading
+            String peekedName = pluginClassLoader.peekPluginName(jarFile);
+
+            if (peekedName != null) {
+                // Check if another JAR file already maps to this plugin name
+                String existingJarForPlugin = null;
+                for (Map.Entry<String, String> entry : jarToPlugin.entrySet()) {
+                    if (peekedName.equals(entry.getValue()) && !entry.getKey().equals(jarFile.getName())) {
+                        existingJarForPlugin = entry.getKey();
+                        break;
+                    }
+                }
+
+                if (existingJarForPlugin != null) {
+                    logger.info("New JAR '{}' has same plugin name '{}' as existing JAR '{}'. " +
+                                "Treating as replacement, deleting old JAR.",
+                            jarFile.getName(), peekedName, existingJarForPlugin);
+
+                    // Remove old mapping
+                    jarToPlugin.remove(existingJarForPlugin);
+                    jarHashes.remove(peekedName);
+
+                    // Unload the old plugin version
+                    pluginService.unloadPlugin(peekedName);
+
+                    // Delete the old JAR file
+                    String sanitizedOldName = java.nio.file.Path.of(existingJarForPlugin).getFileName().toString();
+                    if (sanitizedOldName.equals(existingJarForPlugin) && !existingJarForPlugin.contains("..")) {
+                        File oldJarFile = new File(pluginClassLoader.getPluginsDirectory(), sanitizedOldName);
+                        if (oldJarFile.exists()) {
+                            if (oldJarFile.delete()) {
+                                logger.info("Deleted old JAR file: {}", existingJarForPlugin);
+                            } else {
+                                logger.warn("Could not delete old JAR file: {}", existingJarForPlugin);
+                            }
+                        }
+                    }
+
+                    // Delete old temp copies
+                    deleteOldTempCopies(peekedName);
+
+                    // Wait for classloader to release
+                    Thread.sleep(100);
+                }
+            }
+
             // Copy to temp directory
             String tempName = jarFile.getName().replace(".jar", "-" + hash.substring(0, 8) + ".jar");
             tempCopy = tempPluginDir.resolve(tempName);

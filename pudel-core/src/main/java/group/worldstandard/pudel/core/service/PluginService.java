@@ -29,9 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -82,6 +80,16 @@ public class PluginService extends BaseService {
 
     /**
      * Scan for and load all plugins in the plugins directory.
+     * <p>
+     * Uses a deduplicated discovery sequence to prevent infinite load/unload loops
+     * when multiple JAR files declare the same {@code @Plugin(name=...)}:
+     * <ol>
+     *   <li>Peek at each JAR to read the plugin name from {@code @Plugin} annotation</li>
+     *   <li>Query database for existing metadata (by plugin name) to find old JAR filename</li>
+     *   <li>If metadata exists with a different JAR name, treat as replacement: save old name, update metadata</li>
+     *   <li>Delete the stale old JAR file to prevent duplicate processing</li>
+     *   <li>Skip any JAR whose plugin name was already processed in this cycle</li>
+     * </ol>
      */
     public void discoverPlugins() {
         // Reset all plugin states in database on startup
@@ -96,7 +104,67 @@ public class PluginService extends BaseService {
         } else {
             logger.info("Found {} JAR files in plugins directory", files.length);
 
+            // Sort by lastModified descending so the newest JAR wins when duplicates exist
+            Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+
+            // Track which plugin names have already been processed to skip duplicates
+            Set<String> processedPluginNames = new HashSet<>();
+
             for (File jarFile : files) {
+                // Step 1: Peek at the JAR to read the @Plugin annotation name
+                String pluginName = pluginClassLoader.peekPluginName(jarFile);
+
+                if (pluginName == null) {
+                    logger.warn("Could not read plugin name from JAR: {}, skipping", jarFile.getName());
+                    continue;
+                }
+
+                // Step 2: Skip if we already processed a JAR with this plugin name (newest wins)
+                if (processedPluginNames.contains(pluginName)) {
+                    logger.warn("Duplicate plugin name '{}' found in JAR '{}'. " +
+                                "A newer JAR with the same plugin name was already loaded. Deleting stale JAR.",
+                            pluginName, jarFile.getName());
+                    if (!jarFile.delete()) {
+                        logger.warn("Could not delete stale duplicate JAR: {}", jarFile.getName());
+                    }
+                    continue;
+                }
+
+                // Step 3: Check database for existing metadata with this plugin name
+                Optional<PluginMetadata> existingMetadata = pluginMetadataRepository.findByPluginName(pluginName);
+                if (existingMetadata.isPresent()) {
+                    String oldJarFileName = existingMetadata.get().getJarFileName();
+                    String newJarFileName = jarFile.getName();
+
+                    // If the JAR filename changed, this is a replacement
+                    if (oldJarFileName != null && !oldJarFileName.equals(newJarFileName)) {
+                        logger.info("Plugin '{}' JAR changed from '{}' to '{}', treating as replacement",
+                                pluginName, oldJarFileName, newJarFileName);
+
+                        // Step 4: Delete the old JAR file
+                        // Validate old filename to prevent path traversal
+                        String sanitizedOldName = java.nio.file.Path.of(oldJarFileName).getFileName().toString();
+                        if (sanitizedOldName.equals(oldJarFileName) && !oldJarFileName.contains("..")) {
+                            File oldJarFile = new File(pluginsDir, sanitizedOldName);
+                            if (oldJarFile.exists() && !oldJarFile.equals(jarFile)) {
+                                if (oldJarFile.delete()) {
+                                    logger.info("Deleted old JAR file: {}", oldJarFileName);
+                                } else {
+                                    logger.warn("Could not delete old JAR file: {}", oldJarFileName);
+                                }
+                            }
+                        }
+
+                        // Update the JAR filename in database metadata
+                        existingMetadata.get().setJarFileName(newJarFileName);
+                        pluginMetadataRepository.save(existingMetadata.get());
+                    }
+                }
+
+                // Mark this plugin name as processed
+                processedPluginNames.add(pluginName);
+
+                // Step 5: Load and initialize the plugin
                 loadAndInitialize(jarFile);
             }
         }
@@ -189,6 +257,7 @@ public class PluginService extends BaseService {
             metadata.setPluginVersion(info.getVersion());
             metadata.setPluginAuthor(info.getAuthor());
             metadata.setPluginDescription(info.getDescription());
+            metadata.setJarFileName(jarFileName);
             metadata.setLoaded(true);
             metadata.setLoadError(null);
         } else {
