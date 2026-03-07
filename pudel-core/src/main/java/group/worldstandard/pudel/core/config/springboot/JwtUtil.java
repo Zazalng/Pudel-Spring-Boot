@@ -14,7 +14,9 @@
  */
 package group.worldstandard.pudel.core.config.springboot;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +141,7 @@ public class JwtUtil {
                 .claims(claims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, Jwts.SIG.RS256)
+                .signWith(privateKey, Jwts.SIG.RS512)
                 .compact();
     }
 
@@ -169,7 +171,7 @@ public class JwtUtil {
                 .claims(allClaims)
                 .issuedAt(new Date(now))
                 .expiration(expiryDate)
-                .signWith(privateKey, Jwts.SIG.RS256)
+                .signWith(privateKey, Jwts.SIG.RS512)
                 .compact();
     }
 
