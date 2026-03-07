@@ -365,12 +365,7 @@ public class PluginAnnotationProcessor {
     }
 
     private OptionData buildOptionData(CommandOption opt) {
-        OptionType type;
-        try {
-            type = opt.type();
-        } catch (IllegalArgumentException e) {
-            type = OptionType.STRING;
-        }
+        OptionType type = opt.type();
 
         OptionData data = new OptionData(type, opt.name(), opt.description(), opt.required());
 

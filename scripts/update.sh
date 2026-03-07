@@ -64,7 +64,7 @@ AUTO_UPDATE="${AUTO_UPDATE:-true}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 
 # Check if Ollama is enabled to handle profiles
-OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
+OLLAMA_ENABLED=$(grep "^OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
 
 # Check if AUTO_UPDATE is enabled
 if [ "$AUTO_UPDATE" = "true" ]; then

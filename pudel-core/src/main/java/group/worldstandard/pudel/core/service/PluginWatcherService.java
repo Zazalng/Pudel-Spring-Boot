@@ -379,20 +379,34 @@ public class PluginWatcherService {
     }
 
     /**
-     * Sync tracking maps with plugins already loaded by PluginBootstrapRunner.
+     * Sync tracking maps with plugins actually loaded by PluginBootstrapRunner.
      * <p>
      * Must be called after {@code PluginService.discoverPlugins()} so that
      * the scheduled polling and NIO watcher don't treat existing plugins as new.
+     * <p>
+     * Only plugins that are both marked as loaded in the database
+     * <em>and</em> present in the runtime classloader are synced. Plugins whose
+     * metadata exists but that failed to load at startup are intentionally left
+     * untracked so the watcher can attempt to (re)load them.
      */
     public void syncLoadedPlugins() {
         File pluginsDir = pluginClassLoader.getPluginsDirectory();
         List<PluginMetadata> allPlugins = pluginMetadataRepository.findAll();
+        int skipped = 0;
 
         for (PluginMetadata plugin : allPlugins) {
             String pluginName = plugin.getPluginName();
             String jarFileName = plugin.getJarFileName();
 
             if (jarFileName == null || pluginName == null) {
+                continue;
+            }
+
+            // Only sync plugins that were actually loaded successfully
+            if (!plugin.isLoaded() || !pluginClassLoader.isPluginLoaded(pluginName)) {
+                skipped++;
+                logger.debug("Skipping sync for plugin '{}' — not loaded (metadata.loaded={}, classloader={})",
+                        pluginName, plugin.isLoaded(), pluginClassLoader.isPluginLoaded(pluginName));
                 continue;
             }
 
@@ -418,7 +432,8 @@ public class PluginWatcherService {
             }
         }
 
-        logger.info("Synced watcher state for {} loaded plugins", jarToPlugin.size());
+        logger.info("Synced watcher state for {} loaded plugins ({} unloaded plugins left untracked)",
+                jarToPlugin.size(), skipped);
     }
 
     /**
@@ -439,8 +454,11 @@ public class PluginWatcherService {
     /**
      * Scan the plugins directory for new/updated plugins.
      * <p>
-     * Deduplicates by plugin annotation name to prevent load/unload loops
-     * when multiple JAR files declare the same {@code @Plugin(name=...)}.
+     * JARs are sorted by last-modified time descending so the newest file wins.
+     * Untracked JARs whose {@code @Plugin(name=...)} is already provided by a
+     * tracked (or newer untracked) JAR are skipped in this scan iteration;
+     * actual replacement and stale-JAR cleanup is handled by
+     * {@link #loadNewPlugin(File, String)}.
      */
     public void scanPluginsDirectory() {
         if (!watcherRunning) {
@@ -473,14 +491,17 @@ public class PluginWatcherService {
             }
 
             // For untracked JARs, peek at the plugin name to detect duplicates
+            // within this scan batch. JARs are sorted newest-first, so if we already
+            // saw (or loaded) a JAR with the same plugin name, skip the older duplicate.
+            // loadNewPlugin() handles proper replacement when a new JAR has the same
+            // @Plugin(name=...) as an already-loaded plugin under a different filename.
             String peekedName = pluginClassLoader.peekPluginName(jarFile);
             if (peekedName != null && seenPluginNames.contains(peekedName)) {
-                // Duplicate plugin name from an untracked JAR - delete stale file
-                logger.warn("Scan found duplicate plugin name '{}' in untracked JAR '{}'. Deleting stale JAR.",
-                        peekedName, jarFile.getName());
-                if (!jarFile.delete()) {
-                    logger.warn("Could not delete stale duplicate JAR: {}", jarFile.getName());
-                }
+                // Another JAR (tracked or newer untracked) already provides this plugin.
+                // Skip this older untracked JAR; loadNewPlugin() in the newer JAR's
+                // processing will delete stale files if needed.
+                logger.debug("Skipping older untracked JAR '{}' with duplicate plugin name '{}' " +
+                        "(already provided by another JAR).", jarFile.getName(), peekedName);
                 continue;
             }
 
