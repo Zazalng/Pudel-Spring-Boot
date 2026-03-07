@@ -27,6 +27,8 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
  * <p>
  * Context menus appear when right-clicking on users or messages.
  * <p>
+ * Implement this interface and register via {@link InteractionManager}:
+ * <p>
  * Example (User Context Menu):
  * <pre>
  * public class UserInfoContextMenu implements ContextMenuHandler {
@@ -57,6 +59,14 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
  *         // Save bookmark...
  *         event.reply("Message bookmarked!").setEphemeral(true).queue();
  *     }
+ * }
+ * </pre>
+ * <p>
+ * Register in your {@code @Plugin} class:
+ * <pre>
+ * {@code @OnEnable}
+ * public void onEnable(PluginContext context) {
+ *     context.getInteractionManager().registerContextMenu("my-plugin", new UserInfoContextMenu());
  * }
  * </pre>
  */

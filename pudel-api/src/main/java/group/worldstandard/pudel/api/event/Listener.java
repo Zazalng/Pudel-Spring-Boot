@@ -20,8 +20,29 @@ package group.worldstandard.pudel.api.event;
 
 /**
  * Marker interface for plugin event listener classes.
- * Classes implementing this interface can use the {@link EventHandler} annotation
- * on their methods to automatically register event handlers.
+ * <p>
+ * Implement this interface and annotate methods with
+ * {@link EventHandler @EventHandler} to receive JDA events.
+ * The method parameter type determines which event is handled.
+ * <p>
+ * Example:
+ * <pre>
+ * public class MyListener implements Listener {
+ *
+ *     {@code @EventHandler(priority = EventPriority.NORMAL)}
+ *     public void onMessage(MessageReceivedEvent event) {
+ *         // Handle message received
+ *     }
+ *
+ *     {@code @EventHandler}
+ *     public void onReaction(MessageReactionAddEvent event) {
+ *         // Handle reaction added
+ *     }
+ * }
+ * </pre>
+ *
+ * @see EventHandler
+ * @see EventPriority
  */
 public interface Listener {
     // Marker interface - no methods required

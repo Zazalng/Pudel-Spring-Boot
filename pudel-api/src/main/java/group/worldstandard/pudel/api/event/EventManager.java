@@ -21,8 +21,28 @@ package group.worldstandard.pudel.api.event;
 import net.dv8tion.jda.api.events.GenericEvent;
 
 /**
- * Interface for managing plugin event listeners.
- * Provides methods for registering and unregistering event listeners.
+ * Manager for plugin event listener registration and lifecycle.
+ * <p>
+ * <b>Preferred approach:</b> Create a {@link Listener} class with
+ * {@link EventHandler @EventHandler} annotated methods:
+ * <pre>
+ * public class MyListener implements Listener {
+ *
+ *     {@code @EventHandler(priority = EventPriority.NORMAL)}
+ *     public void onMessage(MessageReceivedEvent event) {
+ *         // Handle message
+ *     }
+ * }
+ *
+ * // Register in your @Plugin class:
+ * {@code @OnEnable}
+ * public void onEnable(PluginContext context) {
+ *     context.registerListener(new MyListener());
+ * }
+ * </pre>
+ * <p>
+ * Plugins can also register typed {@link PluginEventListener} instances
+ * programmatically for more control.
  */
 public interface EventManager {
 

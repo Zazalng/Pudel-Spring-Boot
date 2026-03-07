@@ -20,21 +20,26 @@ package group.worldstandard.pudel.api.agent;
 
 /**
  * Result of executing an agent tool.
+ * <p>
+ * Returned by the agent tool execution pipeline. Use the static factory
+ * methods to create results:
+ * <pre>
+ * // In an @AgentTool method
+ * return ToolResult.success("my_tool", "Result data", elapsed);
+ * return ToolResult.failure("my_tool", "Something went wrong", elapsed);
+ * </pre>
+ *
+ * @param success         whether the execution was successful
+ * @param result          the result message (shown to user via agent)
+ * @param error           error message if the execution failed
+ * @param toolName        the name of the tool that was executed
+ * @param executionTimeMs execution time in milliseconds
  */
 public record ToolResult(
-        /* Whether the execution was successful */
         boolean success,
-
-        /* The result message (shown to user via agent) */
         String result,
-
-        /* Error message if failed */
         String error,
-
-        /* The tool that was executed */
         String toolName,
-
-        /* Execution time in milliseconds */
         long executionTimeMs
 ) {
     /**

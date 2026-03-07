@@ -338,55 +338,56 @@ public class InteractionManagerImpl implements InteractionManager {
             return CompletableFuture.failedFuture(new IllegalStateException("JDA not available"));
         }
 
-        // Separate core (built-in) commands from plugin commands.
-        // Core commands are registered globally — always visible everywhere.
-        // Plugin commands are registered per-guild so we can filter by guild settings.
-        List<CommandData> coreGlobalCommands = new ArrayList<>();
+        // Separate commands into global vs per-guild.
+        // Global commands (core + plugins with global=true) → jda.updateCommands()
+        // Non-global plugin commands → per-guild registration (supports guild-disable filtering)
+        List<CommandData> globalCommands = new ArrayList<>();
         List<SlashCommandHandler> pluginSlashHandlers = new ArrayList<>();
         List<ContextMenuHandler> pluginContextHandlers = new ArrayList<>();
 
         for (SlashCommandHandler handler : slashCommands.values()) {
-            String cmdName = handler.getCommandData().getName();
-            String pluginId = getPluginIdForCommand("slash:" + cmdName);
-            if ("core".equals(pluginId)) {
-                if (handler.isGlobal()) {
-                    coreGlobalCommands.add(handler.getCommandData());
-                }
+            if (handler.isGlobal()) {
+                // Global commands: core commands AND plugin commands with global=true
+                globalCommands.add(handler.getCommandData());
             } else {
-                pluginSlashHandlers.add(handler);
+                String cmdName = handler.getCommandData().getName();
+                String pluginId = getPluginIdForCommand("slash:" + cmdName);
+                if (!"core".equals(pluginId)) {
+                    pluginSlashHandlers.add(handler);
+                }
             }
         }
 
         for (ContextMenuHandler handler : contextMenus.values()) {
-            String cmdName = handler.getCommandData().getName();
-            String pluginId = getPluginIdForCommand("context:" + cmdName);
-            if ("core".equals(pluginId)) {
-                if (handler.isGlobal()) {
-                    coreGlobalCommands.add(handler.getCommandData());
-                }
+            if (handler.isGlobal()) {
+                globalCommands.add(handler.getCommandData());
             } else {
-                pluginContextHandlers.add(handler);
+                String cmdName = handler.getCommandData().getName();
+                String pluginId = getPluginIdForCommand("context:" + cmdName);
+                if (!"core".equals(pluginId)) {
+                    pluginContextHandlers.add(handler);
+                }
             }
         }
 
-        // Register core commands globally
+        // Register global commands (core + global plugins) via jda.updateCommands()
         CompletableFuture<Void> globalFuture;
-        if (!coreGlobalCommands.isEmpty()) {
-            logger.info("Syncing {} core global commands to Discord...", coreGlobalCommands.size());
+        if (!globalCommands.isEmpty()) {
+            logger.info("Syncing {} global commands to Discord...", globalCommands.size());
             globalFuture = jda.updateCommands()
-                    .addCommands(coreGlobalCommands)
+                    .addCommands(globalCommands)
                     .submit()
                     .thenAccept(commands ->
-                            logger.info("Synced {} core global commands", commands.size()))
+                            logger.info("Synced {} global commands", commands.size()))
                     .exceptionally(e -> {
-                        logger.error("Failed to sync core global commands: {}", e.getMessage());
+                        logger.error("Failed to sync global commands: {}", e.getMessage());
                         return null;
                     });
         } else {
             globalFuture = CompletableFuture.completedFuture(null);
         }
 
-        // Register plugin commands per-guild, filtering out disabled plugins
+        // Register non-global plugin commands per-guild, filtering out disabled plugins
         List<CompletableFuture<Void>> guildFutures = new ArrayList<>();
         for (Guild guild : jda.getGuilds()) {
             long guildId = guild.getIdLong();
@@ -407,12 +408,10 @@ public class InteractionManagerImpl implements InteractionManager {
                     continue;
                 }
 
-                // For guild-specific handlers, check if they target this guild
-                if (!handler.isGlobal()) {
-                    long[] guildIds = handler.getGuildIds();
-                    if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
-                        continue;
-                    }
+                // Check if this handler targets this specific guild
+                long[] guildIds = handler.getGuildIds();
+                if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                    continue;
                 }
 
                 guildCmds.add(handler.getCommandData());
@@ -426,11 +425,9 @@ public class InteractionManagerImpl implements InteractionManager {
                     continue;
                 }
 
-                if (!handler.isGlobal()) {
-                    long[] guildIds = handler.getGuildIds();
-                    if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
-                        continue;
-                    }
+                long[] guildIds = handler.getGuildIds();
+                if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                    continue;
                 }
 
                 guildCmds.add(handler.getCommandData());
@@ -483,15 +480,16 @@ public class InteractionManagerImpl implements InteractionManager {
 
         List<CommandData> commands = new ArrayList<>();
 
-        // Collect plugin slash commands for this guild, filtering disabled plugins
+        // Collect non-global plugin slash commands for this guild, filtering disabled plugins.
+        // Global commands (core + global plugins) are already registered via jda.updateCommands().
         for (SlashCommandHandler handler : slashCommands.values()) {
-            String cmdName = handler.getCommandData().getName();
-            String pluginId = getPluginIdForCommand("slash:" + cmdName);
-
-            // Skip core commands (they're registered globally)
-            if ("core".equals(pluginId)) {
+            // Skip global commands — already registered globally
+            if (handler.isGlobal()) {
                 continue;
             }
+
+            String cmdName = handler.getCommandData().getName();
+            String pluginId = getPluginIdForCommand("slash:" + cmdName);
 
             // Skip if this plugin is disabled for this guild
             if (pluginId != null && disabledPlugins.contains(pluginId)) {
@@ -499,40 +497,37 @@ public class InteractionManagerImpl implements InteractionManager {
             }
 
             // For guild-specific handlers, check targeting
-            if (!handler.isGlobal()) {
-                long[] guildIds = handler.getGuildIds();
-                if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
-                    continue;
-                }
+            long[] guildIds = handler.getGuildIds();
+            if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                continue;
             }
 
             commands.add(handler.getCommandData());
         }
 
-        // Collect plugin context menus for this guild
+        // Collect non-global plugin context menus for this guild
         for (ContextMenuHandler handler : contextMenus.values()) {
-            String cmdName = handler.getCommandData().getName();
-            String pluginId = getPluginIdForCommand("context:" + cmdName);
-
-            if ("core".equals(pluginId)) {
+            // Skip global commands — already registered globally
+            if (handler.isGlobal()) {
                 continue;
             }
+
+            String cmdName = handler.getCommandData().getName();
+            String pluginId = getPluginIdForCommand("context:" + cmdName);
 
             if (pluginId != null && disabledPlugins.contains(pluginId)) {
                 continue;
             }
 
-            if (!handler.isGlobal()) {
-                long[] guildIds = handler.getGuildIds();
-                if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
-                    continue;
-                }
+            long[] guildIds = handler.getGuildIds();
+            if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                continue;
             }
 
             commands.add(handler.getCommandData());
         }
 
-        logger.info("Syncing {} plugin commands to guild {} (disabled plugins: {})...",
+        logger.info("Syncing {} non-global plugin commands to guild {} (disabled plugins: {})...",
                 commands.size(), guild.getName(), disabledPlugins);
 
         return guild.updateCommands()
@@ -555,6 +550,75 @@ public class InteractionManagerImpl implements InteractionManager {
                 modalHandlers.size(),
                 autoCompleteHandlers.size()
         );
+    }
+
+    @Override
+    public CompletableFuture<Void> syncAllCommandsToGuild(long guildId) {
+        if (jda == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("JDA not available"));
+        }
+
+        Guild guild = jda.getGuildById(guildId);
+        if (guild == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Guild not found: " + guildId));
+        }
+
+        String guildIdStr = String.valueOf(guildId);
+        Set<String> disabledPlugins = getDisabledPluginsForGuild(guildIdStr);
+
+        List<CommandData> commands = new ArrayList<>();
+
+        // Include ALL slash commands (both global and non-global) for guild-level registration.
+        // Global commands can take up to 1 hour to propagate via Discord's global registration.
+        // By also registering them as guild commands on join, they appear instantly.
+        // Guild-level commands take priority over global commands when both exist.
+        for (SlashCommandHandler handler : slashCommands.values()) {
+            String cmdName = handler.getCommandData().getName();
+            String pluginId = getPluginIdForCommand("slash:" + cmdName);
+
+            // Skip if this plugin is disabled for this guild (but never skip core)
+            if (pluginId != null && !"core".equals(pluginId) && disabledPlugins.contains(pluginId)) {
+                continue;
+            }
+
+            // For guild-specific handlers, check targeting
+            long[] guildIds = handler.getGuildIds();
+            if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                continue;
+            }
+
+            commands.add(handler.getCommandData());
+        }
+
+        // Include ALL context menus (both global and non-global)
+        for (ContextMenuHandler handler : contextMenus.values()) {
+            String cmdName = handler.getCommandData().getName();
+            String pluginId = getPluginIdForCommand("context:" + cmdName);
+
+            if (pluginId != null && !"core".equals(pluginId) && disabledPlugins.contains(pluginId)) {
+                continue;
+            }
+
+            long[] guildIds = handler.getGuildIds();
+            if (guildIds != null && guildIds.length > 0 && !contains(guildIds, guildId)) {
+                continue;
+            }
+
+            commands.add(handler.getCommandData());
+        }
+
+        logger.info("Syncing all {} commands (global + non-global) to newly joined guild {} ...",
+                commands.size(), guild.getName());
+
+        return guild.updateCommands()
+                .addCommands(commands)
+                .submit()
+                .thenAccept(cmds -> logger.info("Synced all {} commands to guild {}",
+                        cmds.size(), guild.getName()))
+                .exceptionally(e -> {
+                    logger.error("Failed to sync commands to guild {}: {}", guildId, e.getMessage());
+                    return null;
+                });
     }
 
     // =====================================================

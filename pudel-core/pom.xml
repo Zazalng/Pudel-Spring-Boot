@@ -6,7 +6,7 @@
     <parent>
         <groupId>group.worldstandard</groupId>
         <artifactId>pudel</artifactId>
-        <version>2.1.1</version>
+        <version>2.2.0</version>
     </parent>
 
     <artifactId>pudel-core</artifactId>
@@ -37,7 +37,7 @@
     </developers>
 
     <issueManagement>
-        <system>Github</system>
+        <system>GitHub</system>
         <url>https://github.com/World-Standard-Group/Pudel-Spring-Boot/issues</url>
     </issueManagement>
 
@@ -79,7 +79,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.1</version>
+            <version>3.0.2</version>
         </dependency>
         <!-- Encryption for sensitive data -->
         <dependency>

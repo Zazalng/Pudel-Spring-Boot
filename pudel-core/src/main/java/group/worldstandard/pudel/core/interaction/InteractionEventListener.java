@@ -77,7 +77,7 @@ public class InteractionEventListener extends ListenerAdapter {
         if (event.isFromGuild() && event.getGuild() != null) {
             String guildId = event.getGuild().getId();
             var metadata = commandMetadataRegistry.getSlashCommandMetadata(commandName);
-            if (metadata.isPresent() && !"core".equals(metadata.get().pluginId())) {
+            if (metadata.isPresent() && !metadata.get().isBuiltIn()) {
                 String pluginId = metadata.get().pluginId();
                 if (!guildSettingsService.isPluginEnabledForGuild(guildId, pluginId)) {
                     logger.debug("Plugin '{}' is disabled for guild {}, blocking /{}", pluginId, guildId, commandName);

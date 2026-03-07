@@ -19,20 +19,29 @@
 package group.worldstandard.pudel.api.command;
 
 /**
- * Command register interface for managing command registration.
+ * Interface for programmatic text command registration and unregistration.
+ * <p>
+ * <b>Preferred approach:</b> Use the {@code @TextCommand} annotation on methods in
+ * your {@code @Plugin} class. Commands defined via annotations are automatically
+ * registered on enable and unregistered on disable.
+ * <p>
+ * This interface is used internally by the core and is available for plugins
+ * that need dynamic command registration at runtime.
  */
 public interface CommandRegister {
 
     /**
-     * Register a command.
-     * @param commandName the command name
+     * Registers a text command handler.
+     *
+     * @param commandName the command name (without prefix)
      * @param handler the command handler
      */
     void register(String commandName, TextCommandHandler handler);
 
     /**
-     * Unregister a command.
-     * @param commandName the command name
+     * Unregisters a text command handler.
+     *
+     * @param commandName the command name to unregister
      */
     void unregister(String commandName);
 }

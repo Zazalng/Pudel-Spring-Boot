@@ -65,7 +65,7 @@ import java.util.stream.Collectors;
 @Component
 @Plugin(
     name = "pudel-core",
-    version = "2.1.1",
+    version = "2.2.0",
     author = "World Standard Group",
     description = "Built-in Pudel commands"
 )
@@ -119,6 +119,7 @@ public class BuiltinCommands {
     @SlashCommand(
         name = "settings",
         description = "Open the Settings Panel",
+        nsfw = false,
         permissions = {Permission.ADMINISTRATOR}
     )
     public void handleSettings(SlashCommandInteractionEvent event) {
@@ -863,7 +864,10 @@ public class BuiltinCommands {
     // /ping
     // =====================================================
 
-    @SlashCommand(name = "ping", description = "Check bot latency")
+    @SlashCommand(name = "ping",
+            description = "Check bot latency",
+            nsfw = false
+    )
     public void handlePing(SlashCommandInteractionEvent event) {
         long ping = event.getJDA().getGatewayPing();
         event.reply(
@@ -881,7 +885,10 @@ public class BuiltinCommands {
     // /help
     // =====================================================
 
-    @SlashCommand(name = "help", description = "Show available commands")
+    @SlashCommand(name = "help",
+            description = "Show available commands",
+            nsfw = false
+    )
     public void handleHelp(SlashCommandInteractionEvent event) {
         List<ContainerChildComponent> c = new ArrayList<>();
 
@@ -1025,8 +1032,8 @@ public class BuiltinCommands {
 
         return Modal.create(MODAL_PREFIX + "quirks_prompt", "Quirks & System Prompt")
                 .addComponents(
-                        Label.of("Quirks", quirks.build()),
-                        Label.of("System Prompt Prefix", prompt.build())
+                        Label.of("System Prompt Prefix", prompt.build()),
+                        Label.of("Quirks", quirks.build())
                 ).build();
     }
 

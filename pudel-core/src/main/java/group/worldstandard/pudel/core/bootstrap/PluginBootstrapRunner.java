@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.core.config.plugins.PluginProperties;
 import group.worldstandard.pudel.core.database.PluginDatabaseService;
 import group.worldstandard.pudel.core.service.PluginService;
+import group.worldstandard.pudel.core.service.PluginWatcherService;
 
 /**
  * Bootstrap runner for initializing the bot on startup.
@@ -34,12 +35,15 @@ public class PluginBootstrapRunner implements ApplicationRunner {
     private final PluginService pluginService;
     private final PluginProperties pluginProperties;
     private final PluginDatabaseService databaseService;
+    private final PluginWatcherService pluginWatcherService;
 
     public PluginBootstrapRunner(PluginService pluginService, PluginProperties pluginProperties,
-                                 PluginDatabaseService databaseService) {
+                                 PluginDatabaseService databaseService,
+                                 PluginWatcherService pluginWatcherService) {
         this.pluginService = pluginService;
         this.pluginProperties = pluginProperties;
         this.databaseService = databaseService;
+        this.pluginWatcherService = pluginWatcherService;
     }
 
     @Override
@@ -58,6 +62,10 @@ public class PluginBootstrapRunner implements ApplicationRunner {
         if (pluginProperties.isEnableAutoDiscovery()) {
             logger.info("Auto-discovery enabled, scanning for plugins...");
             pluginService.discoverPlugins();
+
+            // Sync the watcher service with already-loaded plugins so it doesn't
+            // re-load them as "new" on the next scheduled poll
+            pluginWatcherService.syncLoadedPlugins();
         } else {
             logger.info("Auto-discovery disabled");
         }

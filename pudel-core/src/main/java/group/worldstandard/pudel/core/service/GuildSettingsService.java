@@ -32,10 +32,13 @@ public class GuildSettingsService extends BaseService {
     private static final Logger log = LoggerFactory.getLogger(GuildSettingsService.class);
 
     private final GuildSettingsRepository guildSettingsRepository;
+    private final PluginService pluginService;
 
-    public GuildSettingsService(@Lazy JDA jda, GuildSettingsRepository guildSettingsRepository) {
+    public GuildSettingsService(@Lazy JDA jda, GuildSettingsRepository guildSettingsRepository,
+                                @Lazy PluginService pluginService) {
         super(jda);
         this.guildSettingsRepository = guildSettingsRepository;
+        this.pluginService = pluginService;
     }
 
     /**
@@ -146,6 +149,7 @@ public class GuildSettingsService extends BaseService {
      * 1. The plugin is globally enabled by the admin (checked via PluginService)
      * 2. The guild has NOT disabled it in their guild settings
      * <p>
+     * If the plugin is globally disabled, it is always unavailable regardless of guild settings.
      * If the guild has no settings yet, all globally-enabled plugins are available.
      *
      * @param guildId    the Discord guild ID
@@ -153,6 +157,12 @@ public class GuildSettingsService extends BaseService {
      * @return true if the plugin is usable in this guild
      */
     public boolean isPluginEnabledForGuild(String guildId, String pluginName) {
+        // 1. Check global enable status — if disabled globally, not available anywhere
+        if (!pluginService.isPluginEnabled(pluginName)) {
+            return false;
+        }
+
+        // 2. Check guild-level disabled list
         Optional<GuildSettings> settings = guildSettingsRepository.findByGuildId(guildId);
         // No guild settings = all globally-enabled plugins are available
         return settings.map(guildSettings -> !guildSettings.isPluginDisabled(pluginName)).orElse(true);

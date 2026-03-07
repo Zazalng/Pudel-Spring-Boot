@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import group.worldstandard.pudel.core.discord.DiscordEventListener;
+import group.worldstandard.pudel.core.discord.GuildEventListener;
 import group.worldstandard.pudel.core.interaction.InteractionEventListener;
 
 /**
@@ -46,7 +47,8 @@ public class JDAConfiguration {
     @Bean
     public JDA jda(DiscordBotProperties properties,
                    DiscordEventListener eventListener,
-                   InteractionEventListener interactionEventListener) {
+                   InteractionEventListener interactionEventListener,
+                   GuildEventListener guildEventListener) {
         try {
             String token = properties.getToken();
             if (token == null || token.trim().isEmpty()) {
@@ -67,7 +69,8 @@ public class JDAConfiguration {
                     )
                     .addEventListeners(
                             eventListener,
-                            interactionEventListener
+                            interactionEventListener,
+                            guildEventListener
                     );
 
             // Configure audio settings

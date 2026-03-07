@@ -23,10 +23,23 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 /**
  * Handler for button interactions.
  * <p>
- * Plugins implement this interface to handle button clicks.
- * Button IDs should be prefixed with your plugin name to avoid conflicts.
+ * <b>Preferred approach:</b> Use the {@code @ButtonHandler} annotation directly on methods
+ * in your {@code @Plugin} class:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @ButtonHandler("myplugin:")}
+ *     public void handleButton(ButtonInteractionEvent event) {
+ *         String buttonId = event.getComponentId();
+ *         if (buttonId.equals("myplugin:confirm")) {
+ *             event.reply("Confirmed!").setEphemeral(true).queue();
+ *         }
+ *     }
+ * }
+ * </pre>
  * <p>
- * Example:
+ * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
  * public class MyButtonHandler implements ButtonHandler {
  *     &#064;Override

@@ -63,6 +63,9 @@ fi
 AUTO_UPDATE="${AUTO_UPDATE:-true}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
 
+# Check if Ollama is enabled to handle profiles
+OLLAMA_ENABLED=$(grep "^OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
+
 # Check if AUTO_UPDATE is enabled
 if [ "$AUTO_UPDATE" = "true" ]; then
     echo -e "\n${GREEN}AUTO_UPDATE=true${NC} — the container rebuilds from source on restart."
@@ -70,10 +73,11 @@ if [ "$AUTO_UPDATE" = "true" ]; then
 
     echo -e "${YELLOW}[1/2] Restarting pudel container (will pull + rebuild + start)...${NC}"
 
-    # Check if Ollama is enabled to handle profiles
-    OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
-
-    docker compose restart pudel
+    if [ "$OLLAMA_ENABLED" = "true" ]; then
+        docker compose --profile ollama restart pudel
+    else
+        docker compose restart pudel
+    fi
 
     echo -e "\n${YELLOW}[2/2] Following logs (Ctrl+C to stop)...${NC}"
     echo -e "${BLUE}The container is now pulling latest code, building, and starting.${NC}\n"
@@ -101,7 +105,6 @@ else
     git pull origin ${GIT_BRANCH}
 
     echo -e "\n${YELLOW}[3/5] Stopping current containers...${NC}"
-    OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
     if [ "$OLLAMA_ENABLED" = "true" ]; then
         docker compose --profile ollama down
     else

@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.plugin;
 
+import group.worldstandard.pudel.api.PluginInfo;
 import group.worldstandard.pudel.api.PudelProperties;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
@@ -41,8 +42,7 @@ import group.worldstandard.pudel.core.event.PluginEventManager;
 public class PluginContextImpl implements PluginContext {
     private static final Logger logger = LoggerFactory.getLogger(PluginContextImpl.class);
 
-    private final String pluginName;
-    private final String pluginVersion;
+    private final PluginInfo info;
     private final PudelProperties pudel;
     private final JDA jda;
     private final CommandRegistry commandRegistry;
@@ -55,12 +55,11 @@ public class PluginContextImpl implements PluginContext {
     // Lazily initialized database manager
     private volatile PluginDatabaseManager databaseManager;
 
-    public PluginContextImpl(String pluginName, String pluginVersion, PudelProperties pudel, JDA jda, CommandRegistry commandRegistry,
+    public PluginContextImpl(PluginInfo info, PudelProperties pudel, JDA jda, CommandRegistry commandRegistry,
                              PluginEventManager eventManager, VoiceManager voiceManager,
                              AgentToolRegistry agentToolRegistry, InteractionManager interactionManager,
                              PluginDatabaseService databaseService) {
-        this.pluginName = pluginName;
-        this.pluginVersion = pluginVersion;
+        this.info = info;
         this.pudel = pudel;
         this.jda = jda;
         this.commandRegistry = commandRegistry;
@@ -71,9 +70,17 @@ public class PluginContextImpl implements PluginContext {
         this.databaseService = databaseService;
     }
 
+    private String getPluginName() {
+        return info.getName();
+    }
+
+    private String getPluginVersion() {
+        return info.getVersion();
+    }
+
     @Override
-    public String getPluginName() {
-        return pluginName;
+    public PluginInfo getInfo(){
+        return info;
     }
 
     @Override
@@ -103,7 +110,7 @@ public class PluginContextImpl implements PluginContext {
             return;
         }
         commandRegistry.registerCommand(commandName, handler);
-        logger.info("[{}] Command registered: {}", pluginName, commandName);
+        logger.info("[{}] Command registered: {}", getPluginName(), commandName);
     }
 
     @Override
@@ -112,7 +119,7 @@ public class PluginContextImpl implements PluginContext {
             return;
         }
         commandRegistry.unregisterCommand(commandName);
-        logger.info("[{}] Command unregistered: {}", pluginName, commandName);
+        logger.info("[{}] Command unregistered: {}", getPluginName(), commandName);
     }
 
     @Override
@@ -133,19 +140,19 @@ public class PluginContextImpl implements PluginContext {
     @Override
     public void registerListener(Listener listener) {
         if (listener == null) {
-            logger.warn("[{}] Attempt to register null listener", pluginName);
+            logger.warn("[{}] Attempt to register null listener", getPluginName());
             return;
         }
-        eventManager.registerListener(listener, pluginName);
+        eventManager.registerListener(listener, getPluginName());
     }
 
     @Override
     public <T extends GenericEvent> void registerEventListener(PluginEventListener<T> listener) {
         if (listener == null) {
-            logger.warn("[{}] Attempt to register null event listener", pluginName);
+            logger.warn("[{}] Attempt to register null event listener", getPluginName());
             return;
         }
-        eventManager.registerEventListener(listener, pluginName);
+        eventManager.registerEventListener(listener, getPluginName());
     }
 
     @Override
@@ -191,9 +198,9 @@ public class PluginContextImpl implements PluginContext {
         if (databaseManager == null) {
             synchronized (this) {
                 if (databaseManager == null) {
-                    databaseManager = databaseService.getManagerForPlugin(pluginName, pluginVersion);
+                    databaseManager = databaseService.getManagerForPlugin(getPluginName(), getPluginVersion());
                     logger.debug("[{}] Database manager initialized with prefix: {}",
-                            pluginName, databaseManager.getPrefix());
+                            getPluginName(), databaseManager.getPrefix());
                 }
             }
         }
@@ -213,7 +220,7 @@ public class PluginContextImpl implements PluginContext {
             return;
         }
 
-        String formattedMessage = "[" + pluginName + "] " + message;
+        String formattedMessage = "[" + getPluginName() + "] " + message;
 
         switch (level.toLowerCase()) {
             case "debug" -> logger.debug(formattedMessage, throwable);

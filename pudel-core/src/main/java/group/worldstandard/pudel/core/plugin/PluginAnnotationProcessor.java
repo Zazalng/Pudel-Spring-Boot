@@ -333,6 +333,18 @@ public class PluginAnnotationProcessor {
             }
         }
 
+        data.setNSFW(annotation.nsfw());
+
+        // Add IntegrationType
+        if(annotation.integrationTo().length > 0){
+            data.setIntegrationTypes(annotation.integrationTo());
+        }
+
+        // Add InteractionContextType
+        if(annotation.integrationContext().length > 0){
+            data.setContexts(annotation.integrationContext());
+        }
+
         // Add subcommands
         if (annotation.subcommands().length > 0) {
             for (Subcommand sub : annotation.subcommands()) {
@@ -353,12 +365,7 @@ public class PluginAnnotationProcessor {
     }
 
     private OptionData buildOptionData(CommandOption opt) {
-        OptionType type;
-        try {
-            type = OptionType.valueOf(opt.type().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            type = OptionType.STRING;
-        }
+        OptionType type = opt.type();
 
         OptionData data = new OptionData(type, opt.name(), opt.description(), opt.required());
 

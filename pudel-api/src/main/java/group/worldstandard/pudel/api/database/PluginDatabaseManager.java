@@ -29,10 +29,11 @@ import java.util.List;
  * <p>
  * Example usage:
  * <pre>
- * public class MyPlugin extends SimplePlugin {
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
  *     private PluginRepository&lt;MyEntity&gt; repository;
  *
- *     {@code @Override}
+ *     {@code @OnEnable}
  *     public void onEnable(PluginContext context) {
  *         PluginDatabaseManager db = context.getDatabaseManager();
  *

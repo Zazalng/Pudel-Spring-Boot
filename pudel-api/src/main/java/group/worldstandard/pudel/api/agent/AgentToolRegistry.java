@@ -29,25 +29,29 @@ import java.util.Optional;
  * <p>
  * Example usage in a plugin:
  * <pre>
- * &#064;Override
- * public void onEnable(PluginContext context) {
- *     AgentToolRegistry registry = context.getAgentToolRegistry();
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
  *
- *     // Register a tool provider (class with @AgentTool methods)
- *     registry.registerProvider("my-plugin", new MyTools());
+ *     {@code @OnEnable}
+ *     public void onEnable(PluginContext context) {
+ *         AgentToolRegistry registry = context.getAgentToolRegistry();
  *
- *     // Or register individual tool executors
- *     registry.registerTool("my-plugin", ToolDefinition.builder()
- *         .name("hello")
- *         .description("Say hello to someone")
- *         .executor((ctx, params) -> "Hello, " + params.get("name") + "!")
- *         .build());
- * }
- * <p>
- * &#064;Override
- * public void onDisable(PluginContext context) {
- *     // Unregister all tools for this plugin
- *     context.getAgentToolRegistry().unregisterAll("my-plugin");
+ *         // Register a tool provider (class with @AgentTool methods)
+ *         registry.registerProvider("my-plugin", new MyTools());
+ *
+ *         // Or register individual tool executors
+ *         registry.registerTool("my-plugin", ToolDefinition.builder()
+ *             .name("hello")
+ *             .description("Say hello to someone")
+ *             .executor((ctx, params) -> "Hello, " + params.get("name") + "!")
+ *             .build());
+ *     }
+ *
+ *     {@code @OnDisable}
+ *     public void onDisable(PluginContext context) {
+ *         // Unregister all tools for this plugin
+ *         context.getAgentToolRegistry().unregisterAll("my-plugin");
+ *     }
  * }
  * </pre>
  */

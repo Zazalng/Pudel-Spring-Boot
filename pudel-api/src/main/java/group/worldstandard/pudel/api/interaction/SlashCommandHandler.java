@@ -24,9 +24,22 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 /**
  * Handler for slash command interactions.
  * <p>
- * Plugins implement this interface to handle slash commands.
+ * <b>Preferred approach:</b> Use the {@code @SlashCommand} annotation directly on methods
+ * in your {@code @Plugin} class:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @SlashCommand(name = "ping", description = "Check bot latency")}
+ *     public void ping(SlashCommandInteractionEvent event) {
+ *         long ping = event.getJDA().getGatewayPing();
+ *         event.reply("Pong! " + ping + "ms").queue();
+ *     }
+ * }
+ * </pre>
  * <p>
- * Example:
+ * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}
+ * for more control (e.g., custom command data, guild-specific registration):
  * <pre>
  * public class PingCommand implements SlashCommandHandler {
  *     &#064;Override

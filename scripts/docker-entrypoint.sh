@@ -46,9 +46,10 @@ echo "[2/4] Permissions fixed"
 #   3. The bot then starts from the updated JAR.
 #
 # To trigger an update after pushing to GitHub:
-#   - Simply restart the container: `docker compose restart pudel`
+#   - Simply recreate the container: `docker compose up -d pudel`
+#     (NOTE: Do NOT use `restart` — it does not re-read .env changes)
 #   - Or use the updater service: `docker compose run --rm pudel-updater`
-#     then `docker compose restart pudel`
+#     then `docker compose up -d pudel`
 #   - Or set up a GitHub webhook / cron to auto-restart
 #
 # When AUTO_UPDATE=false:
@@ -71,10 +72,26 @@ if [ "${AUTO_UPDATE}" = "true" ]; then
     GIT_REPO="${GIT_REPO:-https://github.com/World-Standard-Group/Pudel-Spring-Boot.git}"
 
     if [ -d "/app/src/.git" ]; then
-        # Existing clone — pull latest
-        echo "Updating existing repository (branch: ${GIT_BRANCH})..."
-        git fetch origin "${GIT_BRANCH}" 2>&1 || { echo "WARNING: git fetch failed, using cached source"; }
-        git reset --hard "origin/${GIT_BRANCH}" 2>&1 || true
+        # Existing clone — check if branch changed
+        CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+        if [ "${CURRENT_BRANCH}" != "${GIT_BRANCH}" ]; then
+            # Branch changed (e.g., user updated GIT_BRANCH in .env)
+            # Shallow single-branch clones can't switch branches, so re-clone
+            echo "Branch changed from '${CURRENT_BRANCH}' to '${GIT_BRANCH}' — re-cloning..."
+            cd /app
+            rm -rf /app/src/*
+            rm -rf /app/src/.git
+            cd /app/src
+            git clone --depth 1 --branch "${GIT_BRANCH}" "${GIT_REPO}" . 2>&1
+        else
+            # Same branch — pull latest
+            echo "Updating existing repository (branch: ${GIT_BRANCH})..."
+            # Use FETCH_HEAD instead of origin/BRANCH because shallow clones
+            # may not have remote tracking refs set up properly
+            git fetch origin "${GIT_BRANCH}" 2>&1 || { echo "WARNING: git fetch failed, using cached source"; }
+            git reset --hard FETCH_HEAD 2>&1 || true
+        fi
     else
         # First run — clone fresh
         echo "Cloning repository (branch: ${GIT_BRANCH})..."

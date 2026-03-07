@@ -2,8 +2,8 @@
 
 **Project**: Pudel Discord Bot  
 **Maintainer**: World Standard Group  
-**Version**: 2.1.1  
-**Last Updated**: February 26, 2026
+**Version**: v2.2.0
+**Last Updated**: March 7, 2026
 
 ---
 
@@ -11,11 +11,10 @@
 
 Security updates are provided for the following versions:
 
-| Version | Supported | Until         |
-|--------|------------|---------------|
-| 2.1.x | Active support | TBD           |
-| 2.0.x | Critical fixes only | March 2026    |
-| <2.0 | End of life | Not supported |
+| Version | Supported      | Until         |
+|---------|----------------|---------------|
+| 2.2.x   | Active support | TBD           |
+| <2.1.x  | End of Life    | Not supported    |
 
 We strongly recommend running the latest release at all times.
 

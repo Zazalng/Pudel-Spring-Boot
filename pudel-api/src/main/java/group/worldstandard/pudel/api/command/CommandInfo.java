@@ -26,8 +26,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation for defining command metadata.
- * Used to document command properties when registering commands.
+ * Annotation for defining text command metadata on handler classes.
+ * <p>
+ * <b>Note:</b> For new plugins, prefer the {@code @TextCommand} annotation
+ * directly on methods in your {@code @Plugin} class, which combines metadata
+ * and handler registration in one step:
+ * <pre>
+ * {@code @TextCommand(name = "greet", description = "Greet someone",
+ *         usage = "greet <user>", aliases = {"hi", "hello"})}
+ * public void greet(CommandContext context) {
+ *     context.reply("Hello!");
+ * }
+ * </pre>
+ * <p>
+ * This annotation is still useful when implementing {@link TextCommandHandler}
+ * as a standalone class for programmatic registration.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

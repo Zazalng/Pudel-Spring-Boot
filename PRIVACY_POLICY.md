@@ -46,6 +46,7 @@ We automatically collect:
 - **Conversation Data**: Messages in channels where Pudel is active (for AI context)
 - **Technical Data**: Error logs, performance metrics, API request logs
 - **Memory Embeddings**: Vector representations of conversations for semantic search
+- Conversation data may be processed by AI models to generate responses.
 
 ### 2.4 Information from Third Parties
 
@@ -194,6 +195,24 @@ You can request complete data deletion by:
 1. Contacting us via Discord or email
 2. Removing Pudel from all your servers
 3. We will delete all associated data within 30 days
+
+### 6.4 Third-Party Plugin Data
+
+Third-party plugins are developed and operated by independent developers and are **not controlled or operated by Pudel**.
+
+When a plugin processes user data, that data may be transmitted to, stored by, or processed within the plugin developer’s systems or infrastructure. Pudel **does not audit, monitor, or guarantee** the data handling practices of third-party plugins.
+
+As a result:
+* Data processed by a plugin may remain in the plugin developer's systems even after:
+
+    * Pudel is removed from a guild
+    * Data is deleted from Pudel's infrastructure
+    * A user requests deletion through Pudel
+
+* Data retention and processing policies are determined solely by the **plugin developer**.
+
+Server administrators and users should review the privacy practices of plugins before enabling them. \
+Pudel is responsible only for data processed within **official Pudel infrastructure**.
 
 ---
 

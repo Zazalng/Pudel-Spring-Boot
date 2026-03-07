@@ -38,7 +38,7 @@ Agent Response   BuiltinAgent  Plugin
               [PostgreSQL Schema]
 ```
 
-> **Unified Pipeline (v2.1.1):** Built-in tools are registered through the same
+> **Unified Pipeline (v2.1.1+):** Built-in tools are registered through the same
 > `AgentToolRegistry` as plugin tools. `PudelAgentService` no longer instantiates
 > tools directly — everything flows through `PluginToolAdapter`.
 
@@ -105,28 +105,28 @@ Bridge between the `AgentToolRegistry` and LangChain4j's agent system:
 ## Usage Examples
 
 ### Creating a Document Table
-User: "Pudel, create a table called news_documents to store news articles"
+User: "Pudel, create a table called news_documents to store news articles" \
 Pudel: "Successfully created table 'agent_news_documents' for storing news articles"
 
 ### Storing Information
-User: "Save this: Today's headline is 'New Feature Released'"
+User: "Save this: Today's headline is 'New Feature Released'" \
 Pudel: "Got it! I've saved \"Today's headline\" in my agent_news_documents records (ID: 1)"
 
 ### Archiving Messages
-User: [forwards a message] "Archive this in the news"
+User: [forwards a message] "Archive this in the news" \
 Pudel: "Archived message from @User in agent_news (ID: 2)"
 
 ### Searching
-User: "Find all news about features"
+User: "Find all news about features" \
 Pudel: "Here's what I found in agent_news:
 **New Feature Released** (ID: 1)
 Today's headline is 'New Feature Released'..."
 
 ### Quick Memory
-User: "Remember that the meeting is on Friday"
+User: "Remember that the meeting is on Friday" \
 Pudel: "I'll remember that: meeting = Friday"
 
-User: "When is the meeting?"
+User: "When is the meeting?" \
 Pudel: "meeting: Friday"
 
 ## Intent Detection
@@ -274,10 +274,6 @@ public interface AgentToolContext {
 }
 ```
 
-### Example: Weather Plugin
-
-See `examples/WeatherToolsPlugin.java` for a complete example.
-
 ### How It Works
 
 1. Plugin registers tools via `AgentToolRegistry`
@@ -298,4 +294,4 @@ See `examples/WeatherToolsPlugin.java` for a complete example.
 5. **Respect Context**: Use `guildOnly`/`dmOnly` for context-specific tools
 6. **Use Permissions**: Set `permission` for destructive or privileged tools
 
-*Last updated: 2026-03-02 for Pudel v2.1.1*
+*Last updated: 2026-03-02 for Pudel v2.2.0*

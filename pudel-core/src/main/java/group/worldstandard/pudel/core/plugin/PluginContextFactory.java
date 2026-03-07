@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.plugin;
 
+import group.worldstandard.pudel.api.PluginInfo;
 import group.worldstandard.pudel.core.config.PudelPropertiesImpl;
 import net.dv8tion.jda.api.JDA;
 import org.springframework.context.annotation.Lazy;
@@ -59,27 +60,18 @@ public class PluginContextFactory {
         this.databaseService = databaseService;
     }
 
-    /**
-     * Creates or retrieves a context for a specific plugin.
-     *
-     * @param pluginName the plugin name
-     * @return the plugin context
-     */
-    public PluginContext getContext(String pluginName) {
-        return getContext(pluginName, "1.0.0");
-    }
 
     /**
-     * Creates or retrieves a context for a specific plugin with version info.
+     * Creates or retrieves a context for a specific plugin with {@link PluginInfo} object.
      *
-     * @param pluginName the plugin name
-     * @param pluginVersion the plugin version
+     * @param info the {@link PluginInfo}
      * @return the plugin context
      */
-    public PluginContext getContext(String pluginName, String pluginVersion) {
-        return contexts.computeIfAbsent(pluginName,
-                name -> new PluginContextImpl(name, pluginVersion, pudel, jda, commandRegistry, eventManager,
-                        voiceManager, agentToolRegistry, interactionManager, databaseService));
+    public PluginContext getContext(PluginInfo info) {
+        return contexts.computeIfAbsent(info.getName(),
+                _ -> new PluginContextImpl(info, pudel, jda, commandRegistry, eventManager,
+                        voiceManager, agentToolRegistry, interactionManager, databaseService)
+        );
     }
 
     /**

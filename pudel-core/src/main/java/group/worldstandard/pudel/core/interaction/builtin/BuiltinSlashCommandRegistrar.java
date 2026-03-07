@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.interaction.builtin;
 
+import group.worldstandard.pudel.api.PluginInfo;
 import group.worldstandard.pudel.api.agent.AgentToolRegistry;
 import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
 import group.worldstandard.pudel.core.plugin.PluginContextFactory;
@@ -32,8 +33,6 @@ import org.springframework.stereotype.Component;
 public class BuiltinSlashCommandRegistrar {
 
     private static final Logger logger = LoggerFactory.getLogger(BuiltinSlashCommandRegistrar.class);
-    private static final String BUILTIN_PLUGIN_ID = "pudel-core";
-    private static final String BUILTIN_TEXT_PLUGIN_ID = "pudel-core-text";
 
     private final PluginAnnotationProcessor annotationProcessor;
     private final PluginContextFactory pluginContextFactory;
@@ -60,20 +59,24 @@ public class BuiltinSlashCommandRegistrar {
     public void registerBuiltinCommands() {
         logger.info("Registering built-in commands using annotation processor...");
 
+        // Extract PluginInfo from @Plugin annotations on built-in classes
+        PluginInfo slashInfo = annotationProcessor.extractPluginInfo(BuiltinCommands.class);
+        PluginInfo textInfo = annotationProcessor.extractPluginInfo(BuiltinTextCommands.class);
+
         // Register slash commands (settings, ping, help)
         int registered = annotationProcessor.processAndRegister(
-                BUILTIN_PLUGIN_ID,
+                slashInfo.getName(),
                 builtinCommands,
-                pluginContextFactory.getContext(BUILTIN_PLUGIN_ID)
+                pluginContextFactory.getContext(slashInfo)
         );
 
         logger.info("Registered {} built-in slash commands via annotations", registered);
 
         // Register text commands (ping, help)
         int textRegistered = annotationProcessor.processAndRegister(
-                BUILTIN_TEXT_PLUGIN_ID,
+                textInfo.getName(),
                 builtinTextCommands,
-                pluginContextFactory.getContext(BUILTIN_TEXT_PLUGIN_ID)
+                pluginContextFactory.getContext(textInfo)
         );
 
         logger.info("Registered {} built-in text commands via annotations", textRegistered);

@@ -19,6 +19,8 @@
 package group.worldstandard.pudel.api.annotation;
 
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.interactions.IntegrationType;
+import net.dv8tion.jda.api.interactions.InteractionContextType;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -56,7 +58,7 @@ import java.lang.annotation.Target;
  * <p>The core automatically:</p>
  * <ul>
  *   <li>Registers the command when plugin is enabled</li>
- *   <li>Syncs to Discord (guild commands = instant)</li>
+ *   <li>Syncs to Discord (globally by default)</li>
  *   <li>Unregisters and re-syncs when plugin is disabled</li>
  * </ul>
  */
@@ -77,6 +79,14 @@ public @interface SlashCommand {
     String description();
 
     /**
+     * Whether this is an NSFW command.
+     * NSFW commands can only be used in channels designated as NSFW.
+     * <p>
+     * Defaults to {@code true}. Set this to {@code false} to mark the command as non-NSFW.
+     */
+    boolean nsfw() default true;
+
+    /**
      * Command options.
      */
     CommandOption[] options() default {};
@@ -88,14 +98,22 @@ public @interface SlashCommand {
 
     /**
      * Whether this is a global command.
+     * <p>
      * Global commands take up to 1 hour to propagate.
-     * Guild commands are instant (recommended for most cases).
+     * Guild commands are instant but only work in guilds the bot has been added to.
+     * <p>
+     * Defaults to {@code true}. Plugin commands are registered globally so they
+     * are available everywhere the bot is installed. Use {@link #integrationTo()}
+     * and {@link #integrationContext()} to control where the command can be used.
+     * <p>
+     * Set to {@code false} if you need guild-specific registration (e.g., with
+     * {@link #guildIds()}) for testing or restricted access.
      */
-    boolean global() default false;
+    boolean global() default true;
 
     /**
      * Guild IDs where this command should be registered.
-     * Only used if global = false.
+     * Only used if {@link #global()} is set to {@code false}.
      * Empty array = all guilds the bot is in.
      */
     long[] guildIds() default {};
@@ -105,4 +123,24 @@ public @interface SlashCommand {
      * Uses Discord permission names.
      */
     Permission[] permissions() default {};
+
+    /**
+     * The installation scopes where this command is available.
+     * <p>
+     * Defaults to {@link IntegrationType#GUILD_INSTALL}.
+     * Use this to determine if the command is installed to a server or a user's account.
+     *
+     * @see IntegrationType
+     */
+    IntegrationType[] integrationTo() default {IntegrationType.GUILD_INSTALL};
+
+    /**
+     * The context scopes where this command is available.
+     * <p>
+     * Defaults to {@link InteractionContextType#GUILD}.
+     * Use this to determine if the command should be interacted with context scopes.
+     *
+     * @see InteractionContextType
+     */
+    InteractionContextType[] integrationContext() default {InteractionContextType.GUILD};
 }

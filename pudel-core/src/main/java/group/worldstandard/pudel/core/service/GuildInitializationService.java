@@ -90,23 +90,28 @@ public class GuildInitializationService {
 
     /**
      * Clean up when the bot leaves a guild.
-     * Optionally drops the guild schema (currently disabled to preserve data).
+     * Drops the guild schema and removes guild settings.
      * @param guildId the Discord guild ID
      */
     public void cleanupGuild(String guildId) {
         logger.info("Cleaning up guild: {}", guildId);
 
+        // Delete guild settings
         guildSettingsRepository.findByGuildId(guildId)
                 .ifPresent(guildSettingsRepository::delete);
 
-        // Note: We intentionally do NOT drop the guild schema on leave
-        // to preserve data in case the bot is re-added later.
-        // If you want to drop schema on leave, uncomment below:
-        // try {
-        //     schemaManagementService.dropGuildSchema(Long.parseLong(guildId));
-        // } catch (Exception e) {
-        //     logger.warn("Failed to drop schema for guild {}: {}", guildId, e.getMessage());
-        // }
+        // Drop the per-guild schema (dialogue_history, user_preferences, memory tables)
+        try {
+            long guildIdLong = Long.parseLong(guildId);
+            if (schemaManagementService.schemaExists(guildIdLong)) {
+                schemaManagementService.dropGuildSchema(guildIdLong);
+                logger.info("Dropped database schema for guild: {}", guildId);
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid guild ID format, cannot drop schema: {}", guildId);
+        } catch (Exception e) {
+            logger.warn("Failed to drop schema for guild {}: {}", guildId, e.getMessage());
+        }
 
         logger.info("Guild cleaned up: {}", guildId);
     }

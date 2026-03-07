@@ -46,12 +46,16 @@ package group.worldstandard.pudel.api.agent;
  * }
  * </pre>
  * <p>
- * Then register in your plugin's onEnable:
+ * Then register in your plugin's {@code @OnEnable} method:
  * <pre>
- *      &#064;Override
- *      public void onEnable(PluginContext context) {
- *          context.getAgentToolRegistry().registerProvider("my-plugin", new WeatherTools());
- *      }
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * public class MyPlugin {
+ *
+ *     {@code @OnEnable}
+ *     public void onEnable(PluginContext context) {
+ *         context.getAgentToolRegistry().registerProvider("my-plugin", new WeatherTools());
+ *     }
+ * }
  * </pre>
  */
 public interface AgentToolProvider {
