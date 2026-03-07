@@ -274,10 +274,6 @@ public interface AgentToolContext {
 }
 ```
 
-### Example: Weather Plugin
-
-See `examples/WeatherToolsPlugin.java` for a complete example.
-
 ### How It Works
 
 1. Plugin registers tools via `AgentToolRegistry`

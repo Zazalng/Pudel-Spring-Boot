@@ -58,7 +58,7 @@ import java.lang.annotation.Target;
  * <p>The core automatically:</p>
  * <ul>
  *   <li>Registers the command when plugin is enabled</li>
- *   <li>Syncs to Discord (guild commands = instant)</li>
+ *   <li>Syncs to Discord (globally by default)</li>
  *   <li>Unregisters and re-syncs when plugin is disabled</li>
  * </ul>
  */
@@ -98,14 +98,22 @@ public @interface SlashCommand {
 
     /**
      * Whether this is a global command.
+     * <p>
      * Global commands take up to 1 hour to propagate.
-     * Guild commands are instant (recommended for most cases).
+     * Guild commands are instant but only work in guilds the bot has been added to.
+     * <p>
+     * Defaults to {@code true}. Plugin commands are registered globally so they
+     * are available everywhere the bot is installed. Use {@link #integrationTo()}
+     * and {@link #integrationContext()} to control where the command can be used.
+     * <p>
+     * Set to {@code false} if you need guild-specific registration (e.g., with
+     * {@link #guildIds()}) for testing or restricted access.
      */
-    boolean global() default false;
+    boolean global() default true;
 
     /**
      * Guild IDs where this command should be registered.
-     * Only used if global = false.
+     * Only used if {@link #global()} is set to {@code false}.
      * Empty array = all guilds the bot is in.
      */
     long[] guildIds() default {};

@@ -58,7 +58,7 @@ public @interface CommandOption {
 
     /**
      * Option type.
-     * Use JDA's OptionType enum values as strings:
+     * Use JDA's {@link OptionType} enum, for example:
      * STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, MENTIONABLE, NUMBER, ATTACHMENT
      */
     OptionType type() default OptionType.STRING;

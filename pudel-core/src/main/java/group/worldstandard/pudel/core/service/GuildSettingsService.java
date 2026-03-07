@@ -32,10 +32,8 @@ public class GuildSettingsService extends BaseService {
     private static final Logger log = LoggerFactory.getLogger(GuildSettingsService.class);
 
     private final GuildSettingsRepository guildSettingsRepository;
-    @SuppressWarnings("deprecation")
     private final PluginService pluginService;
 
-    @SuppressWarnings("deprecation")
     public GuildSettingsService(@Lazy JDA jda, GuildSettingsRepository guildSettingsRepository,
                                 @Lazy PluginService pluginService) {
         super(jda);
