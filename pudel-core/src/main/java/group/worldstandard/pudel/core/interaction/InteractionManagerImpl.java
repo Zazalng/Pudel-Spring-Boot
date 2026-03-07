@@ -568,19 +568,15 @@ public class InteractionManagerImpl implements InteractionManager {
 
         List<CommandData> commands = new ArrayList<>();
 
-        // Include only non-global slash commands for guild-level registration.
-        // Global commands are already registered via jda.updateCommands() and don't
-        // need per-guild registration (Discord propagates them to all guilds).
+        // Include ALL slash commands (both global and non-global) for guild-level registration.
+        // Global commands can take up to 1 hour to propagate via Discord's global registration.
+        // By also registering them as guild commands on join, they appear instantly.
+        // Guild-level commands take priority over global commands when both exist.
         for (SlashCommandHandler handler : slashCommands.values()) {
-            // Skip global commands — already registered globally
-            if (handler.isGlobal()) {
-                continue;
-            }
-
             String cmdName = handler.getCommandData().getName();
             String pluginId = getPluginIdForCommand("slash:" + cmdName);
 
-            // Skip if this plugin is disabled for this guild
+            // Skip if this plugin is disabled for this guild (but never skip core)
             if (pluginId != null && !"core".equals(pluginId) && disabledPlugins.contains(pluginId)) {
                 continue;
             }
@@ -594,13 +590,8 @@ public class InteractionManagerImpl implements InteractionManager {
             commands.add(handler.getCommandData());
         }
 
-        // Include only non-global context menus
+        // Include ALL context menus (both global and non-global)
         for (ContextMenuHandler handler : contextMenus.values()) {
-            // Skip global commands — already registered globally
-            if (handler.isGlobal()) {
-                continue;
-            }
-
             String cmdName = handler.getCommandData().getName();
             String pluginId = getPluginIdForCommand("context:" + cmdName);
 
@@ -616,13 +607,13 @@ public class InteractionManagerImpl implements InteractionManager {
             commands.add(handler.getCommandData());
         }
 
-        logger.info("Syncing {} non-global commands to newly joined guild {} ...",
+        logger.info("Syncing all {} commands (global + non-global) to newly joined guild {} ...",
                 commands.size(), guild.getName());
 
         return guild.updateCommands()
                 .addCommands(commands)
                 .submit()
-                .thenAccept(cmds -> logger.info("Synced {} non-global commands to guild {}",
+                .thenAccept(cmds -> logger.info("Synced all {} commands to guild {}",
                         cmds.size(), guild.getName()))
                 .exceptionally(e -> {
                     logger.error("Failed to sync commands to guild {}: {}", guildId, e.getMessage());

@@ -115,8 +115,6 @@ public class GuildEventListener extends ListenerAdapter {
                             👋 Thanks for adding me to your server!
                             Use `/settings` to configure my behavior.
                             Check out `/help` for available commands.
-                            
-                            Note: If some slash command does not show up that's mean it register as global command have to wait 1 hour (est.)
                             """;
 
             // Send welcome message to system channel or first text channel

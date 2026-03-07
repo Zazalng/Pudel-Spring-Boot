@@ -15,8 +15,6 @@
 package group.worldstandard.pudel.core.discord;
 
 import net.dv8tion.jda.api.events.GenericEvent;
-import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
-import net.dv8tion.jda.api.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -83,18 +81,9 @@ public class DiscordEventListener extends ListenerAdapter {
         }
     }
 
-    @Override
-    public void onGuildJoin(GuildJoinEvent event) {
-        logger.info("Bot joined guild: {} ({})", event.getGuild().getName(), event.getGuild().getIdLong());
-        guildInitializationService.initializeGuild(event.getGuild());
-    }
-
-    @Override
-    public void onGuildLeave(GuildLeaveEvent event) {
-        logger.info("Bot left guild: {} ({})", event.getGuild().getName(), event.getGuild().getId());
-        guildInitializationService.cleanupGuild(event.getGuild().getId());
-        commandExecutionService.cleanupGuildCooldowns(event.getGuild().getId());
-    }
+    // Guild join/leave events are handled by GuildEventListener
+    // which provides more complete logic including command syncing,
+    // guild record creation, and welcome messages.
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
