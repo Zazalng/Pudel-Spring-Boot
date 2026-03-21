@@ -868,22 +868,30 @@ public class AdminController {
 
     /**
      * Stream application logs in real-time via Server-Sent Events (SSE).
-     * GET /api/admin/logs/stream?history=true
+     * GET /api/admin/logs/stream?token=&lt;AdminJWT&gt;&amp;history=true
      * <p>
-     * Authentication is performed using the standard Authorization header
-     * (e.g. "Authorization: Bearer &lt;AdminJWT&gt;"), consistent with other
-     * admin endpoints. This avoids sending long-lived admin tokens in the URL.
+     * Because the browser's native {@code EventSource} API does <b>not</b> support
+     * custom request headers, this endpoint accepts the admin session token as a
+     * query parameter ({@code ?token=<AdminJWT>}) in addition to the standard
+     * {@code Authorization} header.  The header is checked first; the query
+     * parameter serves as a fallback for SSE clients.
      *
-     * @param authHeader Authorization header containing the AdminJWT bearer token
-     * @param history if true, sends the last 200 entries before streaming live
+     * @param authHeader Authorization header (preferred, but unavailable for EventSource)
+     * @param queryToken admin JWT passed as query parameter (EventSource fallback)
+     * @param history    if true, sends the last 200 entries before streaming live
      */
     @GetMapping(value = "/logs/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamLogs(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "token", required = false) String queryToken,
             @RequestParam(defaultValue = "true") boolean history) {
 
-        // Validate admin token from Authorization header
+        // Try Authorization header first, fall back to query-parameter token
         AdminSessionData session = validateAdminSession(authHeader);
+        if (session == null && queryToken != null && !queryToken.isBlank()) {
+            // Wrap the raw token so validateAdminSession can parse it
+            session = validateAdminSession("Bearer " + queryToken);
+        }
         if (session == null) {
             SseEmitter emitter = new SseEmitter(0L);
             try {

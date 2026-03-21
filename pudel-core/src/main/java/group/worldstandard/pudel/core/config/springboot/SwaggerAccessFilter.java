@@ -140,6 +140,12 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        // Always allow CORS preflight requests through — they carry no credentials and
+        // must reach Spring's CorsFilter so the browser receives the correct CORS headers.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
         String path = request.getRequestURI();
         // Only filter Swagger UI and OpenAPI docs paths
         return !path.startsWith("/swagger-ui")

@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.config.springboot;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -126,6 +127,31 @@ public class SecurityConfiguration {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * Prevent Spring Boot from auto-registering SwaggerAccessFilter as a servlet filter.
+     * It must only run inside the Spring Security filter chain (after CorsFilter),
+     * so that CORS headers are always present — even on blocked/unauthorized responses.
+     */
+    @Bean
+    public FilterRegistrationBean<SwaggerAccessFilter> disableSwaggerFilterAutoRegistration(
+            SwaggerAccessFilter filter) {
+        FilterRegistrationBean<SwaggerAccessFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    /**
+     * Prevent Spring Boot from auto-registering JwtAuthenticationFilter as a servlet filter.
+     * Same reason: it should only run within the security chain.
+     */
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> disableJwtFilterAutoRegistration(
+            JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 }
 
