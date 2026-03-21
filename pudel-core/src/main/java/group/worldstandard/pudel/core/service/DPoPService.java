@@ -248,7 +248,7 @@ public class DPoPService implements DisposableBean {
             // Mark JTI as used
             markJtiUsed(jti);
 
-            log.debug("DPoP proof validated successfully: thumbprint={}", thumbprint);
+            log.debug("DPoP proof validated successfully: thumbprint={}", "..." + thumbprint.substring(thumbprint.length() - 5));
             return DPoPValidationResult.success(thumbprint, jwk);
 
         } catch (Exception e) {
@@ -263,7 +263,7 @@ public class DPoPService implements DisposableBean {
      */
     public void bindTokenToThumbprint(String accessToken, String thumbprint) {
         tokenBindings.put(accessToken, thumbprint);
-        log.debug("Bound token to thumbprint: {}", thumbprint);
+        log.debug("Bound token to thumbprint: {}", "..." + thumbprint.substring(thumbprint.length() - 5));
     }
 
     /**

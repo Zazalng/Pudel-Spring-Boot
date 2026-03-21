@@ -238,7 +238,7 @@ public class AuthService extends BaseService {
                         existing.setOwner(owner);
                         existing.setPermissions(permissions);
                         userGuildRepository.save(existing);
-                        log.debug("Updated user-guild association for user {} and guild {}", userId, guildId);
+                        // log.debug("Updated user-guild association for user {} and guild {}", userId, guildId);
                     }
                 }
             }
@@ -276,7 +276,7 @@ public class AuthService extends BaseService {
 
                 // Only include guilds where user is owner OR has admin permission
                 if (!hasAdminPermission) {
-                    log.debug("User {} does not have admin permission in guild {}", userId, ug.getGuildId());
+                    //log.debug("User {} does not have admin permission in guild {}", userId, ug.getGuildId());
                     continue;
                 }
 
