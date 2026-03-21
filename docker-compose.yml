@@ -155,7 +155,7 @@ services:
       # Branding Configuration
       PUDEL_BRANDING_NAME: ${PUDEL_BRANDING_NAME:-Pudel}
       PUDEL_BRANDING_CODENAME: ${PUDEL_BRANDING_CODENAME:-Canis Lupus Familiaris}
-      PUDEL_BRANDING_VERSION: ${PUDEL_BRANDING_VERSION:-1.0.0}
+      PUDEL_BRANDING_VERSION: ${PUDEL_BRANDING_VERSION}
 
       # Plugin Configuration
       PUDEL_PLUGIN_DIRECTORY: /app/plugins
