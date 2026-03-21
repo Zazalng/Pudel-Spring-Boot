@@ -751,12 +751,16 @@ public class AdminController {
             // Build HttpOnly cookie — Secure flag is set only when the request
             // arrives over HTTPS (directly or via a reverse proxy setting
             // X-Forwarded-Proto: https), so local/dev HTTP setups still work.
+            // SameSite=Lax allows the cookie to be sent on same-site XHR
+            // requests from the Vue frontend (e.g. worldstandard.group →
+            // pudel.worldstandard.group).  "Strict" would block these
+            // cross-origin-but-same-site requests via Cloudflare / CDNs.
             boolean secure = isSecureRequest(request);
             ResponseCookie cookie = ResponseCookie
                     .from(SwaggerAccessFilter.SWAGGER_SESSION_COOKIE, swaggerToken)
                     .httpOnly(true)
                     .secure(secure)
-                    .sameSite(secure ? "Strict" : "Lax")
+                    .sameSite("Lax")
                     .path("/")
                     .maxAge(expiry / 1000)
                     .build();
@@ -815,7 +819,7 @@ public class AdminController {
                 .from(SwaggerAccessFilter.SWAGGER_SESSION_COOKIE, "")
                 .httpOnly(true)
                 .secure(secure)
-                .sameSite(secure ? "Strict" : "Lax")
+                .sameSite("Lax")
                 .path("/")
                 .maxAge(0)
                 .build();

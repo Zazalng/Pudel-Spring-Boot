@@ -63,6 +63,11 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
     public static final long SWAGGER_SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
     /**
+     * Subject claim value for admin session JWTs (accepted via Authorization header).
+     */
+    private static final String ADMIN_SESSION_SUBJECT = "pudel-admin-session";
+
+    /**
      * Subject claim value used for short-lived query-parameter tokens.
      */
     public static final String SWAGGER_QUERY_TOKEN_SUBJECT = "pudel-swagger-query";
@@ -113,7 +118,28 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
             log.warn("Invalid swagger session cookie presented");
         }
 
-        // 2. Query-parameter auth (opt-in only — URLs leak via logs, history, proxies, Referer)
+        // 2. Authorization header auth (for XHR/fetch requests from the Vue admin panel)
+        //    Accepts both swagger-session and admin-session JWTs so the frontend can
+        //    fetch the OpenAPI spec using the existing admin token.
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && (authHeader.startsWith("Bearer ") || authHeader.startsWith("DPoP "))) {
+            String headerToken = authHeader.substring(authHeader.indexOf(' ') + 1);
+            if (!headerToken.isBlank()) {
+                Claims claims = jwtUtil.getClaimsFromToken(headerToken);
+                if (claims != null) {
+                    String subject = claims.getSubject();
+                    if (SWAGGER_SESSION_SUBJECT.equals(subject) || ADMIN_SESSION_SUBJECT.equals(subject)) {
+                        log.debug("Swagger access granted via Authorization header for admin: {}",
+                                claims.get("discordUserId"));
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                }
+                log.warn("Invalid token in Authorization header for Swagger access");
+            }
+        }
+
+        // 3. Query-parameter auth (opt-in only — URLs leak via logs, history, proxies, Referer)
         if (allowQueryToken) {
             String queryToken = request.getParameter("swaggerToken");
             if (queryToken != null) {
