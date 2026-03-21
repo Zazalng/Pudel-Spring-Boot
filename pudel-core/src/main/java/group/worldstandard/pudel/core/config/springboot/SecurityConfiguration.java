@@ -98,8 +98,8 @@ public class SecurityConfiguration {
                         // Everything else
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(swaggerAccessFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(swaggerAccessFilter, JwtAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setContentType("application/json");
