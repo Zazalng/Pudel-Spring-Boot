@@ -84,7 +84,6 @@ ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 # Pudel Configuration
 ENV PUDEL_BRANDING_NAME=
 ENV PUDEL_BRANDING_CODENAME=
-ENV PUDEL_BRANDING_VERSION=
 ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)
