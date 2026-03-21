@@ -119,6 +119,6 @@ echo -e "\n${BLUE}Useful commands:${NC}"
 echo -e "  View logs:     ${YELLOW}docker compose logs -f pudel${NC}"
 echo -e "  Stop all:      ${YELLOW}docker compose down${NC}"
 echo -e "  Restart:       ${YELLOW}docker compose restart pudel${NC}"
-echo -e "  Update:        ${YELLOW}./scripts/update.sh${NC}"
+echo -e "  Update:        ${YELLOW}git pull && docker compose build pudel && docker compose up -d pudel${NC}"
 
 echo -e "\n${BLUE}The bot should be online shortly! Check logs for status.${NC}"

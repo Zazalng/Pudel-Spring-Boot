@@ -146,124 +146,73 @@ docker compose up -d
 | `SERVER_PORT` | `8080` | Application HTTP port |
 | `JAVA_OPTS` | `-Xms512m -Xmx2g...` | JVM options |
 
-### Auto-Update Configuration
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AUTO_UPDATE` | `true` | Pull latest code from Git and rebuild on every container start/restart |
-| `GIT_REPO` | `https://github.com/World-Standard-Group/Pudel-Spring-Boot.git` | Git repository URL to pull from |
-| `GIT_BRANCH` | `main` | Branch to track |
+## How to Update
 
-## Auto-Update System
-
-Pudel's Docker deployment includes a built-in auto-update mechanism. Understanding how it works is key to avoiding confusion.
-
-### How It Works
+Updating Pudel is simple — pull the latest code on your host, rebuild, and restart. Your `.env`, database, plugins, keys, and logs are **never touched** during this process.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     AUTO-UPDATE FLOW                                │
-│                                                                     │
-│  You push to GitHub                                                 │
-│       │                                                             │
-│       │  (GitHub does NOT auto-notify Docker)                       │
-│       │                                                             │
-│       ▼                                                             │
-│  Trigger needed:                                                    │
-│  ├── Manual:    docker compose restart pudel                        │
-│  ├── Script:    ./scripts/update.sh                                 │
-│  ├── Updater:   docker compose run --rm pudel-updater               │
-│  ├── Cron:      0 */6 * * * cd /path && docker compose restart pudel│
-│  └── Webhook:   GitHub webhook → your server → restart              │
-│       │                                                             │
-│       ▼                                                             │
-│  Container restarts → entrypoint runs                               │
-│       │                                                             │
-│       ▼                                                             │
-│  AUTO_UPDATE=true?                                                  │
-│  ├── YES:                                                           │
-│  │   ├── git fetch + reset in /app/src volume                       │
-│  │   ├── mvn clean package -DskipTests                              │
-│  │   ├── cp new JAR → /app/app.jar                                  │
-│  │   └── java -jar app.jar                                          │
-│  │                                                                  │
-│  └── NO:                                                            │
-│      └── java -jar app.jar (uses pre-built JAR from Docker image)   │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    UPDATE WORKFLOW                        │
+│                                                          │
+│  On your server terminal:                                │
+│                                                          │
+│    1.  cd /path/to/Pudel-Spring-Boot                     │
+│    2.  git pull origin main                              │
+│    3.  docker compose build pudel                        │
+│    4.  docker compose up -d pudel                        │
+│                                                          │
+│  That's it. Database and other services stay running.    │
+│  Your .env file is untouched (it lives on the host).     │
+│  Plugins, keys, and logs are bind-mounted / volumes.     │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Key Point
-
-**Pushing to GitHub does NOT automatically update the running container.** You need a trigger to restart the container. The auto-update part is: when the container starts, it automatically pulls the latest code and rebuilds before running.
-
-### Recommended Update Strategies
-
-#### Strategy 1: Manual restart (simplest)
+### Quick Update (one-liner)
 ```bash
-docker compose restart pudel
+git pull origin main && docker compose build pudel && docker compose up -d pudel
 ```
 
-#### Strategy 2: Cron job (periodic check)
+### Using the Update Script
 ```bash
-# Add to crontab (runs every 6 hours)
-0 */6 * * * cd /path/to/Pudel-Spring-Boot && docker compose restart pudel
+./scripts/update.sh          # defaults to 'main' branch
+./scripts/update.sh develop  # update from a specific branch
 ```
 
-#### Strategy 3: Updater service (smart — skips if no changes)
-```bash
-docker compose run --rm pudel-updater
-# Only restarts the bot if new commits were found
-```
+### What's Safe During Updates
 
-#### Strategy 4: GitHub webhook (truly automatic)
-Set up a webhook endpoint on your server that runs `docker compose restart pudel` when GitHub sends a push event. This requires a webhook receiver service (e.g., [webhook](https://github.com/adnanh/webhook)).
+| Data | Storage | Safe? |
+|------|---------|-------|
+| `.env` configuration | Host filesystem | ✅ Never touched |
+| PostgreSQL data | `postgres_data` Docker volume | ✅ Persists across rebuilds |
+| Ollama models | `ollama_data` Docker volume | ✅ Persists across rebuilds |
+| Plugins (JARs) | `./plugins` bind mount | ✅ Lives on host |
+| RSA keys | `./keys` bind mount | ✅ Lives on host (read-only) |
+| Application logs | `pudel_logs` Docker volume | ✅ Persists across rebuilds |
 
-#### Strategy 5: Disable auto-update (production)
-```env
-AUTO_UPDATE=false
-```
-Then update manually:
-```bash
-git pull origin main
-docker compose build --no-cache pudel
-docker compose up -d pudel
-```
+> **Tip:** `docker compose down` stops containers but preserves volumes. Only `docker compose down -v` deletes volumes — avoid it unless you want a full reset.
 
 ## Docker Files Overview
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Multi-stage build (build + runtime with Maven for auto-update) |
-| `docker compose.yml` | Full deployment (PostgreSQL, Ollama, Pudel, Updater) |
+| `Dockerfile` | Multi-stage build (Maven build + lean JDK runtime) |
+| `docker-compose.yml` | Full deployment (PostgreSQL, Ollama, Pudel) |
 | `scripts/start.sh` | First-time setup script |
-| `scripts/update.sh` | Update trigger script |
-| `scripts/docker-entrypoint.sh` | Container entrypoint (auto-update + startup) |
+| `scripts/update.sh` | Pull + rebuild + restart script |
+| `scripts/docker-entrypoint.sh` | Container entrypoint (permissions + startup) |
 | `.env.example` | Environment template |
 
 ## Updating the Bot
 
-### With AUTO_UPDATE=true (default)
 ```bash
-# Simply restart — the container pulls latest code and rebuilds automatically
-docker compose restart pudel
-
-# Or use the update script
-./scripts/update.sh
-
-# Or use the smart updater (only restarts if new commits exist)
-docker compose run --rm pudel-updater
-```
-
-### With AUTO_UPDATE=false
-```bash
-# Pull latest changes on host
+# Pull latest code, rebuild, and restart (database stays running)
 git pull origin main
-
-# Rebuild the Docker image
-docker compose build --no-cache pudel
-
-# Restart
+docker compose build pudel
 docker compose up -d pudel
+
+# Or use the convenience script
+./scripts/update.sh
 ```
 
 ## Common Commands
@@ -316,9 +265,10 @@ Make sure you have [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter
 | `postgres_data` | `/var/lib/postgresql/data` | Database files |
 | `ollama_data` | `/root/.ollama` | Downloaded AI models |
 | `pudel_logs` | `/app/logs` | Application logs |
-| `pudel_src` | `/app/src` | Cloned Git source (used by AUTO_UPDATE for rebuilds) |
 | `./plugins` (bind mount) | `/app/plugins` | Bot plugins (hot-reloadable) |
 | `./keys` (bind mount) | `/app/keys` | RSA keys for JWT (read-only) |
+
+> **Important:** All persistent data lives in Docker volumes or bind mounts on the host. Rebuilding the Pudel image (`docker compose build pudel`) only replaces the application code — your data is safe.
 
 ## Plugin Management in Docker
 
