@@ -126,6 +126,10 @@ jobs:
     name: Deploy Javadocs
     needs: publish-api
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: "pages"
+      cancel-in-progress: true
     permissions:
       pages: write
       id-token: write
@@ -143,8 +147,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Compile and Generate API Javadocs
-        run: mvn clean compile javadoc:javadoc -pl pudel-api -am -DskipTests -Ddoclint=none -B
+      - name: Generate API Javadocs
+        run: |
+          mvn clean install javadoc:javadoc -pl pudel-api -am -DskipTests -Ddoclint=none -B
 
       - name: Fix Jekyll 404s
         run: |
@@ -154,6 +159,7 @@ jobs:
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4.0.0
         with:
+          name: github-pages
           path: ./pudel-api/target/site/apidocs
 
       - name: Deploy to GitHub Pages
