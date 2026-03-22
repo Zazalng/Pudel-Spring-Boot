@@ -105,12 +105,22 @@ jobs:
     name: Docker Image CI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.2
-      - name: Build the Docker image
-        run: |
-           docker build . \
-           -t pudel:${{ github.ref_name }} \
-           -t pudel:latest
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7.0.0
+        with:
+          push: true
+          tags: |
+            zazalng/pudel:${{ github.ref_name }}
+            zazalng/pudel:latest
 
   deploy-docs:
     name: Deploy Javadocs
@@ -133,16 +143,13 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Install Parent Locally
-        run: mvn install -N -DskipTests -B
-
-      - name: Generate API Javadocs
-        run: mvn javadoc:javadoc -pl pudel-api -am -Ddoclint=none -B
+      - name: Compile and Generate API Javadocs
+        run: mvn clean compile javadoc:javadoc -pl pudel-api -am -DskipTests -Ddoclint=none -B
 
       - name: Fix Jekyll 404s
         run: |
-            mkdir -p ./pudel-api/target/site/apidocs
-            touch ./pudel-api/target/site/apidocs/.nojekyll
+          mkdir -p ./pudel-api/target/site/apidocs
+          touch ./pudel-api/target/site/apidocs/.nojekyll
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v4.0.0
