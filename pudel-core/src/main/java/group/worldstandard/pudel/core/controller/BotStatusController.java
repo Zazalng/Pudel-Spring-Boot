@@ -66,7 +66,6 @@ public class BotStatusController {
             status.put("responseTime", jda.getGatewayPing());
             status.put("timestamp", OffsetDateTime.now().toString());
 
-            log.debug("Bot status retrieved");
             return ResponseEntity.ok(status);
         } catch (Exception e) {
             log.error("Error retrieving bot status", e);
@@ -86,7 +85,7 @@ public class BotStatusController {
             version.put("name", branding.getName());
             version.put("codename", branding.getCodename());
             version.put("jdaVersion", JDAInfo.VERSION);
-            version.put("javaVersion", System.getProperty("java.version"));
+            version.put("javaVersion", Runtime.version().toString());
             version.put("springBootVersion", SpringBootVersion.getVersion());
 
             return ResponseEntity.ok(version);
@@ -127,7 +126,6 @@ public class BotStatusController {
             stats.put("uptime", calculateUptime());
             stats.put("timestamp", OffsetDateTime.now().toString());
 
-            log.debug("Bot statistics retrieved");
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             log.error("Error retrieving bot statistics", e);

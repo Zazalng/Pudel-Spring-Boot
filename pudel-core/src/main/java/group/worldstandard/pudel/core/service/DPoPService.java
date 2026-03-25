@@ -22,8 +22,10 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.security.spec.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -240,7 +242,9 @@ public class DPoPService implements DisposableBean {
                 // Verify token is bound to this thumbprint
                 String boundThumbprint = tokenBindings.get(accessToken);
                 if (boundThumbprint != null && !boundThumbprint.equals(thumbprint)) {
-                    log.warn("DPoP binding mismatch: token bound to {} but proof from {}", boundThumbprint, thumbprint);
+                    log.warn("DPoP binding mismatch: token bound to {} but proof from {}",
+                            "..." + boundThumbprint.substring(boundThumbprint.length() - 3),
+                            "..." + thumbprint.substring(thumbprint.length() - 3));
                     return DPoPValidationResult.failure("Token not bound to this key");
                 }
             }
@@ -248,7 +252,14 @@ public class DPoPService implements DisposableBean {
             // Mark JTI as used
             markJtiUsed(jti);
 
-            log.debug("DPoP proof validated successfully: thumbprint={}", "..." + thumbprint.substring(thumbprint.length() - 5));
+            String maskedThumbprint;
+            if (thumbprint == null || thumbprint.length() <= 5) {
+                maskedThumbprint = thumbprint;
+            } else {
+                maskedThumbprint = "..." + thumbprint.substring(thumbprint.length() - 5);
+            }
+            log.debug("DPoP proof validated successfully: thumbprint={}", maskedThumbprint);
+
             return DPoPValidationResult.success(thumbprint, jwk);
 
         } catch (Exception e) {
@@ -263,7 +274,17 @@ public class DPoPService implements DisposableBean {
      */
     public void bindTokenToThumbprint(String accessToken, String thumbprint) {
         tokenBindings.put(accessToken, thumbprint);
-        log.debug("Bound token to thumbprint: {}", "..." + thumbprint.substring(thumbprint.length() - 5));
+        String displayThumbprint;
+        if (thumbprint == null) {
+            displayThumbprint = "null";
+        } else if (thumbprint.isEmpty()) {
+            displayThumbprint = "***";
+        } else if (thumbprint.length() <= 5) {
+            displayThumbprint = "..." + thumbprint;
+        } else {
+            displayThumbprint = "..." + thumbprint.substring(thumbprint.length() - 5);
+        }
+        log.debug("Bound token to thumbprint: {}", displayThumbprint);
     }
 
     /**
@@ -297,7 +318,7 @@ public class DPoPService implements DisposableBean {
             byte[] hash = digest.digest(accessToken.getBytes(StandardCharsets.US_ASCII));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 
@@ -346,13 +367,12 @@ public class DPoPService implements DisposableBean {
                 byte[] nBytes = Base64.getUrlDecoder().decode(n);
                 byte[] eBytes = Base64.getUrlDecoder().decode(e);
 
-                java.math.BigInteger modulus = new java.math.BigInteger(1, nBytes);
-                java.math.BigInteger exponent = new java.math.BigInteger(1, eBytes);
+                BigInteger modulus = new BigInteger(1, nBytes);
+                BigInteger exponent = new BigInteger(1, eBytes);
 
-                java.security.spec.RSAPublicKeySpec spec = new java.security.spec.RSAPublicKeySpec(modulus, exponent);
+                RSAPublicKeySpec spec = new RSAPublicKeySpec(modulus, exponent);
                 KeyFactory kf = KeyFactory.getInstance("RSA");
                 return kf.generatePublic(spec);
-
             } else if ("EC".equals(kty)) {
                 String crv = (String) jwk.get("crv");
                 String x = (String) jwk.get("x");
@@ -361,27 +381,23 @@ public class DPoPService implements DisposableBean {
                 byte[] xBytes = Base64.getUrlDecoder().decode(x);
                 byte[] yBytes = Base64.getUrlDecoder().decode(y);
 
-                java.security.spec.ECPoint point = new java.security.spec.ECPoint(
+                ECPoint point = new ECPoint(
                         new java.math.BigInteger(1, xBytes),
                         new java.math.BigInteger(1, yBytes)
                 );
 
-                java.security.spec.ECGenParameterSpec ecSpec = new java.security.spec.ECGenParameterSpec(
-                        switch (crv) {
-                            case "P-256" -> "secp256r1";
-                            case "P-384" -> "secp384r1";
-                            case "P-521" -> "secp521r1";
-                            default -> throw new IllegalArgumentException("Unsupported curve: " + crv);
-                        }
-                );
+                String stdCurveName = switch (crv) {
+                    case "P-256" -> "secp256r1";
+                    case "P-384" -> "secp384r1";
+                    case "P-521" -> "secp521r1";
+                    default -> throw new IllegalArgumentException("Unsupported curve: " + crv);
+                };
 
-                KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
-                kpg.initialize(ecSpec);
-                java.security.interfaces.ECPublicKey tempKey =
-                        (java.security.interfaces.ECPublicKey) kpg.generateKeyPair().getPublic();
+                AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
+                parameters.init(new ECGenParameterSpec(stdCurveName));
+                ECParameterSpec ecParams = parameters.getParameterSpec(ECParameterSpec.class);
 
-                java.security.spec.ECPublicKeySpec pubSpec =
-                        new java.security.spec.ECPublicKeySpec(point, tempKey.getParams());
+                ECPublicKeySpec pubSpec = new ECPublicKeySpec(point, ecParams);
                 KeyFactory kf = KeyFactory.getInstance("EC");
                 return kf.generatePublic(pubSpec);
             }
@@ -407,10 +423,16 @@ public class DPoPService implements DisposableBean {
         if (fragIdx > 0) {
             uri = uri.substring(0, fragIdx);
         }
-        // Ensure no trailing slash
-        while (uri.endsWith("/") && uri.length() > 1) {
-            uri = uri.substring(0, uri.length() - 1);
+        // Ensure no trailing slash (but do not reduce a single "/" to empty)
+        int end = uri.length();
+        while (end > 1 && uri.charAt(end - 1) == '/') {
+            end--;
         }
+
+        if (end < uri.length()) {
+            uri = uri.substring(0, end);
+        }
+
         return uri.toLowerCase();
     }
 

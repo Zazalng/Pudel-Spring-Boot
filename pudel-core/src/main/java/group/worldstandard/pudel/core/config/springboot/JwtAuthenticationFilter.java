@@ -120,7 +120,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     String tokenThumbprint = jwtUtil.getDPoPThumbprint(token);
                     if (tokenThumbprint != null && !tokenThumbprint.equals(proofResult.thumbprint())) {
                         log.warn("DPoP thumbprint mismatch: token bound to {}, proof from {}",
-                                tokenThumbprint, proofResult.thumbprint());
+                                "..."+ tokenThumbprint.substring(tokenThumbprint.length() - 3), "..."+ proofResult.thumbprint().substring(proofResult.thumbprint().length() - 3));
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setHeader("WWW-Authenticate", "DPoP error=\"invalid_dpop_proof\", error_description=\"Token not bound to this key\"");
                         response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"Token not bound to this key\"}");

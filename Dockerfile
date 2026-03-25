@@ -72,19 +72,19 @@ VOLUME ["/app/plugins", "/app/data", "/app/logs", "/app/keys"]
 ENV POSTGRES_HOST=localhost
 ENV POSTGRES_PORT=5432
 ENV POSTGRES_USER=postgres
-ENV POSTGRES_PASS=
+ENV POSTGRES_PASS=password_bro
 ENV POSTGRES_DB=pudel
 
 # Discord Bot Configuration
-ENV DISCORD_BOT_TOKEN=
-ENV DISCORD_CLIENT_ID=
-ENV DISCORD_CLIENT_SECRET=
+ENV DISCORD_BOT_TOKEN=portal.discord.com-may-help-you
+ENV DISCORD_CLIENT_ID=it-was-number-long-16-to-19-char
+ENV DISCORD_CLIENT_SECRET=random-bullsht
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 
 # Pudel Configuration
-ENV PUDEL_BRANDING_NAME=
-ENV PUDEL_BRANDING_CODENAME=
-ENV PUDEL_ADMIN_INITIAL_OWNER=
+ENV PUDEL_BRANDING_NAME=Pudel
+ENV PUDEL_BRANDING_CODENAME=Canis Lupus Familiaris
+ENV PUDEL_ADMIN_INITIAL_OWNER=12345679801234567
 
 # JWT Configuration (keys mounted via volume)
 ENV JWT_PRIVATE_KEY_PATH=/app/keys/pv.key
@@ -116,7 +116,7 @@ EXPOSE ${SERVER_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1
+    CMD-SHELL "curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1"
 
 # Start the application via entrypoint script (handles permissions)
 ENTRYPOINT ["/docker-entrypoint.sh"]

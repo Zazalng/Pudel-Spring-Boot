@@ -56,7 +56,7 @@ public class JDAConfiguration {
                 throw new IllegalStateException("Discord bot token not configured");
             }
 
-            logger.info("Initializing JDA with token: {}...", token.substring(0, Math.min(10, token.length())));
+            logger.info("Initializing JDA with token: {}...", token.substring(0, Math.min(3, token.length())));
 
             JDABuilder builder = JDABuilder.createDefault(token)
                     .enableIntents(

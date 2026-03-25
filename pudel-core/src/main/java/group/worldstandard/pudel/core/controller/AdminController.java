@@ -33,6 +33,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -105,6 +106,11 @@ public class AdminController {
 
     // Active admin sessions: sessionId -> AdminSessionData
     private final Map<String, AdminSessionData> activeSessions = new ConcurrentHashMap<>();
+
+    @Scheduled(fixedDelay = 60_000)
+    public void scheduledCleanup() {
+        cleanExpiredChallenges();
+    }
 
     @Value("${pudel.jwt.private-key-path:keys/pv.key}")
     private String privateKeyPath;
@@ -284,6 +290,21 @@ public class AdminController {
     }
 
     /**
+     * Extracts the token from an Authorization header of the form "Scheme token".
+     * Returns null if the header is null, blank, or does not contain a space.
+     */
+    private String extractTokenFromAuthHeader(String authHeader) {
+        if (authHeader == null || authHeader.isBlank()) {
+            return null;
+        }
+        int spaceIndex = authHeader.indexOf(' ');
+        if (spaceIndex < 0 || spaceIndex + 1 >= authHeader.length()) {
+            return null;
+        }
+        return authHeader.substring(spaceIndex + 1).trim();
+    }
+
+    /**
      * Check if the current Discord OAuth user is an admin.
      * GET /api/admin/check
      * <p>
@@ -305,7 +326,7 @@ public class AdminController {
             }
 
             // Extract token (works for both "Bearer {token}" and "DPoP {token}")
-            String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+            String token = extractTokenFromAuthHeader(authHeader);
             if (token == null || token.isBlank()) {
                 return ResponseEntity.ok(Map.of(
                         "isAdmin", false,
@@ -430,7 +451,7 @@ public class AdminController {
             }
 
             // Extract token (works for both "Bearer {token}" and "DPoP {token}")
-            String userToken = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+            String userToken = extractTokenFromAuthHeader(authHeader);
             if (userToken == null || userToken.isBlank()) {
                 log.warn("Admin mutual auth failed: Empty token");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -630,7 +651,7 @@ public class AdminController {
         }
 
         // Extract token (works for both "Bearer {token}" and "DPoP {token}")
-        String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+        String token = extractTokenFromAuthHeader(authHeader);
         if (token == null || token.isBlank()) {
             return null;
         }
@@ -678,7 +699,7 @@ public class AdminController {
             try {
                 ensureKeysLoaded();
                 // Extract token (works for both "Bearer {token}" and "DPoP {token}")
-                String token = authHeader.contains(" ") ? authHeader.substring(authHeader.indexOf(" ") + 1) : null;
+                String token = extractTokenFromAuthHeader(authHeader);
                 if (token != null && !token.isBlank()) {
                     Claims claims = Jwts.parser()
                             .verifyWith(publicKey)
