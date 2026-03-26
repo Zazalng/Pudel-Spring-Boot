@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.config.discord;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
+import jakarta.xml.bind.DatatypeConverter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
@@ -27,6 +28,8 @@ import org.springframework.context.annotation.Configuration;
 import group.worldstandard.pudel.core.discord.DiscordEventListener;
 import group.worldstandard.pudel.core.discord.GuildEventListener;
 import group.worldstandard.pudel.core.interaction.InteractionEventListener;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * Configuration for JDA Discord bot with DAVE support.
@@ -56,7 +59,7 @@ public class JDAConfiguration {
                 throw new IllegalStateException("Discord bot token not configured");
             }
 
-            logger.info("Initializing JDA with token: {}...", token.substring(0, Math.min(10, token.length())));
+            logger.info("Initializing JDA with token: {}...", DatatypeConverter.printHexBinary(java.security.MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8))));
 
             JDABuilder builder = JDABuilder.createDefault(token)
                     .enableIntents(
