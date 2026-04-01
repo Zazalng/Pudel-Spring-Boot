@@ -14,9 +14,8 @@
  */
 package group.worldstandard.pudel.core.service;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,8 +54,6 @@ public class DiscordAPIService {
     @Value("${pudel.discord.oauth.redirectUri}")
     private String redirectUri;
 
-    private final Gson gson = new Gson();
-
     /**
      * Exchange authorization code for access token.
      */
@@ -81,8 +78,8 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JsonObject json = gson.fromJson(response.body(), JsonObject.class);
-                return json.get("access_token").getAsString();
+                JSONObject json = JSONObject.fromJson(response.body(), JSONObject.class);
+                return json.getString("access_token");
             }
 
             log.error("Failed to get access token. Status: {}, Response: {}", response.statusCode(), response.body());
@@ -107,26 +104,26 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JsonObject json = gson.fromJson(response.body(), JsonObject.class);
+                JSONObject json = JSONObject.fromJson(response.body(), JSONObject.class);
 
                 UserDto user = new UserDto();
-                user.setId(json.get("id").getAsString());
-                user.setUsername(json.get("username").getAsString());
-                user.setDiscriminator(json.get("discriminator").getAsString());
+                user.setId(json.getString("id"));
+                user.setUsername(json.getString("username"));
+                user.setDiscriminator(json.getString("discriminator"));
 
-                if (json.has("avatar") && !json.get("avatar").isJsonNull()) {
+                if (json.has("avatar") && json.opt("avatar") != null) {
                     user.setAvatar(
                             "https://cdn.discordapp.com/avatars/" +
                                     user.getId() + "/" +
-                                    json.get("avatar").getAsString() + ".png"
+                                    json.getString("avatar") + ".png"
                     );
                 }
 
                 if (json.has("email")) {
-                    user.setEmail(json.get("email").getAsString());
+                    user.setEmail(json.getString("email"));
                 }
                 if (json.has("verified")) {
-                    user.setVerified(json.get("verified").getAsBoolean());
+                    user.setVerified(json.getBoolean("verified"));
                 }
 
                 return user;
@@ -156,23 +153,23 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JsonArray jsonArray = gson.fromJson(response.body(), JsonArray.class);
+                JSONArray jsonArray = JSONObject.fromJson(response.body(), JSONArray.class);
 
-                for (var element : jsonArray) {
-                    JsonObject guildJson = element.getAsJsonObject();
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    JSONObject guildJson = jsonArray.getJSONObject(i);
                     Map<String, Object> guild = new HashMap<>();
 
-                    guild.put("id", guildJson.get("id").getAsString());
-                    guild.put("name", guildJson.get("name").getAsString());
-                    guild.put("owner", guildJson.get("owner").getAsBoolean());
-                    guild.put("permissions", guildJson.get("permissions").getAsLong());
+                    guild.put("id", guildJson.getString("id"));
+                    guild.put("name", guildJson.getString("name"));
+                    guild.put("owner", guildJson.getBoolean("owner"));
+                    guild.put("permissions", guildJson.getLong("permissions"));
 
-                    if (!guildJson.get("icon").isJsonNull()) {
+                    if (guildJson.getString("icon") != null) {
                         guild.put(
                                 "icon",
                                 "https://cdn.discordapp.com/icons/" +
                                         guild.get("id") + "/" +
-                                        guildJson.get("icon").getAsString() + ".png"
+                                        guildJson.getString("icon") + ".png"
                         );
                     }
 

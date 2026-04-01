@@ -15,11 +15,13 @@
 package group.worldstandard.pudel.core.config.discord;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
+import group.worldstandard.pudel.api.PudelProperties;
 import jakarta.xml.bind.DatatypeConverter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.requests.RestConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,7 +53,8 @@ public class JDAConfiguration {
     public JDA jda(DiscordBotProperties properties,
                    DiscordEventListener eventListener,
                    InteractionEventListener interactionEventListener,
-                   GuildEventListener guildEventListener) {
+                   GuildEventListener guildEventListener,
+                   PudelProperties pudelProperties) {
         try {
             String token = properties.getToken();
             if (token == null || token.trim().isEmpty()) {
@@ -59,7 +62,9 @@ public class JDAConfiguration {
                 throw new IllegalStateException("Discord bot token not configured");
             }
 
-            logger.info("Initializing JDA with token: {}...", DatatypeConverter.printHexBinary(java.security.MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8))));
+            String shaToken = DatatypeConverter.printHexBinary(java.security.MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+
+            logger.info("Initializing JDA with token: ...{}", shaToken.substring(shaToken.length()-5));
 
             JDABuilder builder = JDABuilder.createDefault(token)
                     .enableIntents(
@@ -74,12 +79,16 @@ public class JDAConfiguration {
                             eventListener,
                             interactionEventListener,
                             guildEventListener
+                    )
+                    .setRestConfig(
+                            new RestConfig().setUserAgentSuffix(
+                                    "/ " + pudelProperties.getUserAgent()
+                            )
                     );
 
             // Configure audio settings
             if (audioEnabled) {
-                logger.info("DAVE protocol now required for all voice connections (effective March 1st, 2026)");
-                logger.info("Audio support enabled - DAVE will be configured via plugins");
+                logger.info("Audio support enabled - DAVE protocol initialize");
                 configureDAVE(builder);
             } else {
                 logger.info("Audio support disabled - voice connections will not be available");
@@ -121,7 +130,6 @@ public class JDAConfiguration {
             builder.setAudioModuleConfig(audioConfig);
 
             logger.info("DAVE configured successfully with JDAVE - voice encryption enabled");
-            logger.info("Voice connections are ready for Discord's E2EE requirement (March 1st, 2026)");
         } catch (UnsatisfiedLinkError e) {
             logger.error("JDAVE native library not found for this platform: {}", e.getMessage());
             logger.error("Ensure jdave-native for your platform is in the classpath");

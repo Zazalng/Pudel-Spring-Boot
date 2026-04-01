@@ -19,6 +19,7 @@ import net.dv8tion.jda.api.audio.CombinedAudio;
 import net.dv8tion.jda.api.audio.UserAudio;
 import group.worldstandard.pudel.api.audio.AudioReceiver;
 import net.dv8tion.jda.api.entities.User;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Adapter that wraps a plugin's AudioReceiver for JDA's AudioReceiveHandler interface.
@@ -42,15 +43,9 @@ public class JDAAudioReceiveHandler implements AudioReceiveHandler {
     }
 
     @Override
-    public void handleCombinedAudio(CombinedAudio combinedAudio) {
+    public void handleCombinedAudio(@NonNull CombinedAudio combinedAudio) {
         byte[] audioData;
-        if (receiver.wantsOpus()) {
-            // Get raw Opus data - not directly available from CombinedAudio
-            // Fall back to PCM and let the receiver handle it
-            audioData = combinedAudio.getAudioData(1.0);
-        } else {
-            audioData = combinedAudio.getAudioData(1.0);
-        }
+        audioData = combinedAudio.getAudioData(1.0);
         receiver.handleCombinedAudio(audioData);
     }
 
@@ -58,12 +53,7 @@ public class JDAAudioReceiveHandler implements AudioReceiveHandler {
     public void handleUserAudio(UserAudio userAudio) {
         long userId = userAudio.getUser().getIdLong();
         byte[] audioData;
-        if (receiver.wantsOpus()) {
-            // Get Opus data if available
-            audioData = userAudio.getAudioData(1.0);
-        } else {
-            audioData = userAudio.getAudioData(1.0);
-        }
+        audioData = userAudio.getAudioData(1.0);
         receiver.handleAudio(userId, audioData);
     }
 

@@ -132,7 +132,7 @@ JWT_PUBLIC_KEY_PATH=./keys/pb.key
 ollama run phi3:mini
 
 # Start Pudel
-java -jar pudel-core/target/pudel-core-2.2.1.jar
+java -jar pudel-core/target/pudel-core-2.2.2.jar
 ```
 
 ---
@@ -171,7 +171,7 @@ All built-in commands follow the same `@Plugin` annotation pattern as plugins.
 <dependency>
     <groupId>group.worldstandard</groupId>
     <artifactId>pudel-api</artifactId>
-    <version>2.2.1</version>
+    <version>2.2.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -288,12 +288,12 @@ Mount the plugins directory as a volume. When you copy a new JAR to `./plugins/`
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md) | System architecture |
-| [Plugin Development](docs/vuedocs/plugin-development.md) | Complete plugin guide |
-| [API Specification](docs/API_SPECIFICATION.md) | REST API reference |
-| [Agent System](docs/AGENT_SYSTEM.md) | AI agent tools |
+| Document                                                                            | Description |
+|-------------------------------------------------------------------------------------|-------------|
+| [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md)                      | System architecture |
+| [Plugin Development](https://worldstandard.group/docs/plugin-development.md) | Complete plugin guide |
+| [API Specification](docs/API_SPECIFICATION.md)                                      | REST API reference |
+| [Agent System](docs/AGENT_SYSTEM.md)                                                | AI agent tools |
 
 ---
 
@@ -343,7 +343,7 @@ Are **NOT considered derivative works** of Pudel. This allows proprietary and co
 
 ## Status
 
-**Version**: 2.2.1 (Stable)
+**Version**: 2.2.2 (Stable)
 
 **Note**: Only changes or bug fixes originating from the API qualify for a semantic version update.
 

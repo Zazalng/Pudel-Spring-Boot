@@ -28,8 +28,6 @@ import group.worldstandard.pudel.api.audio.DAVEProvider;
 import group.worldstandard.pudel.api.audio.VoiceConnectionStatus;
 import group.worldstandard.pudel.api.audio.VoiceManager;
 
-import java.time.LocalDate;
-import java.time.Month;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,7 +43,6 @@ public class VoiceManagerImpl implements VoiceManager {
 
     private static final Logger logger = LoggerFactory.getLogger(VoiceManagerImpl.class);
 
-    private static final LocalDate DAVE_DEADLINE = LocalDate.of(2026, Month.MARCH, 1);
     private static final int MINIMUM_JAVA_VERSION_FOR_JDAVE = 25;
     private static final int MINIMUM_JAVA_VERSION_FOR_LIBDAVE = 8;
 
@@ -64,8 +61,6 @@ public class VoiceManagerImpl implements VoiceManager {
 
     public VoiceManagerImpl(@Lazy JDA jda) {
         this.jda = jda;
-        logger.info("VoiceManager initialized. DAVE deadline: {}", DAVE_DEADLINE);
-        checkDAVEDeadlineWarning();
 
         // Auto-detect JDAVE from core classpath (configured in JDAConfiguration)
         detectCoreDAVE();
@@ -108,7 +103,7 @@ public class VoiceManagerImpl implements VoiceManager {
 
         @Override
         public String getVersion() {
-            return "0.1.5";
+            return "0.1.8";
         }
 
         @Override
@@ -145,23 +140,6 @@ public class VoiceManagerImpl implements VoiceManager {
         }
     }
 
-    private void checkDAVEDeadlineWarning() {
-        LocalDate now = LocalDate.now();
-        if (now.isBefore(DAVE_DEADLINE)) {
-            long daysUntilDeadline = java.time.temporal.ChronoUnit.DAYS.between(now, DAVE_DEADLINE);
-            if (daysUntilDeadline <= 60) {
-                logger.warn("=======================================================");
-                logger.warn("DAVE DEADLINE WARNING: {} days until voice E2EE required!", daysUntilDeadline);
-                logger.warn("All voice connections will require DAVE after March 1st, 2026.");
-                logger.warn("Ensure your audio plugins provide a DAVEProvider implementation.");
-                logger.warn("See: https://discord.com/developers/docs/topics/voice-connections");
-                logger.warn("=======================================================");
-            }
-        } else {
-            logger.info("DAVE is now required for all voice connections.");
-        }
-    }
-
     @Override
     public CompletableFuture<VoiceConnectionStatus> connect(long guildId, long voiceChannelId) {
         return CompletableFuture.supplyAsync(() -> {
@@ -179,7 +157,7 @@ public class VoiceManagerImpl implements VoiceManager {
                 }
 
                 // Check DAVE requirement
-                if (isDAVERequired() && !isDAVEAvailable(guildId)) {
+                if (!isDAVEAvailable(guildId)) {
                     logger.error("DAVE implementation required but not available. Voice connection denied.");
                     connectionStatuses.put(guildId, VoiceConnectionStatus.DAVE_REQUIRED);
                     return VoiceConnectionStatus.DAVE_REQUIRED;
@@ -348,13 +326,6 @@ public class VoiceManagerImpl implements VoiceManager {
         int javaVersion = Runtime.version().feature();
         // At minimum, we need Java 8 for libdave-jvm
         return javaVersion >= MINIMUM_JAVA_VERSION_FOR_LIBDAVE;
-    }
-
-    /**
-     * Check if DAVE is currently required based on the deadline.
-     */
-    private boolean isDAVERequired() {
-        return !LocalDate.now().isBefore(DAVE_DEADLINE);
     }
 
     @Override

@@ -56,6 +56,16 @@ public class PluginAnnotationProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginAnnotationProcessor.class);
 
+    /**
+     * Separator used to namespace handler prefixes by plugin ID.
+     * For example, a button handler with prefix "confirm" from plugin "music"
+     * is stored as "music:confirm" to prevent collisions between plugins.
+     * <p>
+     * Plugins must use this same prefix format when creating Discord components:
+     * e.g., {@code Button.primary("music:confirm-yes", "Confirm")}
+     */
+    public static final String PLUGIN_PREFIX_SEPARATOR = ":";
+
     private final InteractionManager interactionManager;
     private final CommandMetadataRegistry commandMetadataRegistry;
 
@@ -504,7 +514,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            String prefix = annotation.value();
+            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            String rawPrefix = annotation.value();
+            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ButtonHandler handler =
                     new group.worldstandard.pudel.api.interaction.ButtonHandler() {
@@ -554,7 +566,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            String prefix = annotation.value();
+            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            String rawPrefix = annotation.value();
+            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ModalHandler handler =
                     new group.worldstandard.pudel.api.interaction.ModalHandler() {
@@ -604,7 +618,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            String prefix = annotation.value();
+            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            String rawPrefix = annotation.value();
+            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
                     new group.worldstandard.pudel.api.interaction.SelectMenuHandler() {

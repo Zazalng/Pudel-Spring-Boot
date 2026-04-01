@@ -52,7 +52,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 @Plugin(
     name = "pudel-core-text",
-    version = "2.2.0",
+    version = "2.2.2",
     author = "World Standard Group",
     description = "Built-in Pudel text commands"
 )

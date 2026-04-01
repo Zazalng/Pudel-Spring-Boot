@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
 @Component
 @Plugin(
     name = "pudel-core",
-    version = "2.2.1",
+    version = "2.2.2",
     author = "World Standard Group",
     description = "Built-in Pudel commands"
 )

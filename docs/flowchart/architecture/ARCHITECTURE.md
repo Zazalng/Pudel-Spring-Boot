@@ -1,4 +1,4 @@
-# Pudel Architecture v2.2.1
+# Pudel Architecture v2.2.2
 
 This document describes the complete architecture of Pudel Discord Bot — reflecting the current implementation with Components V2 interactive panels, two-tier plugin control (admin global + guild local), per-guild command sync, and the annotation-based plugin system.
 
@@ -29,7 +29,7 @@ This document describes the complete architecture of Pudel Discord Bot — refle
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│                             PUDEL DISCORD BOT v2.2.1                          │
+│                             PUDEL DISCORD BOT v2.2.2                          │
 ├───────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
 │  ┌────────────────────┐       ┌─────────────────────┐       ┌──────────────┐  │
@@ -313,7 +313,7 @@ BuiltinCommands.handlePluginToggle()
 
 ## Command System
 
-### Built-in Commands (v2.2.1)
+### Built-in Commands (v2.2.2)
 
 **Slash Commands** (`BuiltinCommands` — `pudel-core`):
 
@@ -676,4 +676,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2026-03-18 for Pudel v2.2.1*
+*Last updated: 2026-03-31 for Pudel v2.2.2*

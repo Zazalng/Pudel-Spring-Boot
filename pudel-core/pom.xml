@@ -6,9 +6,11 @@
     <parent>
         <groupId>group.worldstandard</groupId>
         <artifactId>pudel</artifactId>
-        <version>2.2.1</version>
+        <version>2.2.2</version>
     </parent>
 
+    <name>Pudel Core</name>
+    <description>Core Logic wired of Pudel</description>
     <artifactId>pudel-core</artifactId>
 
     <licenses>
@@ -44,7 +46,7 @@
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jdave.version>0.1.7</jdave.version>
+        <jdave.version>0.1.8</jdave.version>
         <jwt.version>0.13.0</jwt.version>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
@@ -169,9 +171,9 @@
 
         <!-- JSON Processing -->
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.13.2</version>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20251224</version>
         </dependency>
     </dependencies>
 
