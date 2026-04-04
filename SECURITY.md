@@ -2,8 +2,8 @@
 
 **Project**: Pudel Discord Bot  
 **Maintainer**: World Standard Group  
-**Version**: Since v2.2.1
-**Last Updated**: March 18, 2026
+**Version**: Since v2.2.2
+**Last Updated**: April 04, 2026
 
 ---
 
@@ -11,10 +11,10 @@
 
 Security updates are provided for the following versions:
 
-| Version | Supported      | Until         |
-|---------|----------------|---------------|
-| 2.2.x   | Active support | TBD           |
-| <2.1.x  | End of Life    | Not supported    |
+| Version | Supported      | Until          |
+|---------|----------------|----------------|
+| 2.2.x   | Active support | 2.3.0 Released |
+| <2.1.x  | End of Life    | Not supported  |
 
 We strongly recommend running the latest release at all times.
 
@@ -107,7 +107,7 @@ When reporting a vulnerability, please provide:
 
 ## Security Architecture Overview
 
-Pudel implements a layered security model with multiple authentication mechanisms and data isolation patterns. All official services enforce HTTPS with TLS 1.3 or higher. For full architectural details, see [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md).
+Pudel implements a layered security model with multiple authentication mechanisms and data isolation patterns. All official services enforce HTTPS with TLS 1.3 or higher from Cloudflare's service. For full architectural details of Pudel, see [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md).
 
 ### Authentication Layers
 
@@ -179,13 +179,13 @@ When running with Docker:
 
 Pudel is built on the following core dependencies:
 
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| Spring Boot | 4.1.0-M2 | Application framework |
-| JDA | 6.3.1 | Discord Gateway + REST |
-| Jackson | 3.0.4 | JSON serialization |
-| SLF4J | 2.0.17 | Logging |
-| PostgreSQL + pgvector | — | Database + vector embeddings |
+| Dependency | Version  | Purpose |
+|------------|----------|---------|
+| Spring Boot | 4.1.0-M4 | Application framework |
+| JDA | 6.4.1    | Discord Gateway + REST |
+| Jackson | 3.1.1    | JSON serialization |
+| SLF4J | 2.0.17   | Logging |
+| PostgreSQL + pgvector | —        | Database + vector embeddings |
 
 We actively monitor dependencies for known vulnerabilities (CVEs). If you discover a vulnerable transitive dependency, please report it using the process above.
 

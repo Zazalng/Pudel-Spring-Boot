@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.model.ollama;
 
 import io.netty.handler.timeout.ReadTimeoutException;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -215,9 +216,9 @@ public class OllamaClient {
                 } else if (isRetryable(cause)) {
                     timeoutCount = 0; // Reset timeout count on non-timeout retryable error
                     logger.debug("Retryable error on attempt {}/{}: {}",
-                            attempt, maxRetries, cause != null ? cause.getMessage() : e.getMessage());
+                            attempt, maxRetries, cause.getMessage());
                 } else {
-                    timeoutCount = 0; // Reset timeout count on non-timeout error
+                    // Reset timeout count on non-timeout error
                     logger.error("Non-retryable error calling Ollama chat: {}",
                             cause != null ? cause.getMessage() : e.getMessage());
                     handleError(cause instanceof Exception ? (Exception) cause : e);
@@ -370,9 +371,9 @@ public class OllamaClient {
                 } else if (isRetryable(cause)) {
                     timeoutCount = 0; // Reset on non-timeout retryable error
                     logger.debug("Retryable error on attempt {}/{}: {}",
-                            attempt, maxRetries, cause != null ? cause.getMessage() : e.getMessage());
+                            attempt, maxRetries, cause.getMessage());
                 } else {
-                    timeoutCount = 0; // Reset on non-timeout error
+                    // Reset on non-timeout error
                     logger.error("Non-retryable error calling Ollama generate: {}",
                             cause != null ? cause.getMessage() : e.getMessage());
                     handleError(cause instanceof Exception ? (Exception) cause : e);
@@ -503,6 +504,20 @@ public class OllamaClient {
         }
 
         // Remove <think>...</think> blocks (including multiline)
+        final String cleaned = getCleaned(content);
+
+        // If after stripping we have nothing, return original content
+        // (in case model didn't use thinking tags and content was just whitespace)
+        if (cleaned.isEmpty() && !content.isBlank()) {
+            logger.debug("Response became empty after stripping tags, returning original: {}",
+                    content.substring(0, Math.min(100, content.length())));
+            return content;
+        }
+
+        return cleaned;
+    }
+
+    private static @NonNull String getCleaned(String content) {
         String cleaned = content.replaceAll("(?s)<think>.*?</think>", "").trim();
 
         // Also handle unclosed thinking tags (model might get cut off)
@@ -514,15 +529,6 @@ public class OllamaClient {
         // Some models use <reasoning>...</reasoning> or similar
         cleaned = cleaned.replaceAll("(?s)<reasoning>.*?</reasoning>", "").trim();
         cleaned = cleaned.replaceAll("(?s)<thought>.*?</thought>", "").trim();
-
-        // If after stripping we have nothing, return original content
-        // (in case model didn't use thinking tags and content was just whitespace)
-        if (cleaned.isEmpty() && !content.isBlank()) {
-            logger.debug("Response became empty after stripping tags, returning original: {}",
-                    content.substring(0, Math.min(100, content.length())));
-            return content;
-        }
-
         return cleaned;
     }
 }

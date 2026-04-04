@@ -368,7 +368,7 @@ public class PudelAgentTools {
             sanitized = "agent_" + sanitized;
         }
 
-        if (sanitized.isEmpty() || sanitized.equals("agent_")) {
+        if (sanitized.equals("agent_")) {
             throw new IllegalArgumentException("Invalid table name");
         }
 

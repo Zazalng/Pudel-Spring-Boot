@@ -56,7 +56,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
         <spring.boot.version>4.1.0-M4</spring.boot.version>
-        <jda.version>6.4.0</jda.version>
+        <jda.version>6.4.1</jda.version>
         <pudel.version>2.2.2</pudel.version>
         <tool.jackson.version>3.1.1</tool.jackson.version>
         <log.version>2.0.17</log.version>

@@ -295,7 +295,7 @@ public class PersonalityEngine {
         String lower = text.toLowerCase();
 
         if (lower.contains("emoji") || lower.contains("emoticon")) {
-            styleAttributes.put("use_emoji", lower.contains("no ") ? "false" : "true");
+            styleAttributes.put("use_emoji", Boolean.toString(!lower.contains("no ")));
         }
         if (lower.contains("formal language")) {
             styleAttributes.put("formality", "high");
