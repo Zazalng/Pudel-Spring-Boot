@@ -216,7 +216,8 @@ public class OllamaClient {
                 } else if (isRetryable(cause)) {
                     timeoutCount = 0; // Reset timeout count on non-timeout retryable error
                     logger.debug("Retryable error on attempt {}/{}: {}",
-                            attempt, maxRetries, cause.getMessage());
+                            attempt, maxRetries,
+                            cause != null ? cause.getMessage() : e.getMessage());
                 } else {
                     // Reset timeout count on non-timeout error
                     logger.error("Non-retryable error calling Ollama chat: {}",
@@ -371,7 +372,8 @@ public class OllamaClient {
                 } else if (isRetryable(cause)) {
                     timeoutCount = 0; // Reset on non-timeout retryable error
                     logger.debug("Retryable error on attempt {}/{}: {}",
-                            attempt, maxRetries, cause.getMessage());
+                            attempt, maxRetries,
+                            cause != null ? cause.getMessage() : e.getMessage());
                 } else {
                     // Reset on non-timeout error
                     logger.error("Non-retryable error calling Ollama generate: {}",

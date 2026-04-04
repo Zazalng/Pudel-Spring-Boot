@@ -104,14 +104,14 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JSONObject json = JSONObject.fromJson(response.body(), JSONObject.class);
+                JSONObject json = new JSONObject(response.body());
 
                 UserDto user = new UserDto();
                 user.setId(json.getString("id"));
                 user.setUsername(json.getString("username"));
                 user.setDiscriminator(json.getString("discriminator"));
 
-                if (json.has("avatar") && json.opt("avatar") != null) {
+                if (!json.isNull("avatar")) {
                     user.setAvatar(
                             "https://cdn.discordapp.com/avatars/" +
                                     user.getId() + "/" +
@@ -164,7 +164,7 @@ public class DiscordAPIService {
                     guild.put("owner", guildJson.getBoolean("owner"));
                     guild.put("permissions", guildJson.getLong("permissions"));
 
-                    if (guildJson.getString("icon") != null) {
+                    if (!guildJson.isNull("icon")) {
                         guild.put(
                                 "icon",
                                 "https://cdn.discordapp.com/icons/" +

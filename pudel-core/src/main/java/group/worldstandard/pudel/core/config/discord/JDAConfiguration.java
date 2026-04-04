@@ -88,7 +88,7 @@ public class JDAConfiguration {
 
             // Configure audio settings
             if (audioEnabled) {
-                logger.info("Audio support enabled - DAVE protocol initialize");
+                logger.info("Audio support enabled - initializing DAVE protocol");
                 configureDAVE(builder);
             } else {
                 logger.info("Audio support disabled - voice connections will not be available");
