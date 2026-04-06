@@ -78,7 +78,7 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JSONObject json = JSONObject.fromJson(response.body(), JSONObject.class);
+                JSONObject json = new JSONObject (response.body());
                 return json.getString("access_token");
             }
 
@@ -153,7 +153,7 @@ public class DiscordAPIService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                JSONArray jsonArray = JSONObject.fromJson(response.body(), JSONArray.class);
+                JSONArray jsonArray = new JSONArray(response.body());
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject guildJson = jsonArray.getJSONObject(i);
