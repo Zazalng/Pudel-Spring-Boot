@@ -91,13 +91,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
                 sql.append(" NOT NULL");
             }
             if (col.defaultValue() != null) {
-                sql.append(" DEFAULT ");
-                if (needsQuotedDefault(col.type())) {
-                    // SQL-quote string values: escape single quotes and wrap
-                    sql.append("'").append(col.defaultValue().replace("'", "''")).append("'");
-                } else {
-                    sql.append(col.defaultValue());
-                }
+                sql.append(" DEFAULT ").append(col.defaultValue());
             }
             sql.append(",\n");
         }
@@ -251,16 +245,6 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      */
     String getFullTableName(String tableName) {
         return prefix + tableName;
-    }
-
-    /**
-     * Check if a column type requires its default value to be SQL-quoted.
-     * <p>
-     * String / text types need wrapping in single quotes (e.g. {@code DEFAULT ''}).
-     * Numeric, boolean, and expression-based types are emitted bare.
-     */
-    private static boolean needsQuotedDefault(ColumnType type) {
-        return type == ColumnType.TEXT || type == ColumnType.STRING;
     }
 
     /**

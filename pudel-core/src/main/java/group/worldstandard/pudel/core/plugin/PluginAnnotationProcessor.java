@@ -53,7 +53,20 @@ import java.util.*;
  */
 @Component
 public class PluginAnnotationProcessor {
+
     private static final Logger logger = LoggerFactory.getLogger(PluginAnnotationProcessor.class);
+
+    /**
+     * Separator used to namespace handler prefixes by plugin ID.
+     * <p>
+     * <b>Deprecated in favour of database-prefix namespacing:</b>
+     * Handler IDs are now prefixed with the plugin's unique database prefix
+     * (e.g. {@code "p_48f2391a_"}) instead of the plugin name.  Plugins
+     * should obtain their prefix via
+     * {@code context.getDatabaseManager().getPrefix()} and prepend it when
+     * creating Discord component IDs (buttons, modals, select menus).
+     */
+    public static final String PLUGIN_PREFIX_SEPARATOR = ":";
 
     private final InteractionManager interactionManager;
     private final CommandMetadataRegistry commandMetadataRegistry;
@@ -683,12 +696,8 @@ public class PluginAnnotationProcessor {
                             annotation.getSimpleName(), method.getName());
                 }
             } catch (Exception e) {
-                Throwable cause = e;
-                if (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) {
-                    cause = e.getCause();
-                }
                 logger.error("Error invoking @{} method {}: {}",
-                        annotation.getSimpleName(), method.getName(), cause.getMessage(), cause);
+                        annotation.getSimpleName(), method.getName(), e.getMessage(), e);
             }
         }
     }
