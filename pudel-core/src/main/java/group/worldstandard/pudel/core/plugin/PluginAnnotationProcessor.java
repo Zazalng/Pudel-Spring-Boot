@@ -541,8 +541,13 @@ public class PluginAnnotationProcessor {
                             try {
                                 finalMethod.invoke(instance, event);
                             } catch (Exception e) {
-                                logger.error("[{}] Error in button handler: {}", pluginId, e.getMessage(), e);
-                                event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                                logger.error("[{}] Error in button handler: {}", pluginId, cause.getMessage(), cause);
+                                if (event.isAcknowledged()) {
+                                    event.getHook().sendMessage("❌ An error occurred.").setEphemeral(true).queue();
+                                } else {
+                                    event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                }
                             }
                         }
                     };
@@ -593,8 +598,13 @@ public class PluginAnnotationProcessor {
                             try {
                                 finalMethod.invoke(instance, event);
                             } catch (Exception e) {
-                                logger.error("[{}] Error in modal handler: {}", pluginId, e.getMessage(), e);
-                                event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                                logger.error("[{}] Error in modal handler: {}", pluginId, cause.getMessage(), cause);
+                                if (event.isAcknowledged()) {
+                                    event.getHook().sendMessage("❌ An error occurred.").setEphemeral(true).queue();
+                                } else {
+                                    event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                }
                             }
                         }
                     };
@@ -645,8 +655,13 @@ public class PluginAnnotationProcessor {
                             try {
                                 finalMethod.invoke(instance, event);
                             } catch (Exception e) {
-                                logger.error("[{}] Error in select menu handler: {}", pluginId, e.getMessage(), e);
-                                event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                                logger.error("[{}] Error in select menu handler: {}", pluginId, cause.getMessage(), cause);
+                                if (event.isAcknowledged()) {
+                                    event.getHook().sendMessage("❌ An error occurred.").setEphemeral(true).queue();
+                                } else {
+                                    event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                }
                             }
                         }
                     };
