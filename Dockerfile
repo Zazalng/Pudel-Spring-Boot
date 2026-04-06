@@ -82,9 +82,9 @@ ENV DISCORD_CLIENT_SECRET=
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 
 # Pudel Configuration
-ENV PUDEL_BRANDING_NAME=Pudel
-ENV PUDEL_BRANDING_CODENAME=Canis Lupus Familiaris
-#ENV PUDEL_BRANDING_VERSION=Uncomment to use
+#ENV PUDEL_BRANDING_NAME=Pudel (Or Default on application.yml)
+#ENV PUDEL_BRANDING_CODENAME=No-blank-space-include
+#ENV PUDEL_BRANDING_VERSION=No strict just uncommentted
 ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)
@@ -117,7 +117,7 @@ EXPOSE ${SERVER_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD-SHELL "curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1"
+    CMD "curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1"
 
 # Start the application via entrypoint script (handles permissions)
 ENTRYPOINT ["/docker-entrypoint.sh"]
