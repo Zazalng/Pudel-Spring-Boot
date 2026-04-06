@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import group.worldstandard.pudel.core.entity.PluginDatabaseRegistry;
 import group.worldstandard.pudel.core.repository.PluginDatabaseRegistryRepository;
@@ -52,13 +53,45 @@ public class PluginDatabaseService {
     }
 
     /**
+     * Get or create just the database prefix for a plugin.
+     * <p>
+     * Runs in its own transaction ({@code REQUIRES_NEW}) to avoid poisoning
+     * the caller's transaction if the registry INSERT fails.
+     * The prefix is needed early — before handler registration — so that
+     * button/modal/select-menu IDs can be namespaced with a short, unique,
+     * deterministic prefix instead of the full plugin name.
+     *
+     * @param pluginId      the plugin identifier
+     * @param pluginVersion the plugin version
+     * @return the unique database prefix (e.g. {@code "p_48f2391a_"})
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public String getOrCreatePrefix(String pluginId, String pluginVersion) {
+        String normalizedId = normalizePluginId(pluginId);
+
+        PluginDatabaseRegistry registry = registryRepository.findByPluginId(normalizedId)
+                .orElseGet(() -> createRegistryEntry(normalizedId, pluginVersion));
+
+        // Update version if changed
+        if (!Objects.equals(registry.getCurrentVersion(), pluginVersion)) {
+            registry.setCurrentVersion(pluginVersion);
+            registryRepository.save(registry);
+        }
+
+        return registry.getDbPrefix();
+    }
+
+    /**
      * Get or create a database manager for a plugin.
+     * <p>
+     * Runs in its own transaction ({@code REQUIRES_NEW}) so that any failure
+     * inside the plugin's database setup does not poison the caller's transaction.
      *
      * @param pluginId the plugin identifier
      * @param pluginVersion the plugin version
      * @return the database manager
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PluginDatabaseManager getManagerForPlugin(String pluginId, String pluginVersion) {
         // Normalize plugin ID to prevent case/whitespace issues causing duplicate registrations
         String normalizedId = normalizePluginId(pluginId);

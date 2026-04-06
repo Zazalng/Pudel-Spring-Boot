@@ -64,10 +64,13 @@ public class BuiltinSlashCommandRegistrar {
         PluginInfo textInfo = annotationProcessor.extractPluginInfo(BuiltinTextCommands.class);
 
         // Register slash commands (settings, ping, help)
+        // Built-in commands use empty dbPrefix — they are core commands
+        // and do not need database-based collision namespacing.
         int registered = annotationProcessor.processAndRegister(
                 slashInfo.getName(),
                 builtinCommands,
-                pluginContextFactory.getContext(slashInfo)
+                pluginContextFactory.getContext(slashInfo),
+                ""
         );
 
         logger.info("Registered {} built-in slash commands via annotations", registered);
@@ -76,7 +79,8 @@ public class BuiltinSlashCommandRegistrar {
         int textRegistered = annotationProcessor.processAndRegister(
                 textInfo.getName(),
                 builtinTextCommands,
-                pluginContextFactory.getContext(textInfo)
+                pluginContextFactory.getContext(textInfo),
+                ""
         );
 
         logger.info("Registered {} built-in text commands via annotations", textRegistered);

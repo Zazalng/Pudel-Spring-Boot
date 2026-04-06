@@ -16,6 +16,7 @@ package group.worldstandard.pudel.core.service;
 
 import group.worldstandard.pudel.api.PluginContext;
 import group.worldstandard.pudel.api.PluginInfo;
+import group.worldstandard.pudel.core.database.PluginDatabaseService;
 import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.plugin.PluginAnnotationProcessor;
 import group.worldstandard.pudel.core.plugin.PluginClassLoader;
@@ -26,7 +27,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.File;
 import java.util.*;
@@ -55,6 +59,8 @@ public class PluginService extends BaseService {
     private final PluginClassLoader pluginClassLoader;
     private final PluginContextFactory pluginContextFactory;
     private final PluginAnnotationProcessor annotationProcessor;
+    private final PluginDatabaseService databaseService;
+    private final PlatformTransactionManager transactionManager;
 
     // Plugin contexts: pluginName -> PluginContext
     private final Map<String, PluginContext> pluginContexts = new ConcurrentHashMap<>();
@@ -66,12 +72,16 @@ public class PluginService extends BaseService {
                          PluginMetadataRepository pluginMetadataRepository,
                          PluginClassLoader pluginClassLoader,
                          PluginContextFactory pluginContextFactory,
-                         PluginAnnotationProcessor annotationProcessor) {
+                         PluginAnnotationProcessor annotationProcessor,
+                         PluginDatabaseService databaseService,
+                         PlatformTransactionManager transactionManager) {
         super(jda);
         this.pluginMetadataRepository = pluginMetadataRepository;
         this.pluginClassLoader = pluginClassLoader;
         this.pluginContextFactory = pluginContextFactory;
         this.annotationProcessor = annotationProcessor;
+        this.databaseService = databaseService;
+        this.transactionManager = transactionManager;
     }
 
     // =====================================================
@@ -329,15 +339,25 @@ public class PluginService extends BaseService {
                         return pluginContextFactory.getContext(info);
                     });
 
-            // Process annotations and call @OnEnable
-            int registered = annotationProcessor.processAndRegister(pluginName, instance, context);
+            // Phase 1: Obtain (or create) the plugin's unique database prefix
+            //          in an isolated REQUIRES_NEW transaction so that a failure
+            //          here does not poison the outer transaction.
+            PluginInfo info = pluginClassLoader.getPluginInfo(pluginName);
+            String pluginVersion = info != null ? info.getVersion() : "0.0.0";
+            String dbPrefix = databaseService.getOrCreatePrefix(pluginName, pluginVersion);
 
-            // Auto-sync slash commands to Discord
+            // Phase 2: Process annotations and register handlers.
+            //          Handler IDs are namespaced with the database prefix
+            //          (e.g. "p_48f2391a_") to avoid collisions between plugins.
+            //          @OnEnable is NOT called here.
+            int registered = annotationProcessor.processAndRegister(pluginName, instance, context, dbPrefix);
+
+            // Phase 3: Auto-sync slash commands to Discord
             if (registered > 0) {
                 annotationProcessor.syncCommands();
             }
 
-            // Mark as enabled
+            // Phase 4: Mark as enabled (in the current transaction)
             enabledPlugins.put(pluginName, true);
 
             // Update database
@@ -345,6 +365,27 @@ public class PluginService extends BaseService {
                 m.setEnabled(true);
                 pluginMetadataRepository.save(m);
             });
+
+            // Phase 5: Call @OnEnable in an isolated REQUIRES_NEW transaction.
+            //          If the plugin's @OnEnable triggers a failing SQL statement
+            //          (e.g. table creation error), only the inner transaction is
+            //          poisoned/rolled back — the outer transaction that just
+            //          persisted the metadata remains healthy.
+            TransactionTemplate onEnableTx = new TransactionTemplate(transactionManager);
+            onEnableTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            try {
+                onEnableTx.execute(status -> {
+                    try {
+                        annotationProcessor.invokeOnEnable(instance, context);
+                    } catch (Exception e) {
+                        logger.error("Plugin {} @OnEnable failed: {}", pluginName, e.getMessage(), e);
+                        status.setRollbackOnly();
+                    }
+                    return null;
+                });
+            } catch (Exception e) {
+                logger.warn("Plugin {} @OnEnable transaction rolled back: {}", pluginName, e.getMessage());
+            }
 
             logger.info("Plugin enabled: {} ({} handlers registered)", pluginName, registered);
 

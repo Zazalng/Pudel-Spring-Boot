@@ -58,11 +58,13 @@ public class PluginAnnotationProcessor {
 
     /**
      * Separator used to namespace handler prefixes by plugin ID.
-     * For example, a button handler with prefix "confirm" from plugin "music"
-     * is stored as "music:confirm" to prevent collisions between plugins.
      * <p>
-     * Plugins must use this same prefix format when creating Discord components:
-     * e.g., {@code Button.primary("music:confirm-yes", "Confirm")}
+     * <b>Deprecated in favour of database-prefix namespacing:</b>
+     * Handler IDs are now prefixed with the plugin's unique database prefix
+     * (e.g. {@code "p_48f2391a_"}) instead of the plugin name.  Plugins
+     * should obtain their prefix via
+     * {@code context.getDatabaseManager().getPrefix()} and prepend it when
+     * creating Discord component IDs (buttons, modals, select menus).
      */
     public static final String PLUGIN_PREFIX_SEPARATOR = ":";
 
@@ -111,13 +113,20 @@ public class PluginAnnotationProcessor {
 
     /**
      * Process all annotations and register handlers for a plugin.
+     * <p>
+     * <b>Note:</b> This method intentionally does NOT call {@code @OnEnable}.
+     * The caller must invoke {@link #invokeOnEnable} separately — ideally in an
+     * isolated transaction — so that a failing plugin cannot poison the core
+     * transaction that updates metadata and syncs commands.
      *
      * @param pluginId      the plugin identifier
      * @param pluginInstance the plugin instance
      * @param context       the plugin context
+     * @param dbPrefix      the unique database prefix for this plugin (e.g. {@code "p_48f2391a_"})
+     *                      used to namespace button/modal/select-menu handler IDs
      * @return number of handlers registered
      */
-    public int processAndRegister(String pluginId, Object pluginInstance, PluginContext context) {
+    public int processAndRegister(String pluginId, Object pluginInstance, PluginContext context, String dbPrefix) {
         Class<?> pluginClass = pluginInstance.getClass();
         int registered = 0;
 
@@ -128,19 +137,34 @@ public class PluginAnnotationProcessor {
         registered += processTextCommands(pluginId, pluginInstance, pluginClass, context);
 
         // Process @ButtonHandler methods
-        registered += processButtonHandlers(pluginId, pluginInstance, pluginClass);
+        registered += processButtonHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
         // Process @ModalHandler methods
-        registered += processModalHandlers(pluginId, pluginInstance, pluginClass);
+        registered += processModalHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
         // Process @SelectMenuHandler methods
-        registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass);
+        registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
-        // Call @OnEnable methods
-        invokeLifecycleMethods(pluginInstance, pluginClass, OnEnable.class, context);
+        // NOTE: @OnEnable is NOT called here.  Use invokeOnEnable() separately.
 
         logger.info("[{}] Registered {} handlers via annotations", pluginId, registered);
         return registered;
+    }
+
+    /**
+     * Invoke {@code @OnEnable} lifecycle methods on a plugin instance.
+     * <p>
+     * Extracted from {@link #processAndRegister} so that the caller can run
+     * it inside a {@code REQUIRES_NEW} transaction.  If the plugin's
+     * {@code @OnEnable} triggers a failing SQL statement, the isolated
+     * transaction rolls back independently and the core's transaction
+     * (metadata update, command sync) remains healthy.
+     *
+     * @param pluginInstance the plugin instance
+     * @param context        the plugin context
+     */
+    public void invokeOnEnable(Object pluginInstance, PluginContext context) {
+        invokeLifecycleMethods(pluginInstance, pluginInstance.getClass(), OnEnable.class, context);
     }
 
     /**
@@ -497,7 +521,7 @@ public class PluginAnnotationProcessor {
     // Button Handler Processing
     // =====================================================
 
-    private int processButtonHandlers(String pluginId, Object instance, Class<?> pluginClass) {
+    private int processButtonHandlers(String pluginId, Object instance, Class<?> pluginClass, String dbPrefix) {
         int count = 0;
 
         for (Method method : pluginClass.getDeclaredMethods()) {
@@ -514,9 +538,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
+            String prefix = dbPrefix + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ButtonHandler handler =
                     new group.worldstandard.pudel.api.interaction.ButtonHandler() {
@@ -549,7 +573,7 @@ public class PluginAnnotationProcessor {
     // Modal Handler Processing
     // =====================================================
 
-    private int processModalHandlers(String pluginId, Object instance, Class<?> pluginClass) {
+    private int processModalHandlers(String pluginId, Object instance, Class<?> pluginClass, String dbPrefix) {
         int count = 0;
 
         for (Method method : pluginClass.getDeclaredMethods()) {
@@ -566,9 +590,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
+            String prefix = dbPrefix + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ModalHandler handler =
                     new group.worldstandard.pudel.api.interaction.ModalHandler() {
@@ -601,7 +625,7 @@ public class PluginAnnotationProcessor {
     // Select Menu Handler Processing
     // =====================================================
 
-    private int processSelectMenuHandlers(String pluginId, Object instance, Class<?> pluginClass) {
+    private int processSelectMenuHandlers(String pluginId, Object instance, Class<?> pluginClass, String dbPrefix) {
         int count = 0;
 
         for (Method method : pluginClass.getDeclaredMethods()) {
@@ -618,9 +642,9 @@ public class PluginAnnotationProcessor {
 
             method.setAccessible(true);
             Method finalMethod = method;
-            // Prefix with pluginId to prevent collision between plugins using the same handler prefix
+            // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = pluginId + PLUGIN_PREFIX_SEPARATOR + rawPrefix;
+            String prefix = dbPrefix + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
                     new group.worldstandard.pudel.api.interaction.SelectMenuHandler() {
