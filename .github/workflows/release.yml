@@ -138,30 +138,42 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5.2.0
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Generate API Javadocs
-        run: |
-          mvn clean install javadoc:javadoc -pl pudel-api -am -DskipTests -Ddoclint=none -B
+      - name: Build API Module
+        run: mvn clean install -pl pudel-api -am -DskipTests -B
 
-      - name: Fix Jekyll 404s
+      - name: Generate API Javadocs
+        run: mvn javadoc:javadoc -pl pudel-api -Ddoclint=none -B
+
+      - name: Verify Javadoc Output
         run: |
-          mkdir -p ./pudel-api/target/site/apidocs
-          touch ./pudel-api/target/site/apidocs/.nojekyll
+          if [ ! -f ./pudel-api/target/site/apidocs/index.html ]; then
+            echo "::error::Javadoc index.html not found at expected path"
+            echo "Searching for generated HTML files:"
+            find ./pudel-api/target/ -name "index.html" 2>/dev/null || echo "No index.html found anywhere in target/"
+            find ./pudel-api/target/ -type d -name "apidocs" 2>/dev/null || echo "No apidocs directory found"
+            exit 1
+          fi
+          echo "✅ Javadoc generated successfully at pudel-api/target/site/apidocs/"
+          ls -la ./pudel-api/target/site/apidocs/
+
+      - name: Fix Jekyll processing
+        run: touch ./pudel-api/target/site/apidocs/.nojekyll
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v4.0.0
+        uses: actions/upload-pages-artifact@v4
         with:
           name: github-pages
           path: ./pudel-api/target/site/apidocs
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@v4
