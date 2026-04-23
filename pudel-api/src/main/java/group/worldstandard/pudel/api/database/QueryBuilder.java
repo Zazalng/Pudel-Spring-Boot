@@ -29,7 +29,8 @@ import java.util.Optional;
  * <p>
  * Example:
  * <pre>
- * List&lt;UserSetting&gt; results = repository.query()
+ * {@code
+ * List<UserSetting> results = repository.query()
  *     .where("user_id", 12345L)
  *     .where("enabled", true)
  *     .whereLike("setting_name", "theme%")
@@ -39,7 +40,7 @@ import java.util.Optional;
  *     .list();
  *
  * // Or get a single result
- * Optional&lt;UserSetting&gt; result = repository.query()
+ * Optional<UserSetting> result = repository.query()
  *     .where("user_id", 12345L)
  *     .where("setting_name", "theme")
  *     .findOne();
@@ -48,6 +49,7 @@ import java.util.Optional;
  * long count = repository.query()
  *     .where("enabled", true)
  *     .count();
+ * }
  * </pre>
  *
  * @param <T> the entity type

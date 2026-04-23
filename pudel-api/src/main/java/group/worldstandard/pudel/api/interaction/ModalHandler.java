@@ -28,30 +28,33 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
  * <b>Preferred approach:</b> Use the {@code @ModalHandler} annotation directly on methods
  * in your {@code @Plugin} class:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @ModalHandler("myplugin:feedback")}
+ *     @ModalHandler("myplugin:feedback")
  *     public void handleFeedback(ModalInteractionEvent event) {
  *         String feedback = event.getValue("feedback-input").getAsString();
  *         event.reply("Thanks for your feedback: " + feedback).setEphemeral(true).queue();
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
+ * {@code
  * public class FeedbackModal implements ModalHandler {
- *     &#064;Override
+ *     @Override
  *     public String getModalIdPrefix() {
  *         return "myplugin:feedback";
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handle(ModalInteractionEvent event) {
  *         String feedback = event.getValue("feedback-input").getAsString();
  *         event.reply("Thanks for your feedback: " + feedback).setEphemeral(true).queue();
  *     }
+ * }
  * }
  * </pre>
  */

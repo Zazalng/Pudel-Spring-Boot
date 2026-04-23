@@ -57,7 +57,6 @@
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>${jda.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -159,21 +158,6 @@
                             <deploymentName>${project.artifactId}:${project.version}</deploymentName>
                             <publishingServerId>central</publishingServerId>
                         </configuration>
-                    </plugin>
-                    <!-- Sonatype OSS Index: Dependency Vulnerability Audit -->
-                    <plugin>
-                        <groupId>org.sonatype.ossindex.maven</groupId>
-                        <artifactId>ossindex-maven-plugin</artifactId>
-                        <version>3.2.0</version>
-                        <executions>
-                            <execution>
-                                <id>audit-dependencies</id>
-                                <phase>validate</phase>
-                                <goals>
-                                    <goal>audit</goal>
-                                </goals>
-                            </execution>
-                        </executions>
                     </plugin>
                 </plugins>
             </build>

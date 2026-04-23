@@ -29,11 +29,11 @@ import java.util.List;
  * <p>
  * Example usage:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *     private PluginRepository&lt;MyEntity&gt; repository;
  *
- *     {@code @OnEnable}
+ *     @OnEnable
  *     public void onEnable(PluginContext context) {
  *         PluginDatabaseManager db = context.getDatabaseManager();
  *
@@ -52,6 +52,7 @@ import java.util.List;
  *         repository = db.getRepository("my_data", MyEntity.class);
  *     }
  * }
+ * }
  * </pre>
  */
 public interface PluginDatabaseManager {
@@ -60,7 +61,7 @@ public interface PluginDatabaseManager {
      * Get the unique database prefix assigned to this plugin.
      * <p>
      * All tables created by this plugin will be prefixed with this value.
-     * Format: "plugin_{pluginId}_{uuid}_"
+     * Format: "p_{pluginId}_"
      *
      * @return the plugin's database prefix
      */

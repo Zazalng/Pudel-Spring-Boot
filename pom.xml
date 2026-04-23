@@ -55,24 +55,78 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
-        <spring.boot.version>4.1.0-M4</spring.boot.version>
-        <jda.version>6.4.1</jda.version>
+        <maven.deploy.skip>true</maven.deploy.skip>
         <pudel.version>2.2.2</pudel.version>
-        <tool.jackson.version>3.1.1</tool.jackson.version>
+
+        <!--JDA Version Control-->
+        <jda.version>6.4.1</jda.version>
+
+        <!--Spring Version Control-->
+        <spring.boot.version>4.1.0-M4</spring.boot.version>
+        <spring.boot.web.version>7.0.7</spring.boot.web.version>
+
+        <!--Tool Version Control-->
+        <tool.jackson.version>3.1.2</tool.jackson.version>
         <log.version>2.0.17</log.version>
+
+        <!--Maven Plugin Version Control-->
         <mvn.compiler.version>3.15.0</mvn.compiler.version>
         <mvn.jar.version>3.5.0</mvn.jar.version>
-        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>group.worldstandard</groupId>
+                <artifactId>pudel-api</artifactId>
+                <version>${pudel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>group.worldstandard</groupId>
+                <artifactId>pudel-model</artifactId>
+                <version>${pudel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.dv8tion</groupId>
+                <artifactId>JDA</artifactId>
+                <version>${jda.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring.boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-web</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webflux</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webmvc</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${tool.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${tool.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>11.0.21</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

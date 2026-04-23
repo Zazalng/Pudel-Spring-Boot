@@ -40,23 +40,24 @@ import group.worldstandard.pudel.api.interaction.InteractionManager;
  * <p>
  * Example:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @OnEnable}
+ *     @OnEnable
  *     public void onEnable(PluginContext context) {
  *         context.log("info", "Plugin enabled on Pudel " + context.getPudel().getVersion());
  *     }
  *
- *     {@code @SlashCommand(name = "hello", description = "Say hello")}
+ *     @SlashCommand(name = "hello", description = "Say hello")
  *     public void hello(SlashCommandInteractionEvent event) {
  *         event.reply("Hello!").queue();
  *     }
  *
- *     {@code @TextCommand(name = "ping", description = "Check bot latency")}
+ *     @TextCommand(name = "ping", description = "Check bot latency")
  *     public void ping(CommandContext context) {
  *         context.reply("Pong!");
  *     }
+ * }
  * }
  * </pre>
  */
@@ -186,7 +187,7 @@ public interface PluginContext {
      * <p>
      * Example:
      * <pre>
-     * context.getAgentToolRegistry().registerProvider("my-plugin", new MyTools());
+     * {@code context.getAgentToolRegistry().registerProvider("my-plugin", new MyTools());}
      * </pre>
      *
      * @return the agent tool registry
@@ -203,6 +204,7 @@ public interface PluginContext {
      * <p>
      * Example:
      * <pre>
+     * {@code
      * InteractionManager manager = context.getInteractionManager();
      *
      * // Register slash command
@@ -213,6 +215,7 @@ public interface PluginContext {
      *
      * // Sync commands to Discord
      * manager.syncCommands();
+     * }
      * </pre>
      *
      * @return the interaction manager
@@ -230,6 +233,7 @@ public interface PluginContext {
      * <p>
      * Example:
      * <pre>
+     * {@code
      * PluginDatabaseManager db = context.getDatabaseManager();
      *
      * // Define schema
@@ -243,10 +247,11 @@ public interface PluginContext {
      * db.createTable(schema);
      *
      * // Get repository for CRUD operations
-     * PluginRepository&lt;Setting&gt; repo = db.getRepository("settings", Setting.class);
+     * PluginRepository<Setting> repo = db.getRepository("settings", Setting.class);
      *
      * // Or use simple key-value store
      * db.getKeyValueStore().set("config.enabled", true);
+     * }
      * </pre>
      *
      * @return the plugin database manager

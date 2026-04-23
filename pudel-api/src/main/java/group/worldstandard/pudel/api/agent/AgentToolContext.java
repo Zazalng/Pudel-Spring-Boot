@@ -24,8 +24,13 @@ import net.dv8tion.jda.api.entities.Member;
 import java.util.Map;
 
 /**
- * Context passed to agent tools when executed.
- * Provides information about the current execution environment.
+ * Provides contextual information about the environment in which an agent tool is being executed.
+ * This includes details about the target (guild or user), the requesting user, and additional
+ * metadata that may be relevant to the tool's operation.
+ * <p>
+ * Implementations of this interface are typically used within agent tools to determine
+ * execution context, check permissions, and access supplementary data related to the event
+ * that triggered the tool.
  */
 public interface AgentToolContext {
 

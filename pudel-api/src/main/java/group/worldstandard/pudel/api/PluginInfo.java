@@ -26,18 +26,20 @@ package group.worldstandard.pudel.api;
  * on your plugin class:
  * <pre>
  * {@code @Plugin(name = "My Plugin", version = "1.0.0", author = "Author",
- *         description = "A cool plugin")}
+ *         description = "A cool plugin")
  * public class MyPlugin {
  *     // ...
+ * }
  * }
  * </pre>
  * <p>
  * Access at runtime via {@link PluginContext#getInfo()}:
  * <pre>
- * {@code @OnEnable}
+ * {@code @OnEnable
  * public void onEnable(PluginContext context) {
  *     PluginInfo info = context.getInfo();
  *     context.log("info", "Loaded " + info.getName() + " v" + info.getVersion());
+ * }
  * }
  * </pre>
  */

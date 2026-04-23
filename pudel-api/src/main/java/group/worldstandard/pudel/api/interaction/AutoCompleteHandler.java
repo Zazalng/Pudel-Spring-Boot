@@ -27,23 +27,24 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  * <p>
  * Implement this interface and register via {@link InteractionManager}:
  * <pre>
+ * {@code
  * public class CityAutocomplete implements AutoCompleteHandler {
- *     &#064;Override
+ *     @Override
  *     public String getCommandName() {
  *         return "weather";
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public String getOptionName() {
  *         return "city";
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handle(CommandAutoCompleteInteractionEvent event) {
  *         String input = event.getFocusedOption().getValue();
- *         List&lt;String&gt; cities = findCitiesMatching(input);
+ *         List<String> cities = findCitiesMatching(input);
  *
- *         List&lt;Command.Choice&gt; choices = cities.stream()
+ *         List<Command.Choice> choices = cities.stream()
  *             .limit(25)
  *             .map(city -> new Command.Choice(city, city))
  *             .toList();
@@ -51,13 +52,16 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  *         event.replyChoices(choices).queue();
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * Register in your {@code @Plugin} class:
  * <pre>
- * {@code @OnEnable}
+ * {@code
+ * @OnEnable
  * public void onEnable(PluginContext context) {
  *     context.getInteractionManager().registerAutoCompleteHandler("my-plugin", new CityAutocomplete());
+ * }
  * }
  * </pre>
  */

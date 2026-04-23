@@ -26,10 +26,10 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
  * <b>Preferred approach:</b> Use the {@code @ButtonHandler} annotation directly on methods
  * in your {@code @Plugin} class:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @ButtonHandler("myplugin:")}
+ *     @code @ButtonHandler("myplugin:")
  *     public void handleButton(ButtonInteractionEvent event) {
  *         String buttonId = event.getComponentId();
  *         if (buttonId.equals("myplugin:confirm")) {
@@ -37,23 +37,26 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
  *         }
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
+ * {@code
  * public class MyButtonHandler implements ButtonHandler {
- *     &#064;Override
+ *     @Override
  *     public String getButtonIdPrefix() {
  *         return "myplugin:";
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handle(ButtonInteractionEvent event) {
  *         String buttonId = event.getComponentId();
  *         if (buttonId.equals("myplugin:confirm")) {
  *             event.reply("Confirmed!").setEphemeral(true).queue();
  *         }
  *     }
+ * }
  * }
  * </pre>
  */
@@ -75,11 +78,12 @@ public interface ButtonHandler {
      * Handle the button interaction.
      * <p>
      * You must respond to the interaction within 3 seconds using one of:
-     * - {@code event.reply(...)}
-     * - {@code event.deferReply()}
-     * - {@code event.editMessage(...)}
-     * - {@code event.deferEdit()}
-     *
+     * <ul>
+     *    <li>{@code event.reply(...)}</li>
+     *    <li>{@code event.deferReply()}</li>
+     *    <li>{@code event.editMessage(...)}</li>
+     *    <li>{@code event.deferEdit()}</li>
+     * </ul>
      * @param event the button interaction event
      */
     void handle(ButtonInteractionEvent event);

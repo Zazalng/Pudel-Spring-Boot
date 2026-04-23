@@ -31,15 +31,16 @@ import java.lang.annotation.Target;
  * <p>
  * Example:
  * <pre>
- * {@code @Entity}
+ * {@code @Entity
  * public class UserData {
  *     private Long id;
  *
- *     {@code @Column(name = "discord_user_id")}
+ *     @Column(name = "discord_user_id")
  *     private Long userId;
  *
- *     {@code @Column(ignore = true)}
+ *     @Column(ignore = true)
  *     private transient String cachedValue;  // Not persisted
+ * }
  * }
  * </pre>
  */

@@ -28,10 +28,10 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Example usage in a plugin:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @OnEnable}
+ *     @OnEnable
  *     public void onEnable(PluginContext context) {
  *         InteractionManager manager = context.getInteractionManager();
  *
@@ -49,11 +49,12 @@ import java.util.concurrent.CompletableFuture;
  *         manager.syncCommands();
  *     }
  *
- *     {@code @OnDisable}
+ *     @OnDisable
  *     public void onDisable(PluginContext context) {
  *         // Unregister all handlers for this plugin
  *         context.getInteractionManager().unregisterAll("my-plugin");
  *     }
+ * }
  * }
  * </pre>
  */

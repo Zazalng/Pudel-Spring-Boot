@@ -56,10 +56,23 @@ public enum EventPriority {
 
     private final int value;
 
+    /**
+     * Constructs an EventPriority with the specified numeric value.
+     * The value determines the execution order of event handlers,
+     * with higher values indicating higher priority.
+     *
+     * @param value the priority value used to order event handlers
+     */
     EventPriority(int value) {
         this.value = value;
     }
 
+    /**
+     * Returns the numeric priority value associated with this event priority level.
+     * Higher values indicate higher execution priority for event handlers.
+     *
+     * @return the priority value used to determine event handler execution order
+     */
     public int getValue() {
         return value;
     }

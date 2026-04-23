@@ -26,35 +26,38 @@ package group.worldstandard.pudel.api.agent;
  * <p>
  * Example:
  * <pre>
- * public class WeatherTools implements AgentToolProvider {
+ * {@code
+ *    public class WeatherTools implements AgentToolProvider {
  *
- *     &#064;AgentTool(
- *         name = "get_weather",
- *         description = "Get weather for a location"
- *     )
- *     public String getWeather(AgentToolContext ctx, String location) {
- *         return "Weather in " + location + ": Sunny, 25°C";
- *     }
+ *         @AgentTool(
+ *             name = "get_weather",
+ *             description = "Get weather for a location"
+ *         )
+ *         public String getWeather(AgentToolContext ctx, String location) {
+ *             return "Weather in " + location + ": Sunny, 25°C";
+ *         }
  *
- *     &#064;AgentTool(
- *         name = "get_forecast",
- *         description = "Get weather forecast for upcoming days"
- *     )
- *     public String getForecast(AgentToolContext ctx, String location, int days) {
- *         return "Forecast for " + location + " (" + days + " days): ...";
- *     }
+ *         @AgentTool(
+ *             name = "get_forecast",
+ *             description = "Get weather forecast for upcoming days"
+ *         )
+ *         public String getForecast(AgentToolContext ctx, String location, int days) {
+ *             return "Forecast for " + location + " (" + days + " days): ...";
+ *         }
+ *    }
  * }
  * </pre>
  * <p>
  * Then register in your plugin's {@code @OnEnable} method:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @OnEnable}
+ *     @OnEnable
  *     public void onEnable(PluginContext context) {
  *         context.getAgentToolRegistry().registerProvider("my-plugin", new WeatherTools());
  *     }
+ * }
  * }
  * </pre>
  */

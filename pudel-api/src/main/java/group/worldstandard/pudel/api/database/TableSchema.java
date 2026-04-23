@@ -31,6 +31,7 @@ import java.util.Objects;
  * <p>
  * Example:
  * <pre>
+ * {@code
  * TableSchema schema = TableSchema.builder("user_settings")
  *     .column("user_id", ColumnType.BIGINT, false)
  *     .column("setting_name", ColumnType.STRING, 100, false)
@@ -39,6 +40,7 @@ import java.util.Objects;
  *     .index("user_id")
  *     .uniqueIndex("user_id", "setting_name")
  *     .build();
+ * }
  * </pre>
  */
 public final class TableSchema {

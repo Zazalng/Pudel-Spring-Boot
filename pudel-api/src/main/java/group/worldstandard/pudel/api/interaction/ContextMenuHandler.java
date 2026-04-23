@@ -31,42 +31,47 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
  * <p>
  * Example (User Context Menu):
  * <pre>
+ * {@code
  * public class UserInfoContextMenu implements ContextMenuHandler {
- *     &#064;Override
+ *     @Override
  *     public CommandData getCommandData() {
  *         return Commands.user("Get User Info");
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handleUserContext(UserContextInteractionEvent event) {
  *         User target = event.getTarget();
  *         event.reply("User: " + target.getAsTag() + "\nID: " + target.getId()).queue();
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * Example (Message Context Menu):
  * <pre>
+ * {@code
  * public class BookmarkContextMenu implements ContextMenuHandler {
- *     &#064;Override
+ *     @Override
  *     public CommandData getCommandData() {
  *         return Commands.message("Bookmark Message");
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handleMessageContext(MessageContextInteractionEvent event) {
  *         Message message = event.getTarget();
  *         // Save bookmark...
  *         event.reply("Message bookmarked!").setEphemeral(true).queue();
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * Register in your {@code @Plugin} class:
  * <pre>
- * {@code @OnEnable}
+ * {@code @OnEnable
  * public void onEnable(PluginContext context) {
  *     context.getInteractionManager().registerContextMenu("my-plugin", new UserInfoContextMenu());
+ * }
  * }
  * </pre>
  */

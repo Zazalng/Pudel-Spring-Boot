@@ -56,14 +56,10 @@
         <dependency>
             <groupId>group.worldstandard</groupId>
             <artifactId>pudel-api</artifactId>
-            <version>${pudel.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>group.worldstandard</groupId>
             <artifactId>pudel-model</artifactId>
-            <version>${pudel.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <!-- Spring Boot Web and Core -->
@@ -95,7 +91,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.2</version>
+            <version>3.0.3</version>
         </dependency>
         <!-- Encryption for sensitive data -->
         <dependency>
@@ -127,7 +123,6 @@
         <dependency>
             <groupId>net.dv8tion</groupId>
             <artifactId>JDA</artifactId>
-            <version>${jda.version}</version>
         </dependency>
         <dependency>
             <groupId>club.minnced</groupId>

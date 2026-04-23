@@ -29,9 +29,11 @@ import java.lang.annotation.Target;
  * <p>
  * Example usage:
  * <pre>
- * &#64;EventHandler(priority = EventPriority.NORMAL)
+ * {@code
+ * @EventHandler(priority = EventPriority.NORMAL)
  * public void onMessageReceived(MessageReceivedEvent event) {
  *     // Handle the event
+ * }
  * }
  * </pre>
  */

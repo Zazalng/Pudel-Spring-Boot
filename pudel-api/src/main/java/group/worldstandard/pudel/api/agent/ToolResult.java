@@ -43,35 +43,59 @@ public record ToolResult(
         long executionTimeMs
 ) {
     /**
-     * Create a successful result.
+     * Creates a successful tool execution result.
+     *
+     * @param toolName        the name of the tool that was executed
+     * @param result          the result message to be shown to the user via the agent
+     * @param executionTimeMs the execution time in milliseconds
+     * @return a ToolResult instance representing a successful execution
      */
     public static ToolResult success(String toolName, String result, long executionTimeMs) {
         return new ToolResult(true, result, null, toolName, executionTimeMs);
     }
 
     /**
-     * Create a failed result.
+     * Creates a ToolResult representing a failed tool execution.
+     *
+     * @param toolName        the name of the tool that was executed
+     * @param error           error message describing the failure
+     * @param executionTimeMs execution time in milliseconds
+     * @return a ToolResult instance indicating failure with the provided details
      */
     public static ToolResult failure(String toolName, String error, long executionTimeMs) {
         return new ToolResult(false, null, error, toolName, executionTimeMs);
     }
 
     /**
-     * Create a "tool not found" result.
+     * Creates a ToolResult indicating that the specified tool was not found.
+     *
+     * @param toolName the name of the tool that was not found
+     * @return a ToolResult instance representing a tool not found error
      */
     public static ToolResult notFound(String toolName) {
         return new ToolResult(false, null, "Tool not found: " + toolName, toolName, 0);
     }
 
     /**
-     * Create a "not available" result (e.g., guild-only tool in DM).
+     * Creates a ToolResult indicating that a tool is not available for execution.
+     * <p>
+     * This method is typically used when a tool cannot be executed due to temporary
+     * unavailability, maintenance, or other transient issues.
+     *
+     * @param toolName the name of the tool that is not available
+     * @param reason   the reason why the tool is not available
+     * @return a ToolResult instance representing the unavailability of the tool
      */
     public static ToolResult notAvailable(String toolName, String reason) {
         return new ToolResult(false, null, "Tool not available: " + reason, toolName, 0);
     }
 
     /**
-     * Create a "permission denied" result.
+     * Creates a ToolResult indicating that the tool execution was denied due to insufficient permissions.
+     *
+     * @param toolName the name of the tool that was denied
+     * @param reason   the reason why permission was denied
+     * @return a ToolResult representing a permission denied outcome
      */
     public static ToolResult permissionDenied(String toolName, String reason) {
         return new ToolResult(false, null, "Permission denied: " + reason, toolName, 0);

@@ -8,11 +8,12 @@ package group.worldstandard.pudel.api;
  * <p>
  * Example usage in a {@code @Plugin} class:
  * <pre>
- * {@code @OnEnable}
+ * {@code @OnEnable
  * public void onEnable(PluginContext context) {
  *     PudelProperties pudel = context.getPudel();
  *     context.log("info", "Running on Pudel " + pudel.getVersion()
  *         + " (" + pudel.getCodename() + ")");
+ * }
  * }
  * </pre>
  */

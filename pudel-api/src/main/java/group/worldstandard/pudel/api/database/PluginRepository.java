@@ -30,7 +30,8 @@ import java.util.Optional;
  * <p>
  * Example:
  * <pre>
- * // Entity class
+ * {@code
+ * @Entity
  * public class UserSetting {
  *     private Long id;
  *     private Long userId;
@@ -40,7 +41,7 @@ import java.util.Optional;
  * }
  *
  * // Usage
- * PluginRepository&lt;UserSetting&gt; repo = db.getRepository("user_settings", UserSetting.class);
+ * PluginRepository<UserSetting> repo = db.getRepository("user_settings", UserSetting.class);
  *
  * // Save
  * UserSetting setting = new UserSetting();
@@ -50,8 +51,8 @@ import java.util.Optional;
  * setting = repo.save(setting);  // id is set after save
  *
  * // Find
- * Optional&lt;UserSetting&gt; found = repo.findById(setting.getId());
- * List&lt;UserSetting&gt; userSettings = repo.findBy("user_id", 12345L);
+ * Optional<UserSetting> found = repo.findById(setting.getId());
+ * List<UserSetting> userSettings = repo.findBy("user_id", 12345L);
  *
  * // Update
  * setting.setSettingValue("light");
@@ -59,6 +60,7 @@ import java.util.Optional;
  *
  * // Delete
  * repo.deleteById(setting.getId());
+ * }
  * </pre>
  *
  * @param <T> the entity type

@@ -53,7 +53,7 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.deploy.skip>true</maven.deploy.skip>
-        <langchain4j.version>1.12.2</langchain4j.version>
+        <langchain4j.version>1.13.0</langchain4j.version>
     </properties>
 
     <dependencies>
@@ -73,14 +73,12 @@
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${tool.jackson.version}</version>
         </dependency>
 
         <!-- SLF4J for logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${log.version}</version>
         </dependency>
 
         <!-- LangChain4j for unified AI/LLM integration -->
@@ -103,7 +101,7 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings</artifactId>
-            <version>${langchain4j.version}-beta22</version>
+            <version>${langchain4j.version}-beta23</version>
         </dependency>
     </dependencies>
 

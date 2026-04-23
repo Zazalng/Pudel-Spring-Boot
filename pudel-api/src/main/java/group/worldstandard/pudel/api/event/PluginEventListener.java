@@ -27,20 +27,23 @@ import net.dv8tion.jda.api.events.GenericEvent;
  * on methods in a {@link Listener} class, which is simpler and supports
  * priority and cancellation via annotation attributes:
  * <pre>
+ * {@code
  * public class MyListener implements Listener {
  *
- *     {@code @EventHandler(priority = EventPriority.NORMAL)}
+ *     @EventHandler(priority = EventPriority.NORMAL)
  *     public void onMessage(MessageReceivedEvent event) {
  *         // Handle message
  *     }
+ * }
  * }
  * </pre>
  * <p>
  * <b>Alternative:</b> Implement this interface for programmatic event handling
  * when you need more control over the event type at runtime:
  * <pre>
- * PluginEventListener&lt;MessageReceivedEvent&gt; listener = new PluginEventListener&lt;&gt;() {
- *     public Class&lt;MessageReceivedEvent&gt; getEventClass() {
+ * {@code
+ * PluginEventListener<MessageReceivedEvent> listener = new PluginEventListener<>() {
+ *     public Class<MessageReceivedEvent> getEventClass() {
  *         return MessageReceivedEvent.class;
  *     }
  *     public void onEvent(MessageReceivedEvent event) {
@@ -48,6 +51,7 @@ import net.dv8tion.jda.api.events.GenericEvent;
  *     }
  * };
  * context.registerEventListener(listener);
+ * }
  * </pre>
  *
  * @param <T> the JDA event type this listener handles

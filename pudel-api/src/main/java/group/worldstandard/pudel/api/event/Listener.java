@@ -27,6 +27,7 @@ package group.worldstandard.pudel.api.event;
  * <p>
  * Example:
  * <pre>
+ * {@code
  * public class MyListener implements Listener {
  *
  *     {@code @EventHandler(priority = EventPriority.NORMAL)}
@@ -38,6 +39,7 @@ package group.worldstandard.pudel.api.event;
  *     public void onReaction(MessageReactionAddEvent event) {
  *         // Handle reaction added
  *     }
+ * }
  * }
  * </pre>
  *

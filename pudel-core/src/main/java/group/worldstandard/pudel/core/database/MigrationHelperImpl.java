@@ -23,7 +23,11 @@ import group.worldstandard.pudel.api.database.PluginMigration;
 import group.worldstandard.pudel.api.database.PluginRepository;
 
 /**
- * Implementation of MigrationHelper for plugin schema migrations.
+ * Implementation of {@link PluginMigration.MigrationHelper} that provides
+ * database schema and data migration operations.
+ * <p>
+ * This class allows adding, dropping, and modifying columns and tables,
+ * managing indexes, and performing data migrations using a repository-based approach.
  */
 public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
 
@@ -37,16 +41,42 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * Returns the database manager instance used for plugin data persistence and schema migrations.
+     *
+     * @return the plugin database manager
+     */
     @Override
     public PluginDatabaseManager getDatabaseManager() {
         return dbManager;
     }
 
+    /**
+     * Adds a new column to an existing table in the database.
+     * The column is added only if it does not already exist.
+     *
+     * @param tableName  the name of the table to which the column will be added
+     * @param columnName the name of the new column
+     * @param type       the data type of the new column
+     * @param size       the size of the column, applicable for types like STRING and DECIMAL; can be null if not applicable
+     * @param nullable   whether the column allows NULL values
+     */
     @Override
     public void addColumn(String tableName, String columnName, ColumnType type, Integer size, boolean nullable) {
         addColumn(tableName, columnName, type, size, nullable, null);
     }
 
+    /**
+     * Adds a new column to an existing table in the database.
+     * The column is added only if it does not already exist.
+     *
+     * @param tableName   the name of the table to which the column will be added
+     * @param columnName  the name of the new column
+     * @param type        the data type of the new column
+     * @param size        the size of the column, applicable for types like STRING and DECIMAL; can be null if not applicable
+     * @param nullable    whether the column allows NULL values
+     * @param defaultValue the default value for the column, can be null if no default is specified
+     */
     @Override
     public void addColumn(String tableName, String columnName, ColumnType type, Integer size,
                          boolean nullable, String defaultValue) {
@@ -67,6 +97,13 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Added column {} to table {}", columnName, fullTableName);
     }
 
+    /**
+     * Drops a column from an existing table in the database.
+     * The column is dropped only if it exists.
+     *
+     * @param tableName  the name of the table from which the column will be dropped
+     * @param columnName the name of the column to be dropped
+     */
     @Override
     public void dropColumn(String tableName, String columnName) {
         String fullTableName = dbManager.getFullTableName(tableName);
@@ -75,6 +112,13 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Dropped column {} from table {}", columnName, fullTableName);
     }
 
+    /**
+     * Renames a column in the specified table.
+     *
+     * @param tableName the name of the table containing the column to be renamed
+     * @param oldName   the current name of the column
+     * @param newName   the new name for the column
+     */
     @Override
     public void renameColumn(String tableName, String oldName, String newName) {
         String fullTableName = dbManager.getFullTableName(tableName);
@@ -83,6 +127,14 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Renamed column {} to {} in table {}", oldName, newName, fullTableName);
     }
 
+    /**
+     * Alters the data type of existing column in the specified table.
+     *
+     * @param tableName  the name of the table containing the column to modify
+     * @param columnName the name of the column whose type is to be changed
+     * @param newType    the new data type for the column
+     * @param newSize    the size of the new type, applicable for types like STRING and DECIMAL; can be null if not applicable
+     */
     @Override
     public void alterColumnType(String tableName, String columnName, ColumnType newType, Integer newSize) {
         String fullTableName = dbManager.getFullTableName(tableName);
@@ -92,12 +144,26 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Changed type of column {} in table {} to {}", columnName, fullTableName, newType);
     }
 
+    /**
+     * Creates an index on the specified table for the given columns.
+     * If the index already exists, this method does nothing.
+     *
+     * @param tableName the name of the table on which to create the index
+     * @param unique    true if the index should enforce uniqueness, false otherwise
+     * @param columns   the names of the columns to include in the index
+     */
     @Override
     public void createIndex(String tableName, boolean unique, String... columns) {
         String fullTableName = dbManager.getFullTableName(tableName);
         dbManager.createIndexInternal(fullTableName, unique, columns);
     }
 
+    /**
+     * Drops an index from the specified table if it exists.
+     *
+     * @param tableName the name of the table from which the index will be dropped
+     * @param columns   the names of the columns that were included in the index
+     */
     @Override
     public void dropIndex(String tableName, String... columns) {
         String fullTableName = dbManager.getFullTableName(tableName);
@@ -107,6 +173,12 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Dropped index {} from table {}", indexName, fullTableName);
     }
 
+    /**
+     * Renames a database table from its current name to a new name.
+     *
+     * @param oldName the current name of the table to be renamed
+     * @param newName the new name for the table
+     */
     @Override
     public void renameTable(String oldName, String newName) {
         String fullOldName = dbManager.getFullTableName(oldName);
@@ -116,6 +188,15 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
         logger.debug("Renamed table {} to {}", fullOldName, fullNewName);
     }
 
+    /**
+     * Migrates data in the specified table by applying a transformation function to each entity.
+     * Entities returned as null by the migrator are deleted from the table,
+     * while non-null results are saved back to the table.
+     *
+     * @param tableName    the name of the database table to migrate
+     * @param entityClass  the class type of the entities stored in the table
+     * @param migrator     the function used to transform each entity during migration
+     */
     @Override
     public <T> void migrateData(String tableName, Class<T> entityClass, PluginMigration.DataMigrator<T> migrator) {
         PluginRepository<T> repo = dbManager.getRepository(tableName, entityClass);

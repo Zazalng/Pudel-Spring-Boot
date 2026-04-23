@@ -27,7 +27,7 @@ package group.worldstandard.pudel.api.audio;
  *
  * <p>Available implementations include:</p>
  * <ul>
- *   <li><a href="https://github.com/discord/jdave">JDAVE</a> - Requires Java 25+</li>
+ *   <li><a href="https://github.com/MinnDevelopment/jdave">JDAVE</a> - Requires Java 25+</li>
  *   <li><a href="https://github.com/KyokoBot/libdave-jvm">libdave-jvm</a> - Requires Java 8+</li>
  * </ul>
  *

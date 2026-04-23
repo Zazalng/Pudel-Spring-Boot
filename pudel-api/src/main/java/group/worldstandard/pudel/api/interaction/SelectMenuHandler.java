@@ -27,30 +27,33 @@ import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionE
  * <b>Preferred approach:</b> Use the {@code @SelectMenuHandler} annotation directly on methods
  * in your {@code @Plugin} class:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @SelectMenuHandler("myplugin:select:")}
+ *     @SelectMenuHandler("myplugin:select:")
  *     public void handleSelect(StringSelectInteractionEvent event) {
- *         List&lt;String&gt; values = event.getValues();
+ *         List<String> values = event.getValues();
  *         event.reply("You selected: " + String.join(", ", values)).queue();
  *     }
+ * }
  * }
  * </pre>
  * <p>
  * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}:
  * <pre>
+ * {@code
  * public class MySelectHandler implements SelectMenuHandler {
- *     &#064;Override
+ *     @Override
  *     public String getSelectMenuIdPrefix() {
  *         return "myplugin:select:";
  *     }
  *
- *     &#064;Override
+ *     @Override
  *     public void handleStringSelect(StringSelectInteractionEvent event) {
- *         List&lt;String&gt; values = event.getValues();
+ *         List<String> values = event.getValues();
  *         event.reply("You selected: " + String.join(", ", values)).queue();
  *     }
+ * }
  * }
  * </pre>
  */

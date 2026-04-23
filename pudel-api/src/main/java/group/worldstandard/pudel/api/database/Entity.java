@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
  * <p>
  * Example:
  * <pre>
- * {@code @Entity}
+ * {@code @Entity
  * public class UserSetting {
  *     private Long id;           // maps to 'id' column (auto)
  *     private Long userId;       // maps to 'user_id' column
@@ -41,6 +41,7 @@ import java.lang.annotation.Target;
  *     private Instant updatedAt;  // auto-managed
  *
  *     // Getters and setters...
+ * }
  * }
  * </pre>
  */

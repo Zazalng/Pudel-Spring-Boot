@@ -24,14 +24,15 @@ package group.worldstandard.pudel.api.command;
  * <b>Preferred approach:</b> Use the {@code @TextCommand} annotation directly on methods
  * in your {@code @Plugin} class:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @TextCommand(name = "greet", description = "Greet a user",
- *             usage = "greet <user>", aliases = {"hi", "hello"})}
+ *     @TextCommand(name = "greet", description = "Greet a user",
+ *             usage = "greet <user>", aliases = {"hi", "hello"})
  *     public void greet(CommandContext context) {
  *         context.reply("Hello, " + context.getArgsString() + "!");
  *     }
+ * }
  * }
  * </pre>
  * <p>
@@ -39,10 +40,11 @@ package group.worldstandard.pudel.api.command;
  * {@link group.worldstandard.pudel.api.PluginContext#registerCommand(String, TextCommandHandler)}
  * for dynamic command registration:
  * <pre>
- * {@code @OnEnable}
+ * {@code @OnEnable
  * public void onEnable(PluginContext context) {
  *     context.registerCommand("greet", ctx -&gt;
  *         ctx.reply("Hello, " + ctx.getArgsString() + "!"));
+ * }
  * }
  * </pre>
  */
