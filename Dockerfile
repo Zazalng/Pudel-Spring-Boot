@@ -32,7 +32,7 @@ FROM ${JDK_VENDOR}:${JDK_VERSION}-jdk AS runtime
 
 LABEL maintainer="World Standard Group"
 LABEL description="Pudel Discord Bot - AI Assistant with Plugin System"
-LABEL version="2.2.2"
+LABEL version="2.3.0"
 
 # Install only required runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \

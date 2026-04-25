@@ -1,4 +1,4 @@
-%% Pudel System Overview v2.1.1
+%% Pudel System Overview v2.3.0
 %% Two-Tier Plugin Control + Components V2
 
 flowchart TB
@@ -16,7 +16,7 @@ flowchart TB
         CV2["Components V2<br/>Buttons / Modals /<br/>EntitySelectMenu"]
     end
 
-    subgraph Pudel["🐩 Pudel v2.2.2"]
+    subgraph Pudel["🐩 Pudel v2.3.0"]
         subgraph Core["pudel-core"]
             JDA["JDA 6<br/>(Discord API)"]
             SPRING["Spring Boot 4"]
@@ -65,6 +65,7 @@ flowchart TB
             PLUGIN1["🎵 Music Plugin"]
             PLUGIN2["🛡️ Moderation Plugin"]
             PLUGIN3["🔧 Custom Plugin"]
+            PLUGIN4["etc..."]
         end
     end
 
@@ -128,5 +129,5 @@ flowchart TB
     class JDA,SPRING,LOADER,PROCESSOR,PLUGIN_SVC,WATCHER,BUILTIN,INTERACT_MGR,CMD_REG,ADMIN_CTRL,GUILD_CTRL,AUTH_CTRL,BRAIN,MEMORY,GUILD_SETTINGS,GUILD_SVC core
     class OLLAMA_CLIENT,ANALYZER,AGENT model
     class ANNOTATIONS api
-    class PLUGIN1,PLUGIN2,PLUGIN3 plugin
+    class PLUGIN1,PLUGIN2,PLUGIN3,PLUGIN4 plugin
     class DB,LLM,VUE infra

@@ -1,4 +1,4 @@
-# Pudel Architecture v2.2.2
+# Pudel Architecture v2.3.0
 
 This document describes the complete architecture of Pudel Discord Bot — reflecting the current implementation with Components V2 interactive panels, two-tier plugin control (admin global + guild local), per-guild command sync, and the annotation-based plugin system.
 
@@ -29,7 +29,7 @@ This document describes the complete architecture of Pudel Discord Bot — refle
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│                             PUDEL DISCORD BOT v2.2.2                          │
+│                             PUDEL DISCORD BOT v2.3.0                          │
 ├───────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
 │  ┌────────────────────┐       ┌─────────────────────┐       ┌──────────────┐  │
@@ -76,6 +76,7 @@ pudel/
 │   │   ├── Plugin.java          # @Plugin - marks plugin class
 │   │   ├── SlashCommand.java    # @SlashCommand - slash command handler
 │   │   ├── TextCommand.java     # @TextCommand - text command handler
+│   │   ├── ContextMenu.java     # @ContextMenu - context menu command handler
 │   │   ├── ButtonHandler.java   # @ButtonHandler - button click handler
 │   │   ├── ModalHandler.java    # @ModalHandler - modal submission
 │   │   ├── SelectMenuHandler.java # @SelectMenuHandler - select menu
@@ -313,7 +314,7 @@ BuiltinCommands.handlePluginToggle()
 
 ## Command System
 
-### Built-in Commands (v2.2.2)
+### Built-in Commands (since v2.2.2)
 
 **Slash Commands** (`BuiltinCommands` — `pudel-core`):
 
@@ -676,4 +677,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2026-03-31 for Pudel v2.2.2*
+*Last updated: 2026-05-17 for Pudel v2.3.0*

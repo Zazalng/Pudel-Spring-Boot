@@ -13,8 +13,8 @@ Security updates are provided for the following versions:
 
 | Version | Supported      | Until          |
 |---------|----------------|----------------|
-| 2.2.x   | Active support | 2.3.0 Released |
-| <2.1.x  | End of Life    | Not supported  |
+| 2.3.0   | Active support | 2.4.0 Released |
+| <2.2.2  | End of Life    | Not supported  |
 
 We strongly recommend running the latest release at all times.
 
