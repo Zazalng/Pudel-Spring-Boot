@@ -27,7 +27,30 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
  * <p>
  * Context menus appear when right-clicking on users or messages.
  * <p>
- * Implement this interface and register via {@link InteractionManager}:
+ * <b>Preferred approach:</b> Use the {@code @ContextMenu} annotation directly on methods
+ * in your {@code @Plugin} class:
+ * <pre>
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
+ * public class MyPlugin {
+ *
+ *     @ContextMenu(name = "Get User Info", type = Command.Type.USER)
+ *     public void getUserInfo(UserContextInteractionEvent event) {
+ *         User target = event.getTarget();
+ *         event.reply("User: " + target.getAsTag() + "\nID: " + target.getId()).queue();
+ *     }
+ *
+ *     @ContextMenu(name = "Bookmark Message", type = Command.Type.MESSAGE)
+ *     public void bookmarkMessage(MessageContextInteractionEvent event) {
+ *         Message message = event.getTarget();
+ *         // Save bookmark...
+ *         event.reply("Message bookmarked!").setEphemeral(true).queue();
+ *     }
+ * }
+ * }
+ * </pre>
+ * <p>
+ * <b>Alternative:</b> Implement this interface and register via {@link InteractionManager}
+ * for more control (e.g., guild-specific registration):
  * <p>
  * Example (User Context Menu):
  * <pre>

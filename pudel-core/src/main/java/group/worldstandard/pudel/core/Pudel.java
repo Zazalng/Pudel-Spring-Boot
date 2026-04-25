@@ -19,13 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import group.worldstandard.pudel.core.config.brain.ChatbotConfig;
-import group.worldstandard.pudel.core.config.brain.MemoryConfig;
-import group.worldstandard.pudel.core.config.database.SubscriptionTierConfig;
-import group.worldstandard.pudel.model.config.OllamaConfig;
 
 /**
  * Main entry point for the Pudel Discord Bot.
@@ -35,12 +30,6 @@ import group.worldstandard.pudel.model.config.OllamaConfig;
 @ComponentScan(basePackages = {
         "group.worldstandard.pudel.core",
         "group.worldstandard.pudel.model"
-})
-@EnableConfigurationProperties({
-        SubscriptionTierConfig.class,
-        ChatbotConfig.class,
-        MemoryConfig.class,
-        OllamaConfig.class
 })
 public class Pudel {
     private static final Logger log = LoggerFactory.getLogger(Pudel.class);

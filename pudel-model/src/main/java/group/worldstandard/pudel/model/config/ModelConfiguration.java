@@ -14,7 +14,6 @@
  */
 package group.worldstandard.pudel.model.config;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -28,7 +27,6 @@ import java.time.Duration;
  * Sets up WebClient for Ollama HTTP calls.
  */
 @Configuration
-@EnableConfigurationProperties({OllamaConfig.class})
 public class ModelConfiguration {
 
     /**
@@ -45,7 +43,7 @@ public class ModelConfiguration {
         return WebClient.builder()
                 .baseUrl(config.getBaseUrl())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)) // 16MB
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(32 * 1024 * 1024)) // 32MB
                 .build();
     }
 }

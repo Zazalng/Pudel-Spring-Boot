@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.config.brain;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.List;
  * Controls when and how Pudel responds as a chatbot.
  */
 @ConfigurationProperties(prefix = "pudel.chatbot")
+@Component
 public class ChatbotConfig {
 
     private Triggers triggers = new Triggers();

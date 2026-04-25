@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.config.database;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Map;
  * subscription limits without modifying code.
  */
 @ConfigurationProperties(prefix = "pudel.subscription")
+@Component
 public class SubscriptionTierConfig {
 
     private Map<String, TierDefinition> tiers = new HashMap<>();

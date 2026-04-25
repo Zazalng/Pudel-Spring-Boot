@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.model.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Configuration properties for Ollama local LLM.
@@ -23,6 +24,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * separate from JVM heap for better resource management.
  */
 @ConfigurationProperties(prefix = "pudel.ollama")
+@Component
 public class OllamaConfig {
 
     /**

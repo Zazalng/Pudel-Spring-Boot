@@ -703,7 +703,10 @@ public class BuiltinCommands {
         List<ContainerChildComponent> c = new ArrayList<>();
 
         c.add(TextDisplay.of("# 🧩 Plugin Management"));
-        c.add(TextDisplay.of("-# Toggle plugins for this server. Disabled plugins' commands won't appear."));
+        c.add(TextDisplay.of("""
+                -# Toggle plugins for this server. Disabled plugins' commands won't appear.
+                > Global command is unable to disabled
+                """));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
         List<PluginMetadata> plugins = pluginService.getEnabledPlugins();

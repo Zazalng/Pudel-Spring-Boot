@@ -15,12 +15,14 @@
 package group.worldstandard.pudel.core.config.brain;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Configuration properties for memory management.
  * Controls auto-cleanup and semantic search behavior.
  */
 @ConfigurationProperties(prefix = "pudel.memory")
+@Component
 public class MemoryConfig {
 
     private AutoCleanup autoCleanup = new AutoCleanup();
