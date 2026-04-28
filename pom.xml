@@ -62,7 +62,7 @@
         <jda.version>6.4.1</jda.version>
 
         <!--Spring Version Control-->
-        <spring.boot.version>4.1.0-M4</spring.boot.version>
+        <spring.boot.version>4.1.0-RC1</spring.boot.version>
         <spring.boot.web.version>7.0.7</spring.boot.web.version>
 
         <!--Tool Version Control-->

@@ -79,22 +79,8 @@ public class AgentToolRegistryImpl implements AgentToolRegistry {
                     continue;
                 }
 
-                // Build parameters from method (skip first AgentToolContext parameter)
-                List<ToolDefinition.ToolParameter> params = new ArrayList<>();
-                Parameter[] methodParams = method.getParameters();
-                for (int i = 1; i < methodParams.length; i++) {
-                    Parameter param = methodParams[i];
-                    params.add(new ToolDefinition.ToolParameter(
-                            param.getName(),
-                            param.getType(),
-                            "Parameter " + param.getName(),
-                            true,
-                            null
-                    ));
-                }
-
                 // Create tool definition with method executor
-                ToolDefinition definition = ToolDefinition.builder()
+                ToolDefinition.Builder defBuilder = ToolDefinition.builder()
                         .name(toolName)
                         .description(annotation.description())
                         .pluginId(pluginId)
@@ -103,9 +89,22 @@ public class AgentToolRegistryImpl implements AgentToolRegistry {
                         .dmOnly(annotation.dmOnly())
                         .permission(annotation.permission())
                         .priority(annotation.priority())
-                        .executor((context, parameters) -> invokeToolMethod(toolName, context, parameters))
-                        .build();
+                        .executor((context, parameters) -> invokeToolMethod(toolName, context, parameters));
 
+                // Build parameters from method (skip first AgentToolContext parameter)
+                Parameter[] methodParams = method.getParameters();
+                for (int i = 1; i < methodParams.length; i++) {
+                    Parameter param = methodParams[i];
+                    defBuilder.parameter(new ToolDefinition.ToolParameter(
+                            param.getName(),
+                            param.getType(),
+                            "Parameter " + param.getName(),
+                            true,
+                            null
+                    ));
+                }
+
+                ToolDefinition definition = defBuilder.build();
 
                 // Register
                 tools.put(toolName, definition);
