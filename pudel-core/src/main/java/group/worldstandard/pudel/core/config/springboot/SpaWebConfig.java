@@ -33,6 +33,17 @@ import java.io.IOException;
 @ConditionalOnProperty(name = "pudel.spa.enabled", havingValue = "true", matchIfMissing = false)
 public class SpaWebConfig implements WebMvcConfigurer {
 
+    /**
+     * Configures resource handling for serving static content and SPA fallback.
+     * Registers a resource handler that serves static resources from the classpath location {@code classpath:/static/}.
+     * The resource chain is enabled with a custom resolver that performs the following:
+     * - Returns the requested resource if it exists and is readable.
+     * - Returns null for API-related paths such as those starting with {@code api/}, {@code v3/}, or {@code swagger-ui},
+     *   preventing fallback to {@code index.html} for these routes.
+     * - For all other requests, returns {@code index.html} to support SPA routing.
+     *
+     * @param registry the resource handler registry to configure
+     */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/**")

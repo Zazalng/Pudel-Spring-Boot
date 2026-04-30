@@ -62,9 +62,7 @@ public class JDAConfiguration {
                 throw new IllegalStateException("Discord bot token not configured");
             }
 
-            String shaToken = DatatypeConverter.printHexBinary(java.security.MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
-
-            logger.info("Initializing JDA with token: ...{}", shaToken.substring(shaToken.length()-5));
+            logger.info("Initializing JDA with token: ");
 
             JDABuilder builder = JDABuilder.createDefault(token)
                     .enableIntents(

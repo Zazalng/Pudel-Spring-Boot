@@ -43,8 +43,6 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI pudelOpenAPI() {
-
-
         final String dpopSchemeName = "DPoP";
         final String bearerSchemeName = "Bearer";
         final String adminBearerSchemeName = "AdminBearer";

@@ -12,7 +12,7 @@
 ARG JDK_VENDOR=eclipse-temurin
 ARG JDK_VERSION=25
 ARG BUILDER_VENDOR=maven
-ARG BUILDER_VERSION=3.9.12
+ARG BUILDER_VERSION=3.9.15
 
 ARG PUDEL_CORE=pudel-core
 
@@ -82,9 +82,9 @@ ENV DISCORD_CLIENT_SECRET=
 ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 
 # Pudel Configuration
-#ENV PUDEL_BRANDING_NAME=Pudel (Or Default on application.yml)
-#ENV PUDEL_BRANDING_CODENAME=No-blank-space-include
-#ENV PUDEL_BRANDING_VERSION=No strict just uncommentted
+ENV PUDEL_BRANDING_NAME=Pudel
+ENV PUDEL_BRANDING_CODENAME=Canis Lupus Familiaris
+ENV PUDEL_BRANDING_VERSION=2.3.0
 ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)

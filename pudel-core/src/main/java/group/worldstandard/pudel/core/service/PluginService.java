@@ -52,7 +52,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Transactional
 public class PluginService extends BaseService {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);
 
     private final PluginMetadataRepository pluginMetadataRepository;
@@ -67,6 +66,8 @@ public class PluginService extends BaseService {
 
     // Track enabled state: pluginName -> enabled
     private final Map<String, Boolean> enabledPlugins = new ConcurrentHashMap<>();
+
+    private final String whitelistRegex = "[^\\h\\w!'@#$%&*()\\-/+<>\":|\\[{\\].`~=]";
 
     public PluginService(@Lazy JDA jda,
                          PluginMetadataRepository pluginMetadataRepository,
@@ -125,7 +126,7 @@ public class PluginService extends BaseService {
                 String pluginName = pluginClassLoader.peekPluginName(jarFile);
 
                 if (pluginName == null) {
-                    logger.warn("Could not read plugin name from JAR: {}, skipping", jarFile.getName());
+                    logger.warn("Could not read plugin name from JAR: {}, skipping", jarFile.getName().replaceAll(whitelistRegex, ""));
                     continue;
                 }
 
@@ -133,9 +134,9 @@ public class PluginService extends BaseService {
                 if (processedPluginNames.contains(pluginName)) {
                     logger.warn("Duplicate plugin name '{}' found in JAR '{}'. " +
                                 "A newer JAR with the same plugin name was already loaded. Deleting stale JAR.",
-                            pluginName, jarFile.getName());
+                            pluginName.replaceAll(whitelistRegex, ""), jarFile.getName().replaceAll(whitelistRegex, ""));
                     if (!jarFile.delete()) {
-                        logger.warn("Could not delete stale duplicate JAR: {}", jarFile.getName());
+                        logger.warn("Could not delete stale duplicate JAR: {}", jarFile.getName().replaceAll(whitelistRegex, ""));
                     }
                     continue;
                 }
@@ -149,7 +150,7 @@ public class PluginService extends BaseService {
                     // If the JAR filename changed, this is a replacement
                     if (oldJarFileName != null && !oldJarFileName.equals(newJarFileName)) {
                         logger.info("Plugin '{}' JAR changed from '{}' to '{}', treating as replacement",
-                                pluginName, oldJarFileName, newJarFileName);
+                                pluginName.replaceAll(whitelistRegex, ""), oldJarFileName.replaceAll(whitelistRegex, ""), newJarFileName.replaceAll(whitelistRegex, ""));
 
                         // Step 4: Delete the old JAR file
                         // Validate old filename to prevent path traversal
@@ -158,9 +159,9 @@ public class PluginService extends BaseService {
                             File oldJarFile = new File(pluginsDir, sanitizedOldName);
                             if (oldJarFile.exists() && !oldJarFile.equals(jarFile)) {
                                 if (oldJarFile.delete()) {
-                                    logger.info("Deleted old JAR file: {}", oldJarFileName);
+                                    logger.info("Deleted old JAR file: {}", oldJarFileName.replaceAll(whitelistRegex, ""));
                                 } else {
-                                    logger.warn("Could not delete old JAR file: {}", oldJarFileName);
+                                    logger.warn("Could not delete old JAR file: {}", oldJarFileName.replaceAll(whitelistRegex, ""));
                                 }
                             }
                         }
@@ -202,7 +203,7 @@ public class PluginService extends BaseService {
             boolean needsUpdate = false;
 
             if (plugin.isEnabled()) {
-                logger.info("Plugin {} was marked enabled in database, resetting to disabled", plugin.getPluginName());
+                logger.info("Plugin {} was marked enabled in database, resetting to disabled", plugin.getPluginName().replaceAll(whitelistRegex, ""));
                 plugin.setEnabled(false);
                 needsUpdate = true;
             }
@@ -240,10 +241,10 @@ public class PluginService extends BaseService {
                 PluginContext context = pluginContextFactory.getContext(info);
                 pluginContexts.put(pluginName, context);
 
-                logger.info("Plugin loaded: {} v{}", pluginName, pluginVersion);
+                logger.info("Plugin loaded: {} v{}", pluginName.replaceAll(whitelistRegex, ""), pluginVersion);
             }
         } catch (Exception e) {
-            logger.error("Error loading plugin {}: {}", jarFile.getName(), e.getMessage(), e);
+            logger.error("Error loading plugin {}: {}", jarFile.getName().replaceAll(whitelistRegex, ""), e.getMessage(), e);
         }
     }
 
@@ -304,7 +305,7 @@ public class PluginService extends BaseService {
      */
     public void enablePlugin(String pluginName) {
         if (!pluginClassLoader.isPluginLoaded(pluginName)) {
-            logger.warn("Plugin not found: {}", pluginName);
+            logger.warn("Plugin not found: {}", pluginName.replaceAll(whitelistRegex, ""));
             return;
         }
 
@@ -315,13 +316,13 @@ public class PluginService extends BaseService {
                 .orElse(false);
 
         if (inMemoryEnabled) {
-            logger.warn("Plugin {} is already enabled in memory", pluginName);
+            logger.warn("Plugin {} is already enabled in memory", pluginName.replaceAll(whitelistRegex, ""));
             return;
         }
 
         // If database shows enabled but memory doesn't, reset database state first
         if (dbEnabled) {
-            logger.info("Plugin {} was marked enabled in database but not in memory, resetting state", pluginName);
+            logger.info("Plugin {} was marked enabled in database but not in memory, resetting state", pluginName.replaceAll(whitelistRegex, ""));
             pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
                 m.setEnabled(false);
                 pluginMetadataRepository.save(m);
@@ -378,19 +379,19 @@ public class PluginService extends BaseService {
                     try {
                         annotationProcessor.invokeOnEnable(instance, context);
                     } catch (Exception e) {
-                        logger.error("Plugin {} @OnEnable failed: {}", pluginName, e.getMessage(), e);
+                        logger.error("Plugin {} @OnEnable failed: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
                         status.setRollbackOnly();
                     }
                     return null;
                 });
             } catch (Exception e) {
-                logger.warn("Plugin {} @OnEnable transaction rolled back: {}", pluginName, e.getMessage());
+                logger.warn("Plugin {} @OnEnable transaction rolled back: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage());
             }
 
-            logger.info("Plugin enabled: {} ({} handlers registered)", pluginName, registered);
+            logger.info("Plugin enabled: {} ({} handlers registered)", pluginName.replaceAll(whitelistRegex, ""), registered);
 
         } catch (Exception e) {
-            logger.error("Error enabling plugin {}: {}", pluginName, e.getMessage(), e);
+            logger.error("Error enabling plugin {}: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
         }
     }
 
@@ -408,7 +409,7 @@ public class PluginService extends BaseService {
      */
     public void disablePlugin(String pluginName) {
         if (!pluginClassLoader.isPluginLoaded(pluginName)) {
-            logger.warn("Plugin not found: {}", pluginName);
+            logger.warn("Plugin not found: {}", pluginName.replaceAll(whitelistRegex, ""));
             return;
         }
 
@@ -419,13 +420,13 @@ public class PluginService extends BaseService {
                 .orElse(false);
 
         if (!inMemoryEnabled && !dbEnabled) {
-            logger.warn("Plugin {} is not enabled (memory={}, db={})", pluginName, inMemoryEnabled, dbEnabled);
+            logger.warn("Plugin {} is not enabled (memory={}, db={})", pluginName.replaceAll(whitelistRegex, ""), inMemoryEnabled, dbEnabled);
             return;
         }
 
         // Sync in-memory state if database shows enabled but memory doesn't
         if (!inMemoryEnabled) {
-            logger.info("Plugin {} was enabled in database but not in memory, syncing state", pluginName);
+            logger.info("Plugin {} was enabled in database but not in memory, syncing state", pluginName.replaceAll(whitelistRegex, ""));
         }
 
         try {
@@ -450,10 +451,10 @@ public class PluginService extends BaseService {
                 pluginMetadataRepository.save(m);
             });
 
-            logger.info("Plugin disabled: {}", pluginName);
+            logger.info("Plugin disabled: {}", pluginName.replaceAll(whitelistRegex, ""));
 
         } catch (Exception e) {
-            logger.error("Error disabling plugin {}: {}", pluginName, e.getMessage(), e);
+            logger.error("Error disabling plugin {}: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
         }
     }
 
@@ -476,7 +477,7 @@ public class PluginService extends BaseService {
      */
     public void unloadPlugin(String pluginName) {
         if (!pluginClassLoader.isPluginLoaded(pluginName)) {
-            logger.warn("Plugin not found for unloading: {}", pluginName);
+            logger.warn("Plugin not found for unloading: {}", pluginName.replaceAll(whitelistRegex, ""));
             return;
         }
 
@@ -501,7 +502,7 @@ public class PluginService extends BaseService {
             if (shutdownSuccess) {
                 pluginClassLoader.unloadPlugin(pluginName);
             } else {
-                logger.warn("[{}] Shutdown returned false, force-killing plugin", pluginName);
+                logger.warn("[{}] Shutdown returned false, force-killing plugin", pluginName.replaceAll(whitelistRegex, ""));
                 pluginClassLoader.forceUnloadPlugin(pluginName);
             }
 
@@ -512,10 +513,10 @@ public class PluginService extends BaseService {
                 pluginMetadataRepository.save(m);
             });
 
-            logger.info("Plugin unloaded: {} (force={})", pluginName, !shutdownSuccess);
+            logger.info("Plugin unloaded: {} (force={})", pluginName.replaceAll(whitelistRegex, ""), !shutdownSuccess);
 
         } catch (Exception e) {
-            logger.error("Error unloading plugin {}: {}", pluginName, e.getMessage(), e);
+            logger.error("Error unloading plugin {}: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
             // Force unload on error
             pluginClassLoader.forceUnloadPlugin(pluginName);
         }
@@ -532,7 +533,7 @@ public class PluginService extends BaseService {
             try {
                 unloadPlugin(pluginName);
             } catch (Exception e) {
-                logger.error("Error shutting down plugin {}: {}", pluginName, e.getMessage(), e);
+                logger.error("Error shutting down plugin {}: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
             }
         }
 
@@ -565,7 +566,7 @@ public class PluginService extends BaseService {
         // Then delete the metadata from database
         pluginMetadataRepository.findByPluginName(pluginName).ifPresent(m -> {
             pluginMetadataRepository.delete(m);
-            logger.info("Plugin metadata removed from database: {}", pluginName);
+            logger.info("Plugin metadata removed from database: {}", pluginName.replaceAll(whitelistRegex, ""));
         });
     }
 
@@ -589,7 +590,7 @@ public class PluginService extends BaseService {
      */
     public boolean reloadPlugin(String pluginName) {
         if (!pluginClassLoader.isPluginLoaded(pluginName)) {
-            logger.warn("Plugin not found for reloading: {}", pluginName);
+            logger.warn("Plugin not found for reloading: {}", pluginName.replaceAll(whitelistRegex, ""));
             return false;
         }
 
@@ -597,7 +598,7 @@ public class PluginService extends BaseService {
             // Get JAR file name before unloading
             Optional<PluginMetadata> metadata = pluginMetadataRepository.findByPluginName(pluginName);
             if (metadata.isEmpty() || metadata.get().getJarFileName() == null) {
-                logger.error("Cannot reload plugin {}: JAR file information not found", pluginName);
+                logger.error("Cannot reload plugin {}: JAR file information not found", pluginName.replaceAll(whitelistRegex, ""));
                 return false;
             }
 
@@ -606,14 +607,14 @@ public class PluginService extends BaseService {
             // Validate filename to prevent path traversal
             String sanitizedFileName = java.nio.file.Path.of(jarFileName).getFileName().toString();
             if (!sanitizedFileName.equals(jarFileName) || jarFileName.contains("..")) {
-                logger.error("Cannot reload plugin {}: suspicious JAR filename: {}", pluginName, jarFileName);
+                logger.error("Cannot reload plugin {}: suspicious JAR filename: {}", pluginName.replaceAll(whitelistRegex, ""), jarFileName);
                 return false;
             }
 
             File jarFile = new File(pluginClassLoader.getPluginsDirectory(), sanitizedFileName);
 
             if (!jarFile.exists()) {
-                logger.error("Cannot reload plugin {}: JAR file does not exist: {}", pluginName, jarFile.getAbsolutePath());
+                logger.error("Cannot reload plugin {}: JAR file does not exist: {}", pluginName.replaceAll(whitelistRegex, ""), jarFile.getAbsolutePath());
                 return false;
             }
 
@@ -624,24 +625,24 @@ public class PluginService extends BaseService {
             }
 
             // Unload old version
-            logger.info("Reloading plugin {}: unloading...", pluginName);
+            logger.info("Reloading plugin {}: unloading...", pluginName.replaceAll(whitelistRegex, ""));
             unloadPlugin(pluginName);
 
             // Load new version
-            logger.info("Reloading plugin {}: loading from {}...", pluginName, jarFileName);
+            logger.info("Reloading plugin {}: loading from {}...", pluginName.replaceAll(whitelistRegex, ""), jarFileName.replaceAll(whitelistRegex, ""));
             loadAndInitialize(jarFile);
 
             // Re-enable if was enabled
             if (wasEnabled) {
-                logger.info("Reloading plugin {}: re-enabling...", pluginName);
+                logger.info("Reloading plugin {}: re-enabling...", pluginName.replaceAll(whitelistRegex, ""));
                 enablePlugin(pluginName);
             }
 
-            logger.info("Plugin {} reloaded successfully", pluginName);
+            logger.info("Plugin {} reloaded successfully", pluginName.replaceAll(whitelistRegex, ""));
             return true;
 
         } catch (Exception e) {
-            logger.error("Error reloading plugin {}: {}", pluginName, e.getMessage(), e);
+            logger.error("Error reloading plugin {}: {}", pluginName.replaceAll(whitelistRegex, ""), e.getMessage(), e);
             return false;
         }
     }

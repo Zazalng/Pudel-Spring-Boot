@@ -40,8 +40,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * JWT utility for token generation and validation using RSA key pairs.
- * Supports DPoP (Demonstrating Proof-of-Possession) for enhanced security.
+ * Utility class for handling JSON Web Tokens (JWT).
+ * Provides methods for generating, validating, and extracting information from JWT tokens.
+ * Supports both standard-bearer tokens and DPoP (Demonstrating Proof-of-Possession) bound tokens.
+ * Automatically loads RSA public and private keys from PEM files during initialization.
  */
 @Component
 public class JwtUtil {
@@ -88,7 +90,16 @@ public class JwtUtil {
     }
 
     /**
-     * Load private key from PEM file.
+     * Loads an RSA private key from a PEM file located at the specified path.
+     * The method reads the PEM-encoded private key, strips the headers and footers,
+     * and decodes the key content into a byte array. It then generates a {@link PrivateKey}
+     * instance using the RSA algorithm and PKCS#8 encoding specification.
+     *
+     * @param path the file system path to the PEM-encoded private key file
+     * @return the loaded {@link PrivateKey} instance
+     * @throws IOException if an I/O error occurs while reading the file
+     * @throws NoSuchAlgorithmException if the RSA algorithm is not available
+     * @throws InvalidKeySpecException if the key specification is invalid
      */
     private PrivateKey loadPrivateKey(String path) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] keyBytes = readPemKeyBytes(path, new String[]{
@@ -103,7 +114,16 @@ public class JwtUtil {
     }
 
     /**
-     * Load public key from PEM file.
+     * Loads an RSA public key from a PEM file located at the specified path.
+     * The method reads the PEM-encoded public key, strips the headers and footers,
+     * and decodes the key content into a byte array. It then generates a {@link PublicKey}
+     * instance using the RSA algorithm and X.509 encoding specification.
+     *
+     * @param path the file system path to the PEM-encoded public key file
+     * @return the loaded {@link PublicKey} instance
+     * @throws IOException if an I/O error occurs while reading the file
+     * @throws NoSuchAlgorithmException if the RSA algorithm is not available
+     * @throws InvalidKeySpecException if the key specification is invalid
      */
     private PublicKey loadPublicKey(String path) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] keyBytes = readPemKeyBytes(path, new String[]{
@@ -118,8 +138,13 @@ public class JwtUtil {
     }
 
     /**
-     * Read a PEM-encoded key file, strip the provided headers/footers and
-     * whitespace, and return the decoded key bytes.
+     * Reads a PEM-formatted key from the specified file path and extracts the base64-encoded body
+     * by removing the provided headers and whitespace characters.
+     *
+     * @param path the file system path to the PEM key file
+     * @param headers an array of header strings to remove from the key content
+     * @return the decoded byte array representing the key body
+     * @throws IOException if an I/O error occurs while reading the file
      */
     private byte[] readPemKeyBytes(String path, String[] headers) throws IOException {
         String keyContent = Files.readString(Path.of(path));
@@ -131,14 +156,22 @@ public class JwtUtil {
     }
 
     /**
-     * Generate JWT token from user ID.
+     * Generates a JWT token for the specified user ID with default claims.
+     * This method delegates to the overloaded generateToken method with an empty claims map.
+     *
+     * @param userId the unique identifier of the user for whom the token is generated
+     * @return a compact, URL-safe JWT string representation of the token
      */
     public String generateToken(String userId) {
         return generateToken(userId, new HashMap<>());
     }
 
     /**
-     * Generate JWT token with claims using RSA private key.
+     * Generates a JWT token for the specified user ID with the provided claims.
+     *
+     * @param userId the unique identifier of the user for whom the token is generated
+     * @param claims a map of additional claims to include in the token
+     * @return a compact, URL-safe JWT string representation of the token
      */
     public String generateToken(String userId, Map<String, Object> claims) {
         long now = System.currentTimeMillis();
@@ -184,7 +217,12 @@ public class JwtUtil {
     }
 
     /**
-     * Check if a token is DPoP-bound.
+     * Checks if the provided JWT token is bound to a DPoP (Demonstrating Proof-of-Possession) key.
+     * This method verifies the token signature using the configured public key and checks
+     * for the presence of a DPoP thumbprint claim.
+     *
+     * @param token the JWT token string to check
+     * @return true if the token contains a DPoP thumbprint claim and is valid, false otherwise
      */
     public boolean isDPoPBoundToken(String token) {
         try {
@@ -227,7 +265,12 @@ public class JwtUtil {
     }
 
     /**
-     * Get user ID from token using RSA public key.
+     * Extracts the user ID from the subject claim of a JWT token.
+     * The method parses and verifies the token using the configured public key.
+     * If the token is invalid or does not contain a subject claim, the method returns null.
+     *
+     * @param token the JWT token string from which to extract the user ID
+     * @return the user ID extracted from the token's subject claim, or null if extraction fails
      */
     public String getUserIdFromToken(String token) {
         try {
@@ -247,7 +290,12 @@ public class JwtUtil {
     }
 
     /**
-     * Get all claims from token.
+     * Parses and retrieves the claims from the provided JWT token.
+     * This method uses the configured public key to verify the token's signature
+     * and extract its payload as a {@link Claims} object.
+     *
+     * @param token the JWT token string from which to extract claims
+     * @return the {@link Claims} object containing the token's payload, or null if parsing fails
      */
     public Claims getClaimsFromToken(String token) {
         try {
@@ -266,7 +314,12 @@ public class JwtUtil {
     }
 
     /**
-     * Validate JWT token using RSA public key.
+     * Validates the integrity and authenticity of a JWT token.
+     * This method attempts to parse and verify the provided token using the configured public key.
+     * It returns true if the token is successfully validated, otherwise false.
+     *
+     * @param token the JWT token string to validate
+     * @return true if the token is valid, false otherwise
      */
     public boolean validateToken(String token) {
         try {
@@ -287,7 +340,13 @@ public class JwtUtil {
     }
 
     /**
-     * Get expiration time from token.
+     * Retrieves the expiration date from the provided JWT token.
+     * This method parses and verifies the token using the configured public key,
+     * then extracts the expiration claim from the token's payload.
+     * If the token is invalid or the expiration claim is not present, the method returns null.
+     *
+     * @param token the JWT token string from which to extract the expiration date
+     * @return the expiration date extracted from the token, or null if extraction fails
      */
     public Date getExpirationDateFromToken(String token) {
         try {
@@ -307,7 +366,13 @@ public class JwtUtil {
     }
 
     /**
-     * Check if token is expired.
+     * Checks whether the provided JWT token has expired.
+     * This method retrieves the expiration date from the token and compares it
+     * with the current date. If the expiration date is before the current date,
+     * the token is considered expired.
+     *
+     * @param token the JWT token string to check for expiration
+     * @return true if the token has expired or if the expiration date cannot be retrieved, false otherwise
      */
     public boolean isTokenExpired(String token) {
         Date expirationDate = getExpirationDateFromToken(token);
@@ -318,14 +383,18 @@ public class JwtUtil {
     }
 
     /**
-     * Get the public key (useful for external services that need to verify tokens).
+     * Retrieves the public key used for JWT token verification.
+     *
+     * @return the {@link PublicKey} instance used for verifying JWT signatures
      */
     public PublicKey getPublicKey() {
         return publicKey;
     }
 
     /**
-     * Get the private key (for internal use only).
+     * Retrieves the private key used for JWT token generation.
+     *
+     * @return the {@link PrivateKey} instance used for signing JWT tokens
      */
     protected PrivateKey getPrivateKey() {
         return privateKey;

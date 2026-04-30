@@ -44,7 +44,6 @@ import java.util.Objects;
  * </pre>
  */
 public final class TableSchema {
-
     private final String tableName;
     private final List<ColumnDefinition> columns;
     private final List<IndexDefinition> indexes;
@@ -55,14 +54,29 @@ public final class TableSchema {
         this.indexes = Collections.unmodifiableList(new ArrayList<>(builder.indexes));
     }
 
+    /**
+     * Returns the name of the database table associated with this schema.
+     *
+     * @return the table name
+     */
     public String getTableName() {
         return tableName;
     }
 
+    /**
+     * Returns the list of column definitions associated with this table schema.
+     *
+     * @return a list of {@link ColumnDefinition} objects representing the columns of the table
+     */
     public List<ColumnDefinition> getColumns() {
         return columns;
     }
 
+    /**
+     * Returns the list of index definitions associated with this table schema.
+     *
+     * @return a list of {@link IndexDefinition} objects representing the indexes of the table
+     */
     public List<IndexDefinition> getIndexes() {
         return indexes;
     }
@@ -78,7 +92,11 @@ public final class TableSchema {
     }
 
     /**
-     * Builder for TableSchema.
+     * Builder class for constructing {@link TableSchema} instances.
+     * Provides a fluent API for defining table structure including columns and indexes.
+     * Validates table and column names according to naming conventions.
+     * Table names must start with a lowercase letter and contain only lowercase letters, numbers, and underscores.
+     * Column names follow the same rules but cannot be reserved words like 'id', 'created_at', or 'updated_at'.
      */
     public static class Builder {
         private final String tableName;
@@ -201,7 +219,18 @@ public final class TableSchema {
     }
 
     /**
-     * Column definition.
+     * Represents the definition of a database column within a table schema.
+     * Contains metadata about the column including its name, data type, size,
+     * nullability constraint, and default value.
+     * <p>
+     * This record is used internally by the schema builder to construct
+     * database table definitions. Column definitions are immutable once created.
+     * <p>
+     * The column type determines how the column is represented in SQL,
+     * with optional size parameters for variable-length types like VARCHAR
+     * or NUMERIC. Nullability controls whether the column can contain NULL values.
+     * Default values are specified as strings and should be compatible
+     * with the column's data type.
      */
     public record ColumnDefinition(
             String name,
@@ -212,8 +241,10 @@ public final class TableSchema {
     ) {}
 
     /**
-     * Index definition.
-     */
+     * Represents the definition of an index in a database table schema.
+     * <p>
+     * An index definition specifies whether the index enforces uniqueness
+     * and which columns are included in the index*/
     public record IndexDefinition(
             boolean unique,
             List<String> columns

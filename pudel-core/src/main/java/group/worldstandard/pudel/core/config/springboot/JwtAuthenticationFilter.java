@@ -60,6 +60,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.dpopService = dpopService;
     }
 
+    /**
+     * Performs filtering logic on incoming HTTP requests to authenticate users based on JWT tokens.
+     * This method checks for Authorization headers containing either Bearer or DPoP schemes.
+     * If a token is present and valid, it sets up the Spring Security context with the authenticated user.
+     * For DPoP tokens, additional validation is performed using the DPoP proof header.
+     *
+     * @param request the HTTP servlet request
+     * @param response the HTTP servlet response
+     * @param filterChain the filter chain to continue processing the request
+     * @throws ServletException if a servlet error occurs during filtering
+     * @throws IOException if an I/O error occurs during filtering
+     */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -151,6 +163,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
 
+    /**
+     * Determines whether the given request should bypass JWT authentication filtering.
+     * Requests to specific API endpoints related to authentication, bot interactions,
+     * plugin management, and server-sent events are exempted from authentication.
+     *
+     * @param request the HTTP servlet request to evaluate
+     * @return true if the request should not be filtered (i.e., does not require authentication),
+     *         false otherwise
+     */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
