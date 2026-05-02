@@ -19,6 +19,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,11 +38,12 @@ import java.util.List;
  * JWT authentication filter that validates tokens on every request.
  * Supports both standard Bearer tokens and DPoP-bound tokens.
  * <p>
- * For DPoP-bound tokens:
+ * For DPoP-bound tokens (BFF-style):
  * <ul>
  *   <li>Client must include DPoP header with a signed proof</li>
  *   <li>The proof must be bound to the access token via 'ath' claim</li>
  *   <li>The token's thumbprint binding must match the proof's JWK</li>
+ *   <li>In BFF style, the backend holds the private key and signs proofs for the frontend</li>
  * </ul>
  */
 @Component
@@ -117,14 +119,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     String httpMethod = request.getMethod();
 
                     // Validate DPoP proof
+                    HttpSession session = request.getSession(false);
                     DPoPService.DPoPValidationResult proofResult =
-                            dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, token);
+                            dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, token, session);
 
                     if (!proofResult.valid()) {
                         log.warn("DPoP proof validation failed: {}", proofResult.error());
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setHeader("WWW-Authenticate", "DPoP error=\"invalid_dpop_proof\", error_description=\"Invalid DPoP proof\"");
-                        response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"Invalid DPoP proof\"}");
+                        response.getWriter().write("{\"error\":\"invalid_dpop_proof\",\"error_description\":\"" + proofResult.error() + "\"}");
                         return;
                     }
 
@@ -162,7 +165,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-
     /**
      * Determines whether the given request should bypass JWT authentication filtering.
      * Requests to specific API endpoints related to authentication, bot interactions,
@@ -183,7 +185,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || (path.equals("/api/plugins/installed") && "GET".equals(request.getMethod()))
                 || (path.matches("/api/plugins/installed/[^/]+") && "GET".equals(request.getMethod()))
                 || (path.equals("/api/plugins/enabled") && "GET".equals(request.getMethod()))
-                || (path.matches("/api/plugins/[^/]+") && "GET".equals(request.getMethod()));
+                || (path.matches("/api/plugins/[^/]+") && "GET".equals(request.getMethod()))
+                || path.startsWith("/api/dpop/"); // DPoP endpoints don't require auth
     }
 }
-

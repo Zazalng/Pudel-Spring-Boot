@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.service;
 
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -31,18 +32,12 @@ import group.worldstandard.pudel.core.repository.GuildRepository;
 import group.worldstandard.pudel.core.repository.GuildSettingsRepository;
 import group.worldstandard.pudel.core.repository.UserRepository;
 import group.worldstandard.pudel.core.repository.UserGuildRepository;
-
 import java.time.LocalDateTime;
 import java.util.*;
 
-/**
- * Service for authentication operations.
- * Supports both standard Bearer tokens and DPoP-bound tokens for enhanced security.
- */
 @Service
 public class AuthService extends BaseService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-
     private final DiscordAPIService discordAPIService;
     private final UserRepository userRepository;
     private final GuildRepository guildRepository;
@@ -52,13 +47,13 @@ public class AuthService extends BaseService {
     private final DPoPService dpopService;
 
     public AuthService(@Lazy JDA jda,
-                      DiscordAPIService discordAPIService,
-                      UserRepository userRepository,
-                      GuildRepository guildRepository,
-                      GuildSettingsRepository guildSettingsRepository,
-                      UserGuildRepository userGuildRepository,
-                      JwtUtil jwtUtil,
-                      DPoPService dpopService) {
+                       DiscordAPIService discordAPIService,
+                       UserRepository userRepository,
+                       GuildRepository guildRepository,
+                       GuildSettingsRepository guildSettingsRepository,
+                       UserGuildRepository userGuildRepository,
+                       JwtUtil jwtUtil,
+                       DPoPService dpopService) {
         super(jda);
         this.discordAPIService = discordAPIService;
         this.userRepository = userRepository;
@@ -69,57 +64,40 @@ public class AuthService extends BaseService {
         this.dpopService = dpopService;
     }
 
-    /**
-     * Handle Discord OAuth callback.
-     * Returns a standard Bearer token.
-     */
     @Transactional
     public OAuthCallbackResponse handleOAuthCallback(String code) {
-        return handleOAuthCallback(code, null, null, null);
+        return handleOAuthCallback(code, null, null, null, null);
     }
 
-    /**
-     * Handle Discord OAuth callback with DPoP support.
-     * If dpopProof is provided, returns a DPoP-bound token.
-     *
-     * @param code OAuth authorization code
-     * @param dpopProof DPoP proof JWT (optional)
-     * @param httpMethod HTTP method of the request
-     * @param httpUri HTTP URI of the request
-     * @return OAuth callback response with token
-     */
     @Transactional
-    public OAuthCallbackResponse handleOAuthCallback(String code, String dpopProof, String httpMethod, String httpUri) {
+    public OAuthCallbackResponse handleOAuthCallback(String code, String dpopProof, String httpMethod, String httpUri, HttpSession session) {
         try {
-            // Validate DPoP proof if provided
             String dpopThumbprint = null;
+
             if (dpopProof != null && !dpopProof.isBlank()) {
-                DPoPService.DPoPValidationResult proofResult =
-                        dpopService.validateProofForTokenRequest(dpopProof, httpMethod, httpUri);
+                DPoPService.DPoPValidationResult proofResult = dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, null, session);
 
                 if (!proofResult.valid()) {
                     log.warn("DPoP proof validation failed during OAuth: {}", proofResult.error());
                     return null;
                 }
+
                 dpopThumbprint = proofResult.thumbprint();
                 log.info("DPoP proof validated for OAuth callback, thumbprint: {}", dpopThumbprint);
             }
 
-            // Exchange code for access token
             String accessToken = discordAPIService.getAccessToken(code);
             if (accessToken == null) {
                 log.error("Failed to get access token");
                 return null;
             }
 
-            // Get user information
             UserDto userDto = discordAPIService.getUserInfo(accessToken);
             if (userDto == null) {
                 log.error("Failed to get user info");
                 return null;
             }
 
-            // Save or update user in database
             User user = userRepository.findById(userDto.getId())
                     .orElse(new User(userDto.getId(), userDto.getUsername()));
 
@@ -134,25 +112,19 @@ public class AuthService extends BaseService {
             userRepository.save(user);
             log.info("User saved/updated: {}", user.getId());
 
-            // Fetch and store user's guilds
             List<Map<String, Object>> discordGuilds = discordAPIService.getUserGuilds(accessToken);
             syncUserGuilds(user.getId(), discordGuilds);
 
-            // Generate JWT token (DPoP-bound if proof was provided)
             Map<String, Object> claims = new HashMap<>();
             claims.put("username", user.getUsername());
 
             String jwtToken;
             String tokenType;
-
             if (dpopThumbprint != null) {
-                // Generate DPoP-bound token
                 jwtToken = jwtUtil.generateDPoPBoundToken(user.getId(), claims, dpopThumbprint);
-                dpopService.bindTokenToThumbprint(jwtToken, dpopThumbprint);
                 tokenType = JwtUtil.TOKEN_TYPE_DPOP;
                 log.info("Generated DPoP-bound token for user: {}", user.getId());
             } else {
-                // Generate standard Bearer token
                 jwtToken = jwtUtil.generateToken(user.getId(), claims);
                 tokenType = JwtUtil.TOKEN_TYPE_BEARER;
                 log.info("Generated Bearer token for user: {}", user.getId());
@@ -167,78 +139,54 @@ public class AuthService extends BaseService {
         }
     }
 
-    /**
-     * Revoke a token (e.g., on logout).
-     * For DPoP tokens, also removes the binding.
-     */
     public void revokeToken(String token) {
-        if (token != null && jwtUtil.isDPoPBoundToken(token)) {
-            dpopService.revokeTokenBinding(token);
-            log.info("Revoked DPoP token binding");
-        }
-        // Note: JWT tokens are stateless, so we can't truly revoke them
-        // For full revocation support, you'd need a token blacklist
+        log.info("Token revocation requested (BFF-style - handled by session management)");
     }
 
-    /**
-     * Synchronize user's Discord guilds with database.
-     */
     @Transactional
     protected void syncUserGuilds(String userId, List<Map<String, Object>> discordGuilds) {
         try {
-            // Get existing user-guild associations
             List<UserGuild> existingUserGuilds = userGuildRepository.findByUserId(userId);
-
-            // Create a set of guild IDs from Discord
             Set<String> discordGuildIds = new HashSet<>();
+
             for (Map<String, Object> guildData : discordGuilds) {
                 discordGuildIds.add((String) guildData.get("id"));
             }
 
-            // Remove associations for guilds no longer in Discord
             for (UserGuild existingUserGuild : existingUserGuilds) {
                 if (!discordGuildIds.contains(existingUserGuild.getGuildId())) {
                     userGuildRepository.delete(existingUserGuild);
-                    log.debug("Removed user-guild association for user {} and guild {}", userId, existingUserGuild.getGuildId());
                 }
             }
 
-            // Create a set of existing guild IDs for quick lookup
             Set<String> existingGuildIds = new HashSet<>();
             for (UserGuild ug : existingUserGuilds) {
                 existingGuildIds.add(ug.getGuildId());
             }
 
-            // Process each Discord guild
             for (Map<String, Object> guildData : discordGuilds) {
                 String guildId = (String) guildData.get("id");
                 Boolean owner = (Boolean) guildData.get("owner");
                 Long permissions = (Long) guildData.get("permissions");
 
-                // Ensure guild exists in database
                 if (!guildRepository.existsById(guildId)) {
                     Guild guild = new Guild(guildId, (String) guildData.get("name"));
                     if (guildData.get("icon") != null) {
                         guild.setIcon((String) guildData.get("icon"));
                     }
                     guildRepository.save(guild);
-                    log.debug("Created guild record for: {}", guildId);
                 }
 
-                // Create or update user-guild association
                 if (!existingGuildIds.contains(guildId)) {
                     UserGuild userGuild = new UserGuild(userId, guildId, owner, permissions);
                     userGuildRepository.save(userGuild);
-                    log.debug("Created user-guild association for user {} and guild {}", userId, guildId);
                 } else {
-                    // Update existing association if permissions or owner status changed
                     Optional<UserGuild> existingOpt = userGuildRepository.findByUserIdAndGuildId(userId, guildId);
                     if (existingOpt.isPresent()) {
                         UserGuild existing = existingOpt.get();
                         existing.setOwner(owner);
                         existing.setPermissions(permissions);
                         userGuildRepository.save(existing);
-                        // log.debug("Updated user-guild association for user {} and guild {}", userId, guildId);
                     }
                 }
             }
@@ -250,33 +198,19 @@ public class AuthService extends BaseService {
         }
     }
 
-    /**
-     * Get user's guilds with bot presence information.
-     * Only returns guilds where user has ADMINISTRATOR permission or is the owner.
-     * <p>
-     * Discord ADMINISTRATOR permission = 0x8 (8)
-     */
     public Map<String, Object> getUserGuilds(String userId) {
         try {
-            // Discord ADMINISTRATOR permission flag
             long ADMINISTRATOR_PERMISSION = 0x8L;
-
-            // Get user's guild associations
             List<UserGuild> userGuilds = userGuildRepository.findByUserId(userId);
-            log.debug("Found {} total guilds for user: {}", userGuilds.size(), userId);
-
             List<Map<String, Object>> managedGuilds = new ArrayList<>();
             List<Map<String, Object>> availableGuilds = new ArrayList<>();
             int filteredCount = 0;
 
             for (UserGuild ug : userGuilds) {
-                // Check if user has ADMINISTRATOR permission in this guild
                 Long permissions = ug.getPermissions();
                 boolean hasAdminPermission = ug.getOwner() || (permissions != null && (permissions & ADMINISTRATOR_PERMISSION) != 0);
 
-                // Only include guilds where user is owner OR has admin permission
                 if (!hasAdminPermission) {
-                    //log.debug("User {} does not have admin permission in guild {}", userId, ug.getGuildId());
                     continue;
                 }
 
@@ -284,8 +218,6 @@ public class AuthService extends BaseService {
                 Optional<Guild> guildOpt = guildRepository.findById(ug.getGuildId());
                 if (guildOpt.isPresent()) {
                     Guild guild = guildOpt.get();
-
-                    // Check if bot is actually in the guild using JDA instance
                     boolean hasBot = isBotInGuild(guild.getId());
 
                     Map<String, Object> guildInfo = new HashMap<>();
@@ -297,19 +229,20 @@ public class AuthService extends BaseService {
                     guildInfo.put("hasBot", hasBot);
                     guildInfo.put("memberCount", guild.getMemberCount());
 
-                    // Separate into managed (hasBot) and available (no bot)
                     if (hasBot) {
-                        log.debug("Guild {} has bot for user {}", guild.getId(), userId);
                         managedGuilds.add(guildInfo);
                     } else {
-                        log.debug("Guild {} available (no bot) for user {}", guild.getId(), userId);
                         availableGuilds.add(guildInfo);
                     }
                 }
             }
 
             log.info("User {} has {} managed guilds and {} available guilds (filtered from {} total)",
-                    userId, managedGuilds.size(), availableGuilds.size(), filteredCount);
+                    userId,
+                    managedGuilds.size(),
+                    availableGuilds.size(),
+                    filteredCount
+            );
 
             List<Map<String, Object>> allGuilds = new ArrayList<>();
             allGuilds.addAll(managedGuilds);
@@ -336,12 +269,8 @@ public class AuthService extends BaseService {
         }
     }
 
-    /**
-     * Get a specific guild's information for a user.
-     */
     public Map<String, Object> getGuildInfo(String userId, String guildId) {
         try {
-            // Verify user has access to guild
             if (!userGuildRepository.existsByUserIdAndGuildId(userId, guildId)) {
                 log.warn("User {} does not have access to guild {}", userId, guildId);
                 return null;
@@ -349,12 +278,9 @@ public class AuthService extends BaseService {
 
             Optional<Guild> guildOpt = guildRepository.findById(guildId);
             Optional<UserGuild> userGuildOpt = userGuildRepository.findByUserIdAndGuildId(userId, guildId);
-
             if (guildOpt.isPresent() && userGuildOpt.isPresent()) {
                 Guild guild = guildOpt.get();
                 UserGuild userGuild = userGuildOpt.get();
-
-                // Check if bot is actually in the guild using JDA instance
                 boolean hasBot = isBotInGuild(guild.getId());
 
                 Map<String, Object> guildInfo = new HashMap<>();
@@ -367,13 +293,10 @@ public class AuthService extends BaseService {
                 guildInfo.put("memberCount", guild.getMemberCount());
                 guildInfo.put("ownerId", guild.getOwnerId());
 
-                // Get guild settings if they exist
                 Optional<GuildSettings> settingsOpt = guildSettingsRepository.findByGuildId(guildId);
                 settingsOpt.ifPresent(guildSettings -> guildInfo.put("settings", guildSettings));
-
                 return guildInfo;
             }
-
             return null;
         } catch (Exception e) {
             log.error("Error fetching guild info for user {} and guild {}", userId, guildId, e);
@@ -381,9 +304,6 @@ public class AuthService extends BaseService {
         }
     }
 
-    /**
-     * Create default guild settings when bot joins a guild.
-     */
     public void createDefaultGuildSettings(String guildId) {
         try {
             if (guildSettingsRepository.findByGuildId(guildId).isEmpty()) {
@@ -396,4 +316,3 @@ public class AuthService extends BaseService {
         }
     }
 }
-

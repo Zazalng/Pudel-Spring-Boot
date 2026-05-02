@@ -14,554 +14,198 @@
  */
 package group.worldstandard.pudel.core.service;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.SignatureException;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.DisposableBean;
-import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
+import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.spec.*;
+import jakarta.servlet.http.HttpSession;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
- * DPoP (Demonstrating Proof-of-Possession) Service.
+ * Service for validating DPoP proofs in BFF-style architecture.
  * <p>
- * Implements RFC 9449 - OAuth 2.0 Demonstrating Proof of Possession (DPoP).
+ * In BFF style, the backend holds the private key and signs DPoP proofs for the frontend.
+ * This service validates that the DPoP proof was signed by the backend's session key.
  * <p>
- * DPoP prevents token theft by binding tokens to a specific client key pair:
- * <ul>
- *   <li>Client generates an asymmetric key pair</li>
- *   <li>Client includes a DPoP proof (signed JWT) with each request</li>
- *   <li>Server validates the proof and binds the access token to the client's public key</li>
- *   <li>Even if the access token is stolen, it cannot be used without the private key</li>
- * </ul>
- * <p>
- * DPoP Proof JWT Structure:
- * <pre>
- * Header: {
- *   "typ": "dpop+jwt",
- *   "alg": "RS256" or "ES256",
- *   "jwk": { client's public key }
- * }
- * Payload: {
- *   "jti": unique identifier,
- *   "htm": HTTP method,
- *   "htu": HTTP URI,
- *   "iat": issued at timestamp,
- *   "ath": access token hash (SHA-256, base64url) - only for protected resources
- * }
- * </pre>
+ * Validation steps:
+ * 1. Parse the DPoP proof JWT
+ * 2. Extract the JWK from the header
+ * 3. Verify the signature using the public key from the session
+ * 4. Validate claims (htm, htu, iat, jti, ath)
  */
-@Component
-public class DPoPService implements DisposableBean {
-
+@Service
+public class DPoPService {
     private static final Logger log = LoggerFactory.getLogger(DPoPService.class);
 
-    // Maximum age for DPoP proofs (5 minutes)
-    private static final long MAX_PROOF_AGE_MS = 5 * 60 * 1000;
+    // Session attribute name for storing the keypair (must match DPoPKeyManager)
+    private static final String SESSION_KEY_PAIR = "DPoPKeyManager.KeyPair";
+    private static final String SESSION_PUBLIC_KEY_JWK = "DPoPKeyManager.PublicKeyJwk";
 
-    // Clock skew tolerance (30 seconds)
-    private static final long CLOCK_SKEW_MS = 30 * 1000;
-
-    // Used JTI (JWT ID) cache to prevent replay attacks
-    // Key: jti, Value: expiry timestamp
-    private final Map<String, Long> usedJtis = new ConcurrentHashMap<>();
-
-    // Token thumbprint bindings: accessToken -> jwkThumbprint
-    private final Map<String, String> tokenBindings = new ConcurrentHashMap<>();
-
-    // Cleanup thread reference for proper shutdown
-    private final Thread cleanupThread;
-    private volatile boolean running = true;
-
-    public DPoPService() {
-        // Start cleanup thread for expired JTIs
-        cleanupThread = new Thread(this::cleanupExpiredJtis, "dpop-jti-cleanup");
-        cleanupThread.setDaemon(true);
-        cleanupThread.start();
-    }
-
-    @Override
-    public void destroy() {
-        log.info("Shutting down DPoP JTI cleanup thread...");
-        running = false;
-        if (cleanupThread != null) {
-            cleanupThread.interrupt();
-            try {
-                cleanupThread.join(5000); // Wait up to 5 seconds
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        log.info("DPoP JTI cleanup thread stopped.");
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Validate a DPoP proof for token request (no ath claim required).
-     *
-     * @param dpopProof the DPoP proof JWT from DPoP header
-     * @param httpMethod the HTTP method of the request
-     * @param httpUri the HTTP URI of the request
-     * @return DPoPValidationResult with thumbprint if valid
+     * Result of DPoP proof validation.
      */
-    public DPoPValidationResult validateProofForTokenRequest(String dpopProof, String httpMethod, String httpUri) {
-        return validateProof(dpopProof, httpMethod, httpUri, null);
-    }
-
-    /**
-     * Validate a DPoP proof for protected resource access.
-     *
-     * @param dpopProof the DPoP proof JWT from DPoP header
-     * @param httpMethod the HTTP method of the request
-     * @param httpUri the HTTP URI of the request
-     * @param accessToken the access token (for ath validation)
-     * @return DPoPValidationResult with thumbprint if valid
-     */
-    public DPoPValidationResult validateProofForResource(String dpopProof, String httpMethod, String httpUri, String accessToken) {
-        return validateProof(dpopProof, httpMethod, httpUri, accessToken);
-    }
-
-    /**
-     * Core DPoP proof validation logic.
-     */
-    private DPoPValidationResult validateProof(String dpopProof, String httpMethod, String httpUri, String accessToken) {
-        if (dpopProof == null || dpopProof.isBlank()) {
-            return DPoPValidationResult.failure("Missing DPoP proof");
+    public record DPoPValidationResult(boolean valid, String error, String thumbprint) {
+        public static DPoPValidationResult valid(String thumbprint) {
+            return new DPoPValidationResult(true, null, thumbprint);
         }
 
+        public static DPoPValidationResult invalid(String error) {
+            return new DPoPValidationResult(false, error, null);
+        }
+    }
+
+    /**
+     * Validate a DPoP proof for a resource request (BFF-style).
+     *
+     * @param dpopProof The DPoP proof JWT from the DPoP header
+     * @param httpMethod The HTTP method of the request
+     * @param httpUri The full URI of the request
+     * @param accessToken The access token (for ath validation)
+     * @param session The HTTP session (contains the public key for verification)
+     * @return Validation result
+     */
+    public DPoPValidationResult validateProofForResource(String dpopProof,
+                                                         String httpMethod,
+                                                         String httpUri,
+                                                         String accessToken,
+                                                         HttpSession session) {
         try {
-            // Split JWT parts
-            String[] parts = dpopProof.split("\\.");
-            if (parts.length != 3) {
-                return DPoPValidationResult.failure("Invalid DPoP proof format");
-            }
-
-            // Decode header
-            String headerJson = new String(Base64.getUrlDecoder().decode(parts[0]), StandardCharsets.UTF_8);
-            Map<String, Object> header = parseJson(headerJson);
-
-            // Validate typ
-            String typ = (String) header.get("typ");
-            if (!"dpop+jwt".equals(typ)) {
-                return DPoPValidationResult.failure("Invalid typ: expected dpop+jwt");
-            }
-
-            // Extract JWK from header
+            // Get the public key from session
             @SuppressWarnings("unchecked")
-            Map<String, Object> jwk = (Map<String, Object>) header.get("jwk");
-            if (jwk == null) {
-                return DPoPValidationResult.failure("Missing jwk in header");
+            Map<String, Object> sessionJwk = (Map<String, Object>) session.getAttribute(SESSION_PUBLIC_KEY_JWK);
+            if (sessionJwk == null) {
+                return DPoPValidationResult.invalid("No DPoP key found in session");
             }
 
-            // Convert JWK to PublicKey
-            PublicKey publicKey = jwkToPublicKey(jwk);
-            if (publicKey == null) {
-                return DPoPValidationResult.failure("Invalid JWK");
+            // Get the keypair from session for signature verification
+            java.security.KeyPair keyPair = (java.security.KeyPair) session.getAttribute(SESSION_KEY_PAIR);
+            if (keyPair == null) {
+                return DPoPValidationResult.invalid("No DPoP key pair in session");
             }
 
-            // Calculate JWK thumbprint
-            String thumbprint = calculateJwkThumbprint(jwk);
-
-            // Verify signature
+            // Verify the JWT signature and parse claims
             Claims claims;
             try {
                 claims = Jwts.parser()
-                        .verifyWith(publicKey)
+                        .verifyWith(keyPair.getPublic())
                         .build()
                         .parseSignedClaims(dpopProof)
                         .getPayload();
-            } catch (SignatureException e) {
-                return DPoPValidationResult.failure("Invalid signature");
-            } catch (ExpiredJwtException e) {
-                return DPoPValidationResult.failure("Proof expired");
-            }
-
-            // Validate jti (unique identifier)
-            String jti = claims.get("jti", String.class);
-            if (jti == null || jti.isBlank()) {
-                return DPoPValidationResult.failure("Missing jti claim");
-            }
-
-            // Check for replay attack
-            if (isJtiUsed(jti)) {
-                log.warn("DPoP replay attack detected: jti={}", jti);
-                return DPoPValidationResult.failure("Proof already used (replay detected)");
+            } catch (Exception e) {
+                return DPoPValidationResult.invalid("Invalid DPoP proof signature");
             }
 
             // Validate htm (HTTP method)
             String htm = claims.get("htm", String.class);
-            if (!httpMethod.equalsIgnoreCase(htm)) {
-                return DPoPValidationResult.failure("HTTP method mismatch: expected " + httpMethod + ", got " + htm);
+            if (htm == null || !htm.equalsIgnoreCase(httpMethod)) {
+                return DPoPValidationResult.invalid("Invalid htm claim");
             }
 
-            // Validate htu (HTTP URI)
+            // Validate htu (HTTP URI) - normalize both for comparison
             String htu = claims.get("htu", String.class);
-            if (!isUriMatch(httpUri, htu)) {
-                log.warn("DPoP URI mismatch - backend sees: {}, proof has: {}", httpUri, htu);
-                return DPoPValidationResult.failure("HTTP URI mismatch");
+            if (htu == null || !normalizeUri(htu).equals(normalizeUri(httpUri))) {
+                return DPoPValidationResult.invalid("Invalid htu claim");
             }
 
-            // Validate iat (issued at)
+            // Validate iat (issued at) - must be recent (within 60 seconds)
             Date iat = claims.getIssuedAt();
             if (iat == null) {
-                return DPoPValidationResult.failure("Missing iat claim");
+                return DPoPValidationResult.invalid("Missing iat claim");
             }
-
             long now = System.currentTimeMillis();
-            long iatTime = iat.getTime();
-
-            // Check if proof is too old
-            if (now - iatTime > MAX_PROOF_AGE_MS) {
-                return DPoPValidationResult.failure("Proof too old");
+            long iatMillis = iat.getTime();
+            if (Math.abs(now - iatMillis) > 60000) { // 60 seconds tolerance
+                return DPoPValidationResult.invalid("iat too old or in future");
             }
 
-            // Check if proof is from the future (with clock skew tolerance)
-            if (iatTime - now > CLOCK_SKEW_MS) {
-                return DPoPValidationResult.failure("Proof issued in the future");
+            // Validate jti (unique identifier)
+            String jti = claims.getId();
+            if (jti == null || jti.isEmpty()) {
+                return DPoPValidationResult.invalid("Missing jti claim");
             }
 
             // Validate ath (access token hash) if access token provided
             if (accessToken != null) {
                 String ath = claims.get("ath", String.class);
                 if (ath == null) {
-                    return DPoPValidationResult.failure("Missing ath claim for protected resource");
+                    return DPoPValidationResult.invalid("Missing ath claim for DPoP-bound token");
                 }
-
                 String expectedAth = calculateAccessTokenHash(accessToken);
                 if (!expectedAth.equals(ath)) {
-                    return DPoPValidationResult.failure("Access token hash mismatch");
-                }
-
-                // Verify token is bound to this thumbprint
-                String boundThumbprint = tokenBindings.get(accessToken);
-                if (boundThumbprint != null && !boundThumbprint.equals(thumbprint)) {
-                    log.warn("DPoP binding mismatch: token bound to {} but proof from {}",
-                            "..." + boundThumbprint.substring(boundThumbprint.length() - 3),
-                            "..." + thumbprint.substring(thumbprint.length() - 3));
-                    return DPoPValidationResult.failure("Token not bound to this key");
+                    return DPoPValidationResult.invalid("Invalid ath claim");
                 }
             }
 
-            // Mark JTI as used
-            markJtiUsed(jti);
-
-            String maskedThumbprint;
-            if (thumbprint == null || thumbprint.length() <= 5) {
-                maskedThumbprint = thumbprint;
-            } else {
-                maskedThumbprint = "..." + thumbprint.substring(thumbprint.length() - 5);
-            }
-            log.debug("DPoP proof validated successfully: thumbprint={}", maskedThumbprint);
-
-            return DPoPValidationResult.success(thumbprint, jwk);
+            // Return the thumbprint for binding verification
+            String sessionThumbprint = calculateJwkThumbprint(sessionJwk);
+            return DPoPValidationResult.valid(sessionThumbprint);
 
         } catch (Exception e) {
-            log.error("DPoP validation error: {}", e.getMessage());
-            return DPoPValidationResult.failure("Validation error: " + e.getMessage());
+            log.warn("DPoP proof validation error", e);
+            return DPoPValidationResult.invalid("Invalid DPoP proof: " + e.getMessage());
         }
     }
 
     /**
-     * Bind an access token to a JWK thumbprint.
-     * Called when issuing a token with DPoP.
-     */
-    public void bindTokenToThumbprint(String accessToken, String thumbprint) {
-        tokenBindings.put(accessToken, thumbprint);
-        String displayThumbprint;
-        if (thumbprint == null) {
-            displayThumbprint = "null";
-        } else if (thumbprint.isEmpty()) {
-            displayThumbprint = "***";
-        } else if (thumbprint.length() <= 5) {
-            displayThumbprint = "..." + thumbprint;
-        } else {
-            displayThumbprint = "..." + thumbprint.substring(thumbprint.length() - 5);
-        }
-        log.debug("Bound token to thumbprint: {}", displayThumbprint);
-    }
-
-    /**
-     * Check if an access token is bound to a specific thumbprint.
-     */
-    public boolean isTokenBoundTo(String accessToken, String thumbprint) {
-        String bound = tokenBindings.get(accessToken);
-        return bound != null && bound.equals(thumbprint);
-    }
-
-    /**
-     * Revoke a token binding (e.g., on logout).
-     */
-    public void revokeTokenBinding(String accessToken) {
-        tokenBindings.remove(accessToken);
-    }
-
-    /**
-     * Get the thumbprint bound to a token.
-     */
-    public String getBoundThumbprint(String accessToken) {
-        return tokenBindings.get(accessToken);
-    }
-
-    /**
-     * Calculate SHA-256 hash of access token (base64url encoded).
+     * Calculate SHA-256 hash of access token (base64url encoded) per RFC 9449.
      */
     private String calculateAccessTokenHash(String accessToken) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(accessToken.getBytes(StandardCharsets.US_ASCII));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(accessToken.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
         }
     }
 
     /**
-     * Calculate JWK thumbprint per RFC 7638.
+     * Normalize URI for comparison (remove query string and fragment).
+     */
+    private String normalizeUri(String uri) {
+        try {
+            java.net.URI parsed = new java.net.URI(uri);
+            return parsed.getScheme() + "://" + parsed.getHost() + parsed.getPath();
+        } catch (Exception e) {
+            return uri;
+        }
+    }
+
+    /**
+     * Calculate JWK thumbprint per RFC 7638 using Jackson ObjectMapper.
      */
     private String calculateJwkThumbprint(Map<String, Object> jwk) {
         try {
-            // Build canonical JSON (sorted keys)
             String kty = (String) jwk.get("kty");
-            StringBuilder json = new StringBuilder();
+            ObjectNode json = objectMapper.createObjectNode();
 
             if ("RSA".equals(kty)) {
-                json.append("{\"e\":\"").append(jwk.get("e")).append("\",");
-                json.append("\"kty\":\"RSA\",");
-                json.append("\"n\":\"").append(jwk.get("n")).append("\"}");
+                json.put("e", (String) jwk.get("e"));
+                json.put("kty", "RSA");
+                json.put("n", (String) jwk.get("n"));
             } else if ("EC".equals(kty)) {
-                json.append("{\"crv\":\"").append(jwk.get("crv")).append("\",");
-                json.append("\"kty\":\"EC\",");
-                json.append("\"x\":\"").append(jwk.get("x")).append("\",");
-                json.append("\"y\":\"").append(jwk.get("y")).append("\"}");
+                json.put("crv", (String) jwk.get("crv"));
+                json.put("kty", "EC");
+                json.put("x", (String) jwk.get("x"));
+                json.put("y", (String) jwk.get("y"));
             } else {
                 throw new IllegalArgumentException("Unsupported key type: " + kty);
             }
 
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(json.toString().getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            // Convert to JSON string with sorted keys for canonical form
+            String jsonString = objectMapper.writeValueAsString(json);
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(jsonString.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate JWK thumbprint", e);
         }
     }
-
-    /**
-     * Convert JWK to PublicKey.
-     */
-    private PublicKey jwkToPublicKey(Map<String, Object> jwk) {
-        try {
-            String kty = (String) jwk.get("kty");
-
-            if ("RSA".equals(kty)) {
-                String n = (String) jwk.get("n");
-                String e = (String) jwk.get("e");
-
-                byte[] nBytes = Base64.getUrlDecoder().decode(n);
-                byte[] eBytes = Base64.getUrlDecoder().decode(e);
-
-                BigInteger modulus = new BigInteger(1, nBytes);
-                BigInteger exponent = new BigInteger(1, eBytes);
-
-                RSAPublicKeySpec spec = new RSAPublicKeySpec(modulus, exponent);
-                KeyFactory kf = KeyFactory.getInstance("RSA");
-                return kf.generatePublic(spec);
-            } else if ("EC".equals(kty)) {
-                String crv = (String) jwk.get("crv");
-                String x = (String) jwk.get("x");
-                String y = (String) jwk.get("y");
-
-                byte[] xBytes = Base64.getUrlDecoder().decode(x);
-                byte[] yBytes = Base64.getUrlDecoder().decode(y);
-
-                ECPoint point = new ECPoint(
-                        new java.math.BigInteger(1, xBytes),
-                        new java.math.BigInteger(1, yBytes)
-                );
-
-                String stdCurveName = switch (crv) {
-                    case "P-256" -> "secp256r1";
-                    case "P-384" -> "secp384r1";
-                    case "P-521" -> "secp521r1";
-                    default -> throw new IllegalArgumentException("Unsupported curve: " + crv);
-                };
-
-                AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
-                parameters.init(new ECGenParameterSpec(stdCurveName));
-                ECParameterSpec ecParams = parameters.getParameterSpec(ECParameterSpec.class);
-
-                ECPublicKeySpec pubSpec = new ECPublicKeySpec(point, ecParams);
-                KeyFactory kf = KeyFactory.getInstance("EC");
-                return kf.generatePublic(pubSpec);
-            }
-
-            return null;
-        } catch (Exception e) {
-            log.error("Failed to convert JWK to PublicKey: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Normalize URI for comparison.
-     */
-    private String normalizeUri(String uri) {
-        if (uri == null) return "";
-        // Remove query string and fragment
-        int queryIdx = uri.indexOf('?');
-        if (queryIdx > 0) {
-            uri = uri.substring(0, queryIdx);
-        }
-        int fragIdx = uri.indexOf('#');
-        if (fragIdx > 0) {
-            uri = uri.substring(0, fragIdx);
-        }
-        // Ensure no trailing slash (but do not reduce a single "/" to empty)
-        int end = uri.length();
-        while (end > 1 && uri.charAt(end - 1) == '/') {
-            end--;
-        }
-
-        if (end < uri.length()) {
-            uri = uri.substring(0, end);
-        }
-
-        return uri.toLowerCase();
-    }
-
-    /**
-     * Check if two URIs match, with support for reverse proxy scenarios.
-     * <p>
-     * In a reverse proxy setup, the backend might see a different host/scheme
-     * than what the client used. This method:
-     * 1. First tries exact match (after normalization)
-     * 2. If that fails, compares just the path component
-     * <p>
-     * This is a pragmatic tradeoff for deployments behind reverse proxies.
-     *
-     * @param backendUri the URI as seen by the backend
-     * @param proofUri the URI from the DPoP proof (client's view)
-     * @return true if URIs match
-     */
-    private boolean isUriMatch(String backendUri, String proofUri) {
-        String normalizedBackend = normalizeUri(backendUri);
-        String normalizedProof = normalizeUri(proofUri);
-
-        // Exact match
-        if (normalizedBackend.equals(normalizedProof)) {
-            return true;
-        }
-
-        // Path-only match for reverse proxy scenarios
-        String backendPath = extractPath(normalizedBackend);
-        String proofPath = extractPath(normalizedProof);
-
-        if (backendPath.equals(proofPath)) {
-            log.debug("DPoP URI matched by path only (reverse proxy): {} vs {}", backendUri, proofUri);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Extract path component from a URI.
-     */
-    private String extractPath(String uri) {
-        if (uri == null || uri.isEmpty()) return "";
-
-        // Remove scheme (http:// or https://)
-        int schemeEnd = uri.indexOf("://");
-        if (schemeEnd > 0) {
-            uri = uri.substring(schemeEnd + 3);
-        }
-
-        // Remove host and port
-        int pathStart = uri.indexOf('/');
-        if (pathStart > 0) {
-            return uri.substring(pathStart);
-        }
-
-        return "/";
-    }
-
-    /**
-     * Parse JSON string to map (simple implementation).
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseJson(String json) throws Exception {
-        // Use a simple JSON parser approach
-        // In production, you'd use Jackson or Gson
-
-        JsonMapper mapper = JsonMapper.builder().build();
-        return mapper.readValue(json, Map.class);
-    }
-
-    /**
-     * Check if a JTI has been used (replay detection).
-     */
-    private boolean isJtiUsed(String jti) {
-        Long expiry = usedJtis.get(jti);
-        if (expiry == null) {
-            return false;
-        }
-        // Check if still within replay window
-        return System.currentTimeMillis() < expiry;
-    }
-
-    /**
-     * Mark a JTI as used.
-     */
-    private void markJtiUsed(String jti) {
-        // Store with expiry = now + max proof age + some buffer
-        long expiry = System.currentTimeMillis() + MAX_PROOF_AGE_MS + CLOCK_SKEW_MS;
-        usedJtis.put(jti, expiry);
-    }
-
-    /**
-     * Cleanup expired JTIs periodically.
-     */
-    private void cleanupExpiredJtis() {
-        while (running && !Thread.currentThread().isInterrupted()) {
-            try {
-                TimeUnit.MINUTES.sleep(5);
-                long now = System.currentTimeMillis();
-                usedJtis.entrySet().removeIf(entry -> entry.getValue() < now);
-
-                // Also cleanup old token bindings (tokens older than 1 day)
-                // In production, you'd want to track actual token expiry
-                log.debug("DPoP cleanup: {} JTIs, {} token bindings", usedJtis.size(), tokenBindings.size());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.debug("DPoP cleanup thread interrupted, shutting down.");
-                break;
-            }
-        }
-    }
-
-    /**
-     * Result of DPoP validation.
-     */
-    public record DPoPValidationResult(
-            boolean valid,
-            String error,
-            String thumbprint,
-            Map<String, Object> jwk
-    ) {
-        public static DPoPValidationResult success(String thumbprint, Map<String, Object> jwk) {
-            return new DPoPValidationResult(true, null, thumbprint, jwk);
-        }
-
-        public static DPoPValidationResult failure(String error) {
-            return new DPoPValidationResult(false, error, null, null);
-        }
-    }
 }
-

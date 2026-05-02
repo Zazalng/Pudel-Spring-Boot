@@ -120,4 +120,3 @@ public class DiscordMessageParser {
         return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(content).find();
     }
 }
-
