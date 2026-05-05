@@ -23,15 +23,15 @@ import java.util.List;
 /**
  * Database manager for plugin data persistence.
  * <p>
- * Each plugin gets its own isolated database namespace with tables prefixed
- * by a unique identifier. Plugins interact with the database through a
- * JPA-like repository pattern - no raw SQL is allowed.
+ * Each plugin gets its own isolated database schema for data isolation.
+ * Plugins interact with the database through a JPA-like repository pattern -
+ * no raw SQL is allowed.
  * <p>
  * Example usage:
  * <pre>
  * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
- *     private PluginRepository&lt;MyEntity&gt; repository;
+ *     private PluginRepository<MyEntity> repository;
  *
  *     @OnEnable
  *     public void onEnable(PluginContext context) {
@@ -58,14 +58,14 @@ import java.util.List;
 public interface PluginDatabaseManager {
 
     /**
-     * Get the unique database prefix assigned to this plugin.
+     * Get the database schema name assigned to this plugin.
      * <p>
-     * All tables created by this plugin will be prefixed with this value.
-     * Format: "p_{pluginId}_"
+     * All tables created by this plugin will be created in this schema.
+     * Format: "plugin_{pluginId}" (e.g., "plugin_myplugin")
      *
-     * @return the plugin's database prefix
+     * @return the plugin's database schema name
      */
-    String getPrefix();
+    String getSchemaName();
 
     /**
      * Get the plugin ID this manager belongs to.
@@ -171,7 +171,7 @@ public interface PluginDatabaseManager {
      */
     record DatabaseStats(
             String pluginId,
-            String prefix,
+            String schemaName,
             int tableCount,
             long totalRows,
             int schemaVersion

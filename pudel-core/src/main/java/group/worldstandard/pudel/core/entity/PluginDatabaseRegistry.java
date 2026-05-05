@@ -42,9 +42,18 @@ public class PluginDatabaseRegistry {
     /**
      * The unique database prefix assigned to this plugin.
      * Format: "p_{shortUuid}_" (e.g., "p_a1b2c3d4_")
+     * @deprecated Use schemaName for schema-based isolation. Prefix is kept for backward compatibility.
      */
     @Column(name = "db_prefix", nullable = false, unique = true, length = 50)
     private String dbPrefix;
+
+    /**
+     * The database schema assigned to this plugin.
+     * Format: "plugin_{pluginId}" (e.g., "plugin_myplugin")
+     * Plugin tables are created in this schema for isolation.
+     */
+    @Column(name = "schema_name", unique = true, length = 100)
+    private String schemaName;
 
     /**
      * The plugin version when first registered.
@@ -117,6 +126,14 @@ public class PluginDatabaseRegistry {
 
     public void setDbPrefix(String dbPrefix) {
         this.dbPrefix = dbPrefix;
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public void setSchemaName(String schemaName) {
+        this.schemaName = schemaName;
     }
 
     public String getInitialVersion() {

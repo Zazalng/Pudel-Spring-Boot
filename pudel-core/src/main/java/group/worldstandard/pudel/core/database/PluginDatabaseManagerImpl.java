@@ -24,7 +24,6 @@ import group.worldstandard.pudel.core.repository.PluginDatabaseRegistryRepositor
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link PluginDatabaseManager} that provides database management
@@ -43,7 +42,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(PluginDatabaseManagerImpl.class);
 
     private final String pluginId;
-    private final String prefix;
+    private final String schemaName;
     private final PluginDatabaseRegistry registry;
     private final PluginDatabaseRegistryRepository registryRepository;
     private final JdbcTemplate jdbcTemplate;
@@ -67,29 +66,19 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      * Constructs a new PluginDatabaseManagerImpl with the specified configuration.
      *
      * @param pluginId the unique identifier of the plugin
-     * @param prefix the database table prefix for this plugin
+     * @param schemaName the database schema name for this plugin (e.g., "plugin_myplugin")
      * @param registry the plugin database registry entry containing metadata
      * @param registryRepository the repository for accessing plugin database registry data
      * @param jdbcTemplate the JDBC template for executing database operations
      */
-    public PluginDatabaseManagerImpl(String pluginId, String prefix, PluginDatabaseRegistry registry,
+    public PluginDatabaseManagerImpl(String pluginId, String schemaName, PluginDatabaseRegistry registry,
                                      PluginDatabaseRegistryRepository registryRepository,
                                      JdbcTemplate jdbcTemplate) {
         this.pluginId = pluginId;
-        this.prefix = prefix;
+        this.schemaName = schemaName;
         this.registry = registry;
         this.registryRepository = registryRepository;
         this.jdbcTemplate = jdbcTemplate;
-    }
-
-    /**
-     * Returns the database table prefix associated with this plugin.
-     *
-     * @return the prefix string used for database tables managed by this plugin
-     */
-    @Override
-    public String getPrefix() {
-        return prefix;
     }
 
     /**
@@ -103,8 +92,105 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     }
 
     /**
+     * Migrates existing tables from public schema to this plugin's schema.
+     * This handles the migration from the old prefix-based system (tables in public schema)
+     * to the new schema-based system.
+     *
+     * @return number of tables migrated
+     */
+    public int migrateTablesFromPublicSchema() {
+        int migratedCount = 0;
+
+        try {
+            // Ensure plugin schema exists
+            ensureSchemaExists();
+
+            // Find tables in public schema that belong to this plugin
+            // Old pattern was: p_{uuid}_{tableName} in public schema
+            String findTablesSql = """
+                SELECT tablename FROM pg_tables
+                WHERE schemaname = 'public'
+                AND tablename LIKE ?
+                """;
+
+            // The old prefix was something like "p_xxxx_" - we need to find tables that might belong to this plugin
+            // Since we don't have the old prefix readily available, we'll check the registry
+            String oldPrefix = registry.getDbPrefix();
+            if (oldPrefix == null || oldPrefix.isEmpty()) {
+                logger.debug("No old prefix found for plugin {}, skipping migration", pluginId);
+                return 0;
+            }
+
+            List<String> oldTables = jdbcTemplate.queryForList(
+                findTablesSql, String.class, oldPrefix + "%");
+
+            for (String oldTableName : oldTables) {
+                // Extract the actual table name (remove the prefix)
+                String newTableName = oldTableName.substring(oldPrefix.length());
+                String newFullTableName = getFullTableName(newTableName);
+
+                try {
+                    // Move table from public schema to plugin schema with new name
+                    String renameSql = String.format(
+                        "ALTER TABLE public.%s RENAME TO %s",
+                        oldTableName, newFullTableName
+                    );
+                    jdbcTemplate.execute(renameSql);
+                    migratedCount++;
+                    logger.info("Migrated table public.{} to {}", oldTableName, newFullTableName);
+                } catch (Exception e) {
+                    logger.error("Failed to migrate table {}: {}", oldTableName, e.getMessage());
+                }
+            }
+
+            if (migratedCount > 0) {
+                logger.info("Successfully migrated {} tables to schema {} for plugin {}",
+                    migratedCount, schemaName, pluginId);
+            }
+
+        } catch (Exception e) {
+            logger.error("Error during table migration for plugin {}: {}", pluginId, e.getMessage(), e);
+        }
+
+        return migratedCount;
+    }
+
+    /**
+     * Ensures the plugin's database schema exists.
+     * If the schema doesn't exist, it will be created.
+     */
+    private void ensureSchemaExists() {
+        try {
+            // Check if schema exists
+            Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = ?",
+                Integer.class,
+                schemaName
+            );
+
+            if (exists != null && exists == 0) {
+                jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+                logger.info("Created schema: {}", schemaName);
+            }
+        } catch (Exception e) {
+            logger.error("Error ensuring schema {} exists: {}", schemaName, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Returns the database schema name associated with this plugin.
+     *
+     * @return the schema name (e.g., "plugin_myplugin")
+     */
+    @Override
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+
+    /**
      * Creates a new database table based on the provided schema definition.
-     * The table name will be prefixed with the plugin-specific prefix.
+     * The table will be created in the plugin's schema (e.g., "plugin_myplugin.tablename").
      * The table will include an auto-incrementing primary key column named 'id',
      * and additional columns as defined in the schema.
      * Timestamp columns 'created_at' and 'updated_at' are automatically added.
@@ -116,15 +202,18 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     @Override
     @Transactional
     public boolean createTable(TableSchema schema) {
-        String fullTableName = prefix + schema.getTableName();
+        // Ensure plugin schema exists before creating table
+        ensureSchemaExists();
 
-        // Check if table already exists
-        if (tableExistsInternal(fullTableName)) {
-            logger.debug("Table {} already exists for plugin {}", fullTableName, pluginId);
+        String fullTableName = getFullTableName(schema.getTableName());
+
+        // Check if table already exists in the plugin's schema
+        if (tableExistsInternal(schema.getTableName())) {
+            logger.debug("Table {} already exists for plugin {} in schema {}", schema.getTableName(), pluginId, schemaName);
             return false;
         }
 
-        // Build CREATE TABLE SQL
+        // Build CREATE TABLE SQL with schema qualification
         StringBuilder sql = new StringBuilder();
         sql.append("CREATE TABLE ").append(fullTableName).append(" (\n");
         sql.append("    id BIGSERIAL PRIMARY KEY,\n");
@@ -148,7 +237,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
         sql.append(")");
 
         jdbcTemplate.execute(sql.toString());
-        logger.info("Created table {} for plugin {}", fullTableName, pluginId);
+        logger.info("Created table {} for plugin {} in schema {}", schema.getTableName(), pluginId, schemaName);
 
         // Create indexes
         for (TableSchema.IndexDefinition idx : schema.getIndexes()) {
@@ -159,51 +248,49 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     }
 
     /**
-     * Checks if a table with the specified name exists in the database.
-     * The table name is prefixed with the plugin-specific prefix before checking.
+     * Checks if a table with the specified name exists in the plugin's schema.
      *
-     * @param tableName the name of the table to check for existence
+     * @param tableName the name of the table to check for existence (without schema prefix)
      * @return true if the table exists, false otherwise
      */
     @Override
     public boolean tableExists(String tableName) {
-        return tableExistsInternal(prefix + tableName);
+        return tableExistsInternal(tableName);
     }
 
     /**
-     * Checks if a table with the specified full table name exists in the database.
+     * Checks if a table with the specified name exists in the plugin's schema.
      * This method performs a case-insensitive check by converting the table name to lowercase.
      *
-     * @param fullTableName the fully qualified name of the table to check for existence
+     * @param tableName the name of the table to check for existence (without schema prefix)
      * @return true if the table exists, false otherwise
      */
-    private boolean tableExistsInternal(String fullTableName) {
-        String sql = "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = ?)";
-        Boolean exists = jdbcTemplate.queryForObject(sql, Boolean.class, fullTableName.toLowerCase());
+    private boolean tableExistsInternal(String tableName) {
+        String sql = "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = ? AND tablename = ?)";
+        Boolean exists = jdbcTemplate.queryForObject(sql, Boolean.class, schemaName, tableName.toLowerCase());
         return Boolean.TRUE.equals(exists);
     }
 
     /**
-     * Drops the specified database table if it exists.
-     * The table name will be prefixed with the plugin-specific prefix before dropping.
+     * Drops the specified database table if it exists in the plugin's schema.
      * If the table does not exist, this method returns false.
      * If the table exists and is successfully dropped, this method returns true.
      *
-     * @param tableName the name of the table to drop (without prefix)
+     * @param tableName the name of the table to drop (without schema prefix)
      * @return true if the table was successfully dropped, false if the table did not exist
      */
     @Override
     @Transactional
     public boolean dropTable(String tableName) {
-        String fullTableName = prefix + tableName;
+        String fullTableName = getFullTableName(tableName);
 
-        if (!tableExistsInternal(fullTableName)) {
+        if (!tableExistsInternal(tableName)) {
             return false;
         }
 
         jdbcTemplate.execute("DROP TABLE IF EXISTS " + fullTableName + " CASCADE");
         repositories.remove(tableName);
-        logger.info("Dropped table {} for plugin {}", fullTableName, pluginId);
+        logger.info("Dropped table {} for plugin {} in schema {}", tableName, pluginId, schemaName);
         return true;
     }
 
@@ -212,7 +299,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      * If a repository for the given table name already exists, it is returned.
      * Otherwise, a new repository is created and stored for future use.
      *
-     * @param tableName the name of the database table associated with the repository
+     * @param tableName the name of the database table associated with the repository (without schema prefix)
      * @param entityClass the class type of the entities managed by the repository
      * @return a typed PluginRepository instance for the specified table and entity class
      */
@@ -234,7 +321,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     @Override
     public PluginKeyValueStore getKeyValueStore() {
         if (keyValueStore == null) {
-            // Ensure KV table exists
+            // Ensure KV table exists in plugin schema
             ensureKeyValueTable();
             keyValueStore = new PluginKeyValueStoreImpl(this, jdbcTemplate);
         }
@@ -242,8 +329,8 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     }
 
     /**
-     * Ensures that the key-value store table exists in the database.
-     * The table name is constructed by appending "kv_store" to the plugin-specific prefix.
+     * Ensures that the key-value store table exists in the plugin's schema.
+     * The table name is "kv_store" and will be created in the plugin's schema.
      * If the table does not exist, it creates a new table with the following columns:
      * - key: VARCHAR(500) PRIMARY KEY
      * - value: TEXT
@@ -252,8 +339,8 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      * This method is typically called during initialization to guarantee the presence of the key-value storage table.
      */
     private void ensureKeyValueTable() {
-        String fullTableName = prefix + "kv_store";
-        if (!tableExistsInternal(fullTableName)) {
+        String fullTableName = getFullTableName("kv_store");
+        if (!tableExistsInternal("kv_store")) {
             String sql = "CREATE TABLE " + fullTableName + " (\n" +
                     "    key VARCHAR(500) PRIMARY KEY,\n" +
                     "    value TEXT,\n" +
@@ -261,23 +348,20 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
                     "    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n" +
                     ")";
             jdbcTemplate.execute(sql);
-            logger.info("Created key-value store table for plugin {}", pluginId);
+            logger.info("Created key-value store table for plugin {} in schema {}", pluginId, schemaName);
         }
     }
 
     /**
-     * Retrieves a list of all tables in the database that match the plugin's table prefix.
-     * The returned table names are stripped of the plugin-specific prefix.
+     * Retrieves a list of all tables in the plugin's schema.
+     * The returned table names are without the schema prefix.
      *
-     * @return a list of table names without the plugin prefix
+     * @return a list of table names without the schema prefix
      */
     @Override
     public List<String> listTables() {
-        String sql = "SELECT tablename FROM pg_tables WHERE tablename LIKE ?";
-        List<String> tables = jdbcTemplate.queryForList(sql, String.class, prefix + "%");
-        return tables.stream()
-                .map(t -> t.substring(prefix.length()))
-                .collect(Collectors.toList());
+        String sql = "SELECT tablename FROM pg_tables WHERE schemaname = ?";
+        return jdbcTemplate.queryForList(sql, String.class, schemaName);
     }
 
     /**
@@ -342,7 +426,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
 
     /**
      * Retrieves statistics about the plugin's database usage.
-     * This includes the plugin ID, table prefix, number of tables,
+     * This includes the plugin ID, schema name, number of tables,
      * total row count across all tables, and the current schema version.
      *
      * @return a DatabaseStats object containing the database statistics
@@ -355,7 +439,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
         for (String table : tables) {
             try {
                 Long count = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM " + prefix + table, Long.class);
+                        "SELECT COUNT(*) FROM " + getFullTableName(table), Long.class);
                 totalRows += (count != null ? count : 0);
             } catch (Exception e) {
                 logger.debug("Could not count rows in {}: {}", table, e.getMessage());
@@ -364,7 +448,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
 
         return new DatabaseStats(
                 pluginId,
-                prefix,
+                schemaName,
                 tables.size(),
                 totalRows,
                 getSchemaVersion()
@@ -372,13 +456,14 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     }
 
     /**
-     * Returns the full table name by prepending the plugin-specific prefix to the given table name.
+     * Returns the full table name by prepending the plugin schema name.
+     * Format: "schema_name.table_name" (e.g., "plugin_myplugin.settings")
      *
-     * @param tableName the name of the table to which the prefix will be added
-     * @return the full table name including the plugin-specific prefix
+     * @param tableName the name of the table
+     * @return the full table name with schema
      */
     String getFullTableName(String tableName) {
-        return prefix + tableName;
+        return schemaName + "." + tableName;
     }
 
     /**

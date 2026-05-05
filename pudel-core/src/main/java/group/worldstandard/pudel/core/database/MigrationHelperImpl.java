@@ -55,7 +55,7 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
      * Adds a new column to an existing table in the database.
      * The column is added only if it does not already exist.
      *
-     * @param tableName  the name of the table to which the column will be added
+     * @param tableName  the name of the table to which the column will be added (without schema prefix)
      * @param columnName the name of the new column
      * @param type       the data type of the new column
      * @param size       the size of the column, applicable for types like STRING and DECIMAL; can be null if not applicable
@@ -70,7 +70,7 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
      * Adds a new column to an existing table in the database.
      * The column is added only if it does not already exist.
      *
-     * @param tableName   the name of the table to which the column will be added
+     * @param tableName   the name of the table to which the column will be added (without schema prefix)
      * @param columnName  the name of the new column
      * @param type        the data type of the new column
      * @param size        the size of the column, applicable for types like STRING and DECIMAL; can be null if not applicable
@@ -148,7 +148,7 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
      * Creates an index on the specified table for the given columns.
      * If the index already exists, this method does nothing.
      *
-     * @param tableName the name of the table on which to create the index
+     * @param tableName the name of the table on which to create the index (without schema prefix)
      * @param unique    true if the index should enforce uniqueness, false otherwise
      * @param columns   the names of the columns to include in the index
      */
@@ -167,7 +167,7 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
     @Override
     public void dropIndex(String tableName, String... columns) {
         String fullTableName = dbManager.getFullTableName(tableName);
-        String indexName = "idx_" + fullTableName + "_" + String.join("_", columns);
+        String indexName = "idx_" + fullTableName.replace(".", "_") + "_" + String.join("_", columns);
         String sql = "DROP INDEX IF EXISTS " + indexName;
         jdbcTemplate.execute(sql);
         logger.debug("Dropped index {} from table {}", indexName, fullTableName);
@@ -176,14 +176,14 @@ public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
     /**
      * Renames a database table from its current name to a new name.
      *
-     * @param oldName the current name of the table to be renamed
-     * @param newName the new name for the table
+     * @param oldName the current name of the table to be renamed (without schema prefix)
+     * @param newName the new name for the table (without schema prefix)
      */
     @Override
     public void renameTable(String oldName, String newName) {
         String fullOldName = dbManager.getFullTableName(oldName);
         String fullNewName = dbManager.getFullTableName(newName);
-        String sql = "ALTER TABLE " + fullOldName + " RENAME TO " + fullNewName;
+        String sql = "ALTER TABLE " + fullOldName + " RENAME TO " + newName;
         jdbcTemplate.execute(sql);
         logger.debug("Renamed table {} to {}", fullOldName, fullNewName);
     }

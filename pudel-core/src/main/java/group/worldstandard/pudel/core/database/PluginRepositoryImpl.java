@@ -76,7 +76,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
      * Initializes internal components including row mappers, field mappings, and named parameter JDBC templates.
      *
      * @param dbManager     the database manager used to manage database interactions and table naming conventions
-     * @param tableName     the name of the database table associated with this repository
+     * @param tableName     the name of the database table associated with this repository (without schema prefix)
      * @param entityClass   the class type of the entities managed by this repository
      * @param jdbcTemplate  the JDBC template used for executing SQL queries and updates
      */
