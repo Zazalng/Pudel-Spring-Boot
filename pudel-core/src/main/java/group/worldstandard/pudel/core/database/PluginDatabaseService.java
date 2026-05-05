@@ -107,11 +107,14 @@ public class PluginDatabaseService {
         PluginDatabaseRegistry registry = registryRepository.findByPluginId(normalizedId)
                 .orElseGet(() -> createRegistryEntry(normalizedId, pluginVersion));
 
+        // Derive schema name from dbPrefix
+        String schemaName = registry.deriveSchemaName();
+
         // Ensure plugin schema exists
-        ensurePluginSchema(registry);
+        ensurePluginSchema(schemaName);
 
         // Log the schema being used - helps debug issues
-        logger.info("Plugin {} using database schema: {}", normalizedId, registry.getSchemaName());
+        logger.info("Plugin {} using database schema: {}", normalizedId, schemaName);
 
         // Update version if changed
         if (!Objects.equals(registry.getCurrentVersion(), pluginVersion)) {
@@ -123,14 +126,22 @@ public class PluginDatabaseService {
         // Create manager instance with schema-based isolation
         PluginDatabaseManagerImpl manager = new PluginDatabaseManagerImpl(
                 normalizedId,
-                registry.getSchemaName(),
+                schemaName,
                 registry,
                 registryRepository,
                 jdbcTemplate
         );
 
+        // Migrate any existing tables from public schema to plugin schema
+        // This handles the transition from prefix-based to schema-based isolation
+        int migratedTables = manager.migrateTablesFromPublicSchema();
+        if (migratedTables > 0) {
+            logger.info("Migrated {} existing tables for plugin {} to schema {}",
+                migratedTables, normalizedId, schemaName);
+        }
+
         managerCache.put(normalizedId, manager);
-        logger.debug("Created database manager for plugin {} with schema {}", normalizedId, registry.getSchemaName());
+        logger.debug("Created database manager for plugin {} with schema {}", normalizedId, schemaName);
 
         return manager;
     }
@@ -177,13 +188,12 @@ public class PluginDatabaseService {
         PluginDatabaseRegistry registry = new PluginDatabaseRegistry();
         registry.setPluginId(pluginId);
 
-        // Generate schema name (schema-based isolation)
-        String schemaName = "plugin_" + normalizeSchemaName(pluginId);
-        registry.setSchemaName(schemaName);
-
-        // Keep prefix for backward compatibility (will be used as fallback)
+        // Generate unique prefix (this is already a sanitized identifier)
         String prefix = generateUniquePrefix(pluginId);
         registry.setDbPrefix(prefix);
+
+        // Schema name is derived from dbPrefix via deriveSchemaName()
+        // No need to store it separately
 
         registry.setInitialVersion(pluginVersion);
         registry.setCurrentVersion(pluginVersion);
@@ -191,63 +201,23 @@ public class PluginDatabaseService {
         registry.setEnabled(true);
 
         registry = registryRepository.save(registry);
-        logger.info("Registered new plugin database: {} with schema {}", pluginId, schemaName);
 
         // Create the schema in the database
+        String schemaName = registry.deriveSchemaName();
         createSchemaIfNotExists(schemaName);
+
+        logger.info("Registered new plugin database: {} with schema {}", pluginId, schemaName);
 
         return registry;
     }
 
-    /**
-     * Normalize a plugin ID for use in schema names.
-     * Schema names must be valid PostgreSQL identifiers.
-     *
-     * @param pluginId the plugin ID
-     * @return normalized schema name component
-     */
-    private String normalizeSchemaName(String pluginId) {
-        if (pluginId == null) {
-            return "unknown";
-        }
-
-        // Convert to lowercase and replace invalid characters with underscores
-        String normalized = pluginId.toLowerCase()
-                .replaceAll("[^a-z0-9_]", "_")
-                .replaceAll("_+", "_")
-                .replaceAll("^_|_$", "");
-
-        // Ensure it's not empty and doesn't start with a number
-        if (normalized.isEmpty()) {
-            normalized = "plugin";
-        }
-        if (normalized.matches("^[0-9].*")) {
-            normalized = "p_" + normalized;
-        }
-
-        // Limit length to avoid issues
-        if (normalized.length() > 50) {
-            normalized = normalized.substring(0, 50);
-        }
-
-        return normalized;
-    }
 
     /**
      * Ensure the plugin schema exists in the database.
      *
-     * @param registry the plugin database registry
+     * @param schemaName the schema name to ensure exists
      */
-    private void ensurePluginSchema(PluginDatabaseRegistry registry) {
-        String schemaName = registry.getSchemaName();
-
-        // If schema name is not set (old registry), create one
-        if (schemaName == null || schemaName.isEmpty()) {
-            schemaName = "plugin_" + normalizeSchemaName(registry.getPluginId());
-            registry.setSchemaName(schemaName);
-            registryRepository.save(registry);
-        }
-
+    private void ensurePluginSchema(String schemaName) {
         createSchemaIfNotExists(schemaName);
     }
 
@@ -279,6 +249,7 @@ public class PluginDatabaseService {
      * Format: "p_{shortId}_"
      * @deprecated Prefix is no longer used for table naming. Schemas are used instead.
      */
+    @Deprecated
     private String generateUniquePrefix(String pluginId) {
         // Generate a short unique ID
         String uuid = UUID.randomUUID().toString().replace("-", "");

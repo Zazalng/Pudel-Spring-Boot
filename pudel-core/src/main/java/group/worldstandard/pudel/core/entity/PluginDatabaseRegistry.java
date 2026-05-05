@@ -22,6 +22,7 @@ import java.time.Instant;
  * <p>
  * Each plugin gets a unique UUID-based prefix assigned on first installation.
  * This ensures isolation between plugins and allows version tracking.
+ * The schema name is derived from the dbPrefix (format: "plugin_{shortUuid}").
  */
 @jakarta.persistence.Entity
 @Table(name = "plugin_database_registry", indexes = {
@@ -42,18 +43,10 @@ public class PluginDatabaseRegistry {
     /**
      * The unique database prefix assigned to this plugin.
      * Format: "p_{shortUuid}_" (e.g., "p_a1b2c3d4_")
-     * @deprecated Use schemaName for schema-based isolation. Prefix is kept for backward compatibility.
+     * The schema name is derived from this prefix.
      */
     @Column(name = "db_prefix", nullable = false, unique = true, length = 50)
     private String dbPrefix;
-
-    /**
-     * The database schema assigned to this plugin.
-     * Format: "plugin_{pluginId}" (e.g., "plugin_myplugin")
-     * Plugin tables are created in this schema for isolation.
-     */
-    @Column(name = "schema_name", unique = true, length = 100)
-    private String schemaName;
 
     /**
      * The plugin version when first registered.
@@ -102,6 +95,20 @@ public class PluginDatabaseRegistry {
         updatedAt = Instant.now();
     }
 
+    /**
+     * Derives the schema name from the dbPrefix.
+     * dbPrefix format: "p_{shortUuid}_" -> schema: "plugin_{shortUuid}"
+     *
+     * @return the schema name for this plugin
+     */
+    public String deriveSchemaName() {
+        if (dbPrefix == null || dbPrefix.isEmpty()) {
+            return "plugin_unknown";
+        }
+        String shortUuid = dbPrefix.replaceAll("^p_", "").replaceAll("_$", "");
+        return "plugin_" + shortUuid;
+    }
+
     // Getters and Setters
 
     public Long getId() {
@@ -126,14 +133,6 @@ public class PluginDatabaseRegistry {
 
     public void setDbPrefix(String dbPrefix) {
         this.dbPrefix = dbPrefix;
-    }
-
-    public String getSchemaName() {
-        return schemaName;
-    }
-
-    public void setSchemaName(String schemaName) {
-        this.schemaName = schemaName;
     }
 
     public String getInitialVersion() {

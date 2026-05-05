@@ -339,6 +339,9 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      * This method is typically called during initialization to guarantee the presence of the key-value storage table.
      */
     private void ensureKeyValueTable() {
+        // Ensure plugin schema exists before creating table
+        ensureSchemaExists();
+
         String fullTableName = getFullTableName("kv_store");
         if (!tableExistsInternal("kv_store")) {
             String sql = "CREATE TABLE " + fullTableName + " (\n" +
