@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
  * All service classes should extend this to have protected access to JDA.
  */
 public abstract class BaseService {
-
     protected static final Logger logger = LoggerFactory.getLogger(BaseService.class);
 
     protected final JDA jda;
@@ -73,4 +72,3 @@ public abstract class BaseService {
         return jda;
     }
 }
-

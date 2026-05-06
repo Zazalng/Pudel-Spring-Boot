@@ -37,7 +37,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @Component
 public class PluginEventManager implements EventManager {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginEventManager.class);
 
     // Map of event class -> list of registered handlers
@@ -316,4 +315,3 @@ public class PluginEventManager implements EventManager {
         }
     }
 }
-

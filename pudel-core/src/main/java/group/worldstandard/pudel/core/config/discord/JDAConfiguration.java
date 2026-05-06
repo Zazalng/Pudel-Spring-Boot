@@ -16,7 +16,6 @@ package group.worldstandard.pudel.core.config.discord;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
 import group.worldstandard.pudel.api.PudelProperties;
-import jakarta.xml.bind.DatatypeConverter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
@@ -30,8 +29,6 @@ import org.springframework.context.annotation.Configuration;
 import group.worldstandard.pudel.core.discord.DiscordEventListener;
 import group.worldstandard.pudel.core.discord.GuildEventListener;
 import group.worldstandard.pudel.core.interaction.InteractionEventListener;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * Configuration for JDA Discord bot with DAVE support.
@@ -139,4 +136,3 @@ public class JDAConfiguration {
         }
     }
 }
-

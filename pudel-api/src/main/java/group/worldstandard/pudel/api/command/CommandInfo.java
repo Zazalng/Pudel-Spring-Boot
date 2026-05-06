@@ -78,4 +78,3 @@ public @interface CommandInfo {
      */
     Permission[] permissions() default {};
 }
-

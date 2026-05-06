@@ -39,7 +39,6 @@ import org.springframework.stereotype.Component;
 @Component
 @Order(100) // Run last after all commands are registered
 public class SlashCommandSyncRunner implements ApplicationRunner {
-
     private static final Logger logger = LoggerFactory.getLogger(SlashCommandSyncRunner.class);
 
     private final JDA jda;

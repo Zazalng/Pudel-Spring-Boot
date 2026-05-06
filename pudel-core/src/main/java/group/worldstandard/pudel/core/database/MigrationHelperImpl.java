@@ -30,7 +30,6 @@ import group.worldstandard.pudel.api.database.PluginRepository;
  * managing indexes, and performing data migrations using a repository-based approach.
  */
 public class MigrationHelperImpl implements PluginMigration.MigrationHelper {
-
     private static final Logger logger = LoggerFactory.getLogger(MigrationHelperImpl.class);
 
     private final PluginDatabaseManagerImpl dbManager;

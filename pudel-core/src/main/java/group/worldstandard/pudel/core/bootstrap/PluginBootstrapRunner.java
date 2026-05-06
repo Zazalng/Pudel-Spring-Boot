@@ -29,7 +29,6 @@ import group.worldstandard.pudel.core.service.PluginWatcherService;
  */
 @Component
 public class PluginBootstrapRunner implements ApplicationRunner {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginBootstrapRunner.class);
 
     private final PluginService pluginService;
@@ -73,4 +72,3 @@ public class PluginBootstrapRunner implements ApplicationRunner {
         logger.info("Plugin bootstrap completed");
     }
 }
-

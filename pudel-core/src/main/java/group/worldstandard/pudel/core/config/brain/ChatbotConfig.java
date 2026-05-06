@@ -27,7 +27,6 @@ import java.util.List;
 @ConfigurationProperties(prefix = "pudel.chatbot")
 @Component
 public class ChatbotConfig {
-
     private Triggers triggers = new Triggers();
     private int contextSize = 10;
     private PassiveTracking passiveTracking = new PassiveTracking();
@@ -200,4 +199,3 @@ public class ChatbotConfig {
         }
     }
 }
-

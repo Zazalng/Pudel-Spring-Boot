@@ -25,7 +25,6 @@ import java.io.File;
  */
 @Configuration
 public class PluginConfiguration {
-
     @Bean
     public PluginClassLoader pluginClassLoader(PluginProperties properties) {
         File pluginsDir = new File(properties.getDirectory());
@@ -34,4 +33,3 @@ public class PluginConfiguration {
 
     // PluginContextFactory is now a @Component that creates plugin-specific contexts
 }
-

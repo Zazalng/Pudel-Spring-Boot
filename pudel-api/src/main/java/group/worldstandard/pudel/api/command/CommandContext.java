@@ -162,4 +162,3 @@ public interface CommandContext {
         return getArgs().length;
     }
 }
-

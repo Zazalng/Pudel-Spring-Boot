@@ -362,4 +362,3 @@ public class GuildSettings {
         updatedAt = LocalDateTime.now();
     }
 }
-

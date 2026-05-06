@@ -38,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 public class PluginDatabaseService {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginDatabaseService.class);
 
     private final PluginDatabaseRegistryRepository registryRepository;

@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
  * Community-driven - no approval status needed.
  */
 public class PluginResponse {
-
     private String id;
     private String name;
     private String description;
@@ -199,4 +198,3 @@ public class PluginResponse {
         this.updatedAt = updatedAt;
     }
 }
-

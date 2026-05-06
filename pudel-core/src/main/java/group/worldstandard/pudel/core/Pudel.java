@@ -35,14 +35,20 @@ public class Pudel {
     private static final Logger log = LoggerFactory.getLogger(Pudel.class);
 
     public static void main(String[] args) {
-        log.info("==================================");
-        log.info("Pudel Discord Bot is starting");
-        log.info("==================================");
+        log.info("""
+                ==================================
+                Pudel Discord Bot is starting
+                ==================================
+                """
+            );
 
         SpringApplication.run(Pudel.class, args);
 
-        log.info("==================================");
-        log.info("Pudel Discord Bot started");
-        log.info("==================================");
+        log.info("""
+                ==================================
+                Pudel Discord Bot started
+                ==================================
+                """
+            );
     }
 }

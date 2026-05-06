@@ -31,7 +31,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class BuiltinSlashCommandRegistrar {
-
     private static final Logger logger = LoggerFactory.getLogger(BuiltinSlashCommandRegistrar.class);
 
     private final PluginAnnotationProcessor annotationProcessor;

@@ -214,4 +214,3 @@ public interface VoiceManager {
      */
     boolean isSelfDeafened(long guildId);
 }
-

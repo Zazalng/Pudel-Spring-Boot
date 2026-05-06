@@ -37,7 +37,6 @@ import java.util.Map;
 @Service
 @Transactional
 public class MemoryEmbeddingService {
-
     private static final Logger logger = LoggerFactory.getLogger(MemoryEmbeddingService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -387,4 +386,3 @@ public class MemoryEmbeddingService {
         }
     }
 }
-

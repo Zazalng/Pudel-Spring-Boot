@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 public class CommandExecutionService {
-
     private static final Logger logger = LoggerFactory.getLogger(CommandExecutionService.class);
 
     private final GuildSettingsRepository guildSettingsRepository;
@@ -222,4 +221,3 @@ public class CommandExecutionService {
         userCooldowns.keySet().removeIf(key -> key.startsWith(guildId + ":"));
     }
 }
-

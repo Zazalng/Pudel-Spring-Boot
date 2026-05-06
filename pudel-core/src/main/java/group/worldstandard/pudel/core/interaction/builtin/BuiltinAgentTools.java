@@ -43,7 +43,6 @@ import java.util.Map;
  */
 @Component
 public class BuiltinAgentTools implements AgentToolProvider {
-
     private static final Logger logger = LoggerFactory.getLogger(BuiltinAgentTools.class);
     public static final String PLUGIN_ID = "pudel-core-tools";
 
@@ -469,4 +468,3 @@ public class BuiltinAgentTools implements AgentToolProvider {
         return sanitized;
     }
 }
-

@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
  */
 @Component
 public class AgentToolRegistryImpl implements AgentToolRegistry {
-
     private static final Logger logger = LoggerFactory.getLogger(AgentToolRegistryImpl.class);
 
     // Tool storage: toolName -> ToolDefinition

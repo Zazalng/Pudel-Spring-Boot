@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class SchemaManagementService {
-
     private static final Logger logger = LoggerFactory.getLogger(SchemaManagementService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -350,4 +349,3 @@ public class SchemaManagementService {
         }
     }
 }
-

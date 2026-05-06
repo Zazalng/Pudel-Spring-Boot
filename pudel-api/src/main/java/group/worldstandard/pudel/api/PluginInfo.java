@@ -125,4 +125,3 @@ public class PluginInfo {
         return dependencies;
     }
 }
-

@@ -44,7 +44,6 @@ import java.util.Optional;
 @RequestMapping("/api/plugins")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class MarketPluginController {
-
     private static final Logger log = LoggerFactory.getLogger(MarketPluginController.class);
 
     private final MarketPluginService marketPluginService;
@@ -323,4 +322,3 @@ public class MarketPluginController {
         }
     }
 }
-

@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "pudel.chatbot.passive-tracking")
 public class PassiveContextConfig {
-
     /**
      * Whether passive context tracking is enabled.
      */

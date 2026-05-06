@@ -26,7 +26,6 @@ import java.util.Optional;
  */
 @Repository
 public interface PluginMetadataRepository extends JpaRepository<PluginMetadata, Long> {
-
     /**
      * Find plugin by name.
      * @param pluginName the plugin name
@@ -53,4 +52,3 @@ public interface PluginMetadataRepository extends JpaRepository<PluginMetadata, 
      */
     boolean existsByPluginName(String pluginName);
 }
-

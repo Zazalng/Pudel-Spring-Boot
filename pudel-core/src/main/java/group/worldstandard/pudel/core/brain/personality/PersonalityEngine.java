@@ -32,7 +32,6 @@ import java.util.regex.Pattern;
  */
 @Component
 public class PersonalityEngine {
-
     private static final Logger logger = LoggerFactory.getLogger(PersonalityEngine.class);
 
     // Default personality traits
@@ -383,4 +382,3 @@ public class PersonalityEngine {
         }
     }
 }
-

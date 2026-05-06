@@ -34,7 +34,6 @@ import java.util.Optional;
 @Service
 @Transactional
 public class UserDataService {
-
     private static final Logger logger = LoggerFactory.getLogger(UserDataService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -229,4 +228,3 @@ public class UserDataService {
         }
     }
 }
-

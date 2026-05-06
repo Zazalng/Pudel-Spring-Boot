@@ -103,4 +103,3 @@ public interface EventManager {
      */
     int getTotalHandlerCount();
 }
-

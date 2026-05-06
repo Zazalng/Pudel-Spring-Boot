@@ -23,7 +23,6 @@ import org.hibernate.validator.constraints.URL;
  * DTO for publishing a new plugin to the marketplace.
  */
 public class PublishPluginRequest {
-
     @NotBlank(message = "Plugin name is required")
     @Size(min = 2, max = 50, message = "Plugin name must be between 2 and 50 characters")
     private String name;
@@ -149,4 +148,3 @@ public class PublishPluginRequest {
         this.contactEmail = contactEmail;
     }
 }
-

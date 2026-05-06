@@ -53,4 +53,3 @@ public @interface EventHandler {
      */
     boolean ignoreCancelled() default false;
 }
-

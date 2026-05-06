@@ -44,7 +44,6 @@ import java.util.Map;
  */
 @Component
 public class DPoPKeyManager {
-
     private static final Logger log = LoggerFactory.getLogger(DPoPKeyManager.class);
 
     // Session attribute name for storing the keypair

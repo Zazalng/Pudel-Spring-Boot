@@ -35,7 +35,6 @@ import java.util.List;
 @Component
 @Order(10) // Run after other bootstrap tasks
 public class SchemaBootstrapRunner implements CommandLineRunner {
-
     private static final Logger logger = LoggerFactory.getLogger(SchemaBootstrapRunner.class);
 
     private final JDA jda;
@@ -112,4 +111,3 @@ public class SchemaBootstrapRunner implements CommandLineRunner {
                 schemaCreated, guilds.size());
     }
 }
-

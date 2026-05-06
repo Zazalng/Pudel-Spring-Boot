@@ -26,7 +26,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "admin_whitelist")
 public class AdminWhitelist {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

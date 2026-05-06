@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "market_plugins", schema = "public")
 public class MarketPlugin {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id")
@@ -235,4 +234,3 @@ public class MarketPlugin {
         this.updatedAt = updatedAt;
     }
 }
-

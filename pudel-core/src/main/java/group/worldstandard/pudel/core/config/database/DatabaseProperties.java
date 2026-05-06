@@ -23,7 +23,6 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "pudel.database")
 public class DatabaseProperties {
-
     private String schemaName = "public";
 
     public String getSchemaName() {
@@ -34,4 +33,3 @@ public class DatabaseProperties {
         this.schemaName = schemaName;
     }
 }
-

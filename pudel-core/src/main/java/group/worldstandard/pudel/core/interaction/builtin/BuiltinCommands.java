@@ -65,7 +65,6 @@ import java.util.stream.Collectors;
     description = "Built-in Pudel commands"
 )
 public class BuiltinCommands {
-
     // ==================== CONSTANTS ====================
     private static final String BTN = "settings:";
     private static final String MODAL_PREFIX = "settings:modal:";

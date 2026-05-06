@@ -28,7 +28,6 @@ import group.worldstandard.pudel.core.service.GuildInitializationService;
 @RestController
 @RequestMapping("/api/instances")
 public class BotInstanceController {
-
     private final GuildInitializationService guildInitializationService;
 
     public BotInstanceController(GuildInitializationService guildInitializationService) {

@@ -42,7 +42,6 @@ import java.util.*;
  */
 @Component
 public class MemoryManager {
-
     private static final Logger logger = LoggerFactory.getLogger(MemoryManager.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -558,4 +557,3 @@ public class MemoryManager {
         }
     }
 }
-

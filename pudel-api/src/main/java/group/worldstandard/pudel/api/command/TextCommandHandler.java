@@ -58,4 +58,3 @@ public interface TextCommandHandler {
      */
     void handle(CommandContext context);
 }
-

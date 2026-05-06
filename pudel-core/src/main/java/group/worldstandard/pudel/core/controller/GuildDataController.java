@@ -33,7 +33,6 @@ import java.util.Map;
 @RequestMapping("/api/guilds/{guildId}/data")
 @CrossOrigin(origins = "*")
 public class GuildDataController {
-
     private static final Logger logger = LoggerFactory.getLogger(GuildDataController.class);
 
     private final GuildDataService guildDataService;
@@ -275,4 +274,3 @@ public class GuildDataController {
         public String notes;
     }
 }
-

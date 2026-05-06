@@ -41,7 +41,6 @@ import java.util.Map;
 @Service
 @Transactional
 public class AgentDataExecutorImpl implements AgentDataExecutor {
-
     private static final Logger logger = LoggerFactory.getLogger(AgentDataExecutorImpl.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -386,4 +385,3 @@ public class AgentDataExecutorImpl implements AgentDataExecutor {
         }
     }
 }
-

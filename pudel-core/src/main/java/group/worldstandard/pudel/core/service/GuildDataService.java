@@ -34,7 +34,6 @@ import java.util.Optional;
 @Service
 @Transactional
 public class GuildDataService {
-
     private static final Logger logger = LoggerFactory.getLogger(GuildDataService.class);
 
     private final JdbcTemplate jdbcTemplate;

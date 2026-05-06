@@ -34,7 +34,6 @@ import java.util.Map;
 @RequestMapping("/api/brain")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
 public class BrainController {
-
     private final PudelBrain pudelBrain;
     private final SubscriptionService subscriptionService;
     private final PudelModelService modelService;
@@ -170,4 +169,3 @@ public class BrainController {
         return ResponseEntity.ok(subscriptionService.getAllTiers());
     }
 }
-

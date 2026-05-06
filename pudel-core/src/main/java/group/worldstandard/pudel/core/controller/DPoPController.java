@@ -44,7 +44,6 @@ import java.util.Map;
 @Tag(name = "DPoP", description = "Backend-managed DPoP key operations for enhanced security")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class DPoPController {
-
     private static final Logger log = LoggerFactory.getLogger(DPoPController.class);
 
     private final DPoPKeyManager dpopKeyManager;

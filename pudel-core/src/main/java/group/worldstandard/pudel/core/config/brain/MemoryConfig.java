@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "pudel.memory")
 @Component
 public class MemoryConfig {
-
     private AutoCleanup autoCleanup = new AutoCleanup();
     private SemanticSearch semanticSearch = new SemanticSearch();
 
@@ -110,4 +109,3 @@ public class MemoryConfig {
         }
     }
 }
-

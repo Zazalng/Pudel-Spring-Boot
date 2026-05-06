@@ -43,7 +43,6 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class MarketPluginService {
-
     private static final Logger logger = LoggerFactory.getLogger(MarketPluginService.class);
 
     private final MarketPluginRepository marketPluginRepository;
@@ -335,4 +334,3 @@ public class MarketPluginService {
         }
     }
 }
-

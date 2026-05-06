@@ -149,6 +149,6 @@ public interface ContextMenuHandler {
      * @return array of guild IDs, or null for all guilds
      */
     default long[] getGuildIds() {
-        return null;
+        return new long[0];
     }
 }

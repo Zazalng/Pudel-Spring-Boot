@@ -27,4 +27,3 @@ import java.util.Optional;
 public interface GuildSettingsRepository extends JpaRepository<GuildSettings, Long> {
     Optional<GuildSettings> findByGuildId(String guildId);
 }
-

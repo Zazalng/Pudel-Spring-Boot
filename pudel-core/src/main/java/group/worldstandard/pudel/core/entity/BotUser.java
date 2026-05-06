@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "bot_user", schema = "public")
 public class BotUser {
-
     @Id
     @Column(name = "user_id")
     private String userId;
@@ -112,4 +111,3 @@ public class BotUser {
         return updatedAt;
     }
 }
-

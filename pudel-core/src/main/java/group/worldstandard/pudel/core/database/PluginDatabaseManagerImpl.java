@@ -38,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * and maintains statistics about database usage and schema state.
  */
 public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginDatabaseManagerImpl.class);
 
     private final String pluginId;

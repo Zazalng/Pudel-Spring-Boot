@@ -92,7 +92,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class AdminController {
-
     private static final Logger log = LoggerFactory.getLogger(AdminController.class);
     private static final long CHALLENGE_EXPIRY_MS = 60 * 1000; // 1 minute
     private static final long ADMIN_SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour

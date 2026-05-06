@@ -23,7 +23,6 @@ import java.util.*;
  * Implementation of PluginKeyValueStore using a dedicated table.
  */
 public class PluginKeyValueStoreImpl implements PluginKeyValueStore {
-
     private final PluginDatabaseManagerImpl dbManager;
     private final JdbcTemplate jdbcTemplate;
     private final String tableName;

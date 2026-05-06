@@ -273,4 +273,3 @@ public interface PluginContext {
      */
     void log(String level, String message, Throwable throwable);
 }
-

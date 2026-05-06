@@ -29,7 +29,6 @@ import static net.dv8tion.jda.api.entities.Message.MentionType;
  */
 @Component
 public class DiscordMessageParser {
-
     /**
      * Parse result containing information about bot mentions and reply context.
      * <p>

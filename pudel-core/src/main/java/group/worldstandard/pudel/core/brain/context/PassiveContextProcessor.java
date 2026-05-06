@@ -43,7 +43,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Component
 public class PassiveContextProcessor {
-
     private static final Logger logger = LoggerFactory.getLogger(PassiveContextProcessor.class);
 
     private final PudelModelService modelService;

@@ -29,7 +29,6 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "pudel.subscription")
 @Component
 public class SubscriptionTierConfig {
-
     private Map<String, TierDefinition> tiers = new HashMap<>();
     private String defaultTier = "FREE";
     private boolean enableExpiration = true;
@@ -217,4 +216,3 @@ public class SubscriptionTierConfig {
         }
     }
 }
-

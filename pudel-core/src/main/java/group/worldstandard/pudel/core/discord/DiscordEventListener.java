@@ -39,7 +39,6 @@ import group.worldstandard.pudel.core.service.GuildSettingsService;
  */
 @Component
 public class DiscordEventListener extends ListenerAdapter {
-
     private static final Logger logger = LoggerFactory.getLogger(DiscordEventListener.class);
 
     private final CommandRegistry commandRegistry;
@@ -300,4 +299,3 @@ public class DiscordEventListener extends ListenerAdapter {
         return false;
     }
 }
-

@@ -55,4 +55,3 @@ public class OAuthCallbackResponse {
         this.tokenType = tokenType;
     }
 }
-

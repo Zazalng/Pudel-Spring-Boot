@@ -43,7 +43,6 @@ import java.util.Map;
  */
 @Component
 public class PudelBrain {
-
     private static final Logger logger = LoggerFactory.getLogger(PudelBrain.class);
 
     private final PudelModelService modelService;

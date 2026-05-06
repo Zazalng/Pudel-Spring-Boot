@@ -56,4 +56,3 @@ public interface UserGuildRepository extends JpaRepository<UserGuild, Long> {
      */
     void deleteByGuildId(String guildId);
 }
-

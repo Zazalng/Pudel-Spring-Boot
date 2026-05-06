@@ -43,7 +43,6 @@ import java.util.jar.JarFile;
  * </ul>
  */
 public class PluginClassLoader {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginClassLoader.class);
 
     private final File pluginsDirectory;

@@ -29,7 +29,6 @@ import java.time.Instant;
         @Index(name = "idx_plugin_db_registry_plugin_id", columnList = "plugin_id", unique = true)
 })
 public class PluginDatabaseRegistry {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
