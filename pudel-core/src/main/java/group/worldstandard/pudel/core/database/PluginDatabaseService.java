@@ -368,6 +368,43 @@ public class PluginDatabaseService {
     }
 
     /**
+     * Remove a plugin's database resources (schema and registry entry).
+     * <p>
+     * This removes the plugin's schema and registry entry from the database.
+     * The JAR file and plugin metadata are handled separately by the plugin service.
+     *
+     * @param pluginId the plugin identifier
+     */
+    @Transactional
+    public void removePluginResources(String pluginId) {
+        String normalizedId = normalizePluginId(pluginId);
+
+        // Remove from cache first
+        managerCache.remove(normalizedId);
+        logger.debug("Removed database manager from cache for plugin {}", normalizedId);
+
+        // Find and remove registry entry
+        Optional<PluginDatabaseRegistry> registryOpt = registryRepository.findByPluginId(normalizedId);
+        if (registryOpt.isPresent()) {
+            PluginDatabaseRegistry registry = registryOpt.get();
+            String schemaName = registry.deriveSchemaName();
+
+            // Drop the schema (careful with this - removes all data!)
+            try {
+                jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
+                logger.info("Dropped schema: {}", schemaName);
+            } catch (Exception e) {
+                logger.error("Error dropping schema {}: {}", schemaName, e.getMessage(), e);
+            }
+
+            // Remove registry entry
+            registryRepository.delete(registry);
+            logger.info("Removed plugin database registration: {} (prefix: {})",
+                    normalizedId, registry.getDbPrefix());
+        }
+    }
+
+    /**
      * Get the JdbcTemplate for direct operations.
      * Used internally by manager implementations.
      */

@@ -81,15 +81,11 @@
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>3.12.0</version>
                 <configuration>
-                    <doclint>none</doclint>
-                    <tags>
-                        <tag>
-                            <name>implNote</name>
-                            <placement>a</placement>
-                            <head>Implementation Note:</head>
-                        </tag>
-                    </tags>
-                    <failOnError>true</failOnError>
+                    <doctitle>Pudel's Development Kit (PDK) - v${pudel.version}</doctitle>
+                    <windowtitle>Pudel's Development Kit (PDK) - v${pudel.version}</windowtitle>
+                    <description>
+
+                    </description>
                 </configuration>
                 <executions>
                     <execution>

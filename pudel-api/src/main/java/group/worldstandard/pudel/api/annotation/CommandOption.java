@@ -47,24 +47,27 @@ import java.lang.annotation.Target;
 public @interface CommandOption {
 
     /**
-     * Option name (required).
+     * @return name of option.
      */
     String name();
 
     /**
-     * Option description (required).
+     * @return description of option.
      */
     String description();
 
     /**
-     * Option type.
+     *
+     *
      * Use JDA's {@link OptionType} enum, for example:
      * STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, MENTIONABLE, NUMBER, ATTACHMENT
+     *
+     * @return {@link OptionType} passed to the handler. Default {@link OptionType#STRING}
      */
     OptionType type() default OptionType.STRING;
 
     /**
-     * Whether this option is required.
+     * @return Whether this option is required. Default {@link Boolean#FALSE}
      */
     boolean required() default false;
 

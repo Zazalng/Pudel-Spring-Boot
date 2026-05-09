@@ -21,6 +21,7 @@ import group.worldstandard.pudel.core.entity.PluginMetadata;
 import group.worldstandard.pudel.core.repository.AdminWhitelistRepository;
 import group.worldstandard.pudel.core.service.LogService;
 import group.worldstandard.pudel.core.service.PluginService;
+import group.worldstandard.pudel.core.database.PluginDatabaseService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -99,6 +100,7 @@ public class AdminController {
     private final PluginService pluginService;
     private final AdminWhitelistRepository adminWhitelistRepository;
     private final LogService logService;
+    private final PluginDatabaseService pluginDatabaseService;
 
     // Pending challenges: challengeId -> ChallengeData
     private final Map<String, ChallengeData> pendingChallenges = new ConcurrentHashMap<>();
@@ -138,10 +140,12 @@ public class AdminController {
 
     public AdminController(PluginService pluginService,
                            AdminWhitelistRepository adminWhitelistRepository,
-                           LogService logService) {
+                           LogService logService,
+                           PluginDatabaseService pluginDatabaseService) {
         this.pluginService = pluginService;
         this.adminWhitelistRepository = adminWhitelistRepository;
         this.logService = logService;
+        this.pluginDatabaseService = pluginDatabaseService;
     }
 
     // =====================================================
@@ -1714,6 +1718,9 @@ public class AdminController {
             // Remove plugin (unload and delete metadata from database)
             pluginService.removePlugin(name);
 
+            // Remove plugin database resources (schema and registry entry)
+            pluginDatabaseService.removePluginResources(name);
+
             // Delete JAR file (sanitize to prevent path traversal)
             if (jarFileName != null) {
                 String safeJarName = Path.of(jarFileName).getFileName().toString();
@@ -1882,3 +1889,4 @@ public class AdminController {
         }
     }
 }
+

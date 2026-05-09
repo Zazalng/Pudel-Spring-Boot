@@ -48,11 +48,11 @@ import java.lang.annotation.Target;
  * </pre>
  * <p>
  * Tool methods must:
- * <ui>
+ * <ul>
  *     <li>Have {@link AgentToolContext} as the first parameter</li>
  *     <li>Return a String (the tool's response to the agent)</li>
  *     <li>Only use primitive types, String, or simple objects for other parameters</li>
- * </ui>
+ * </ul>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

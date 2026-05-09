@@ -98,7 +98,7 @@ public class JDAConfiguration {
             logger.info("Connected to {} guilds", jda.getGuilds().size());
 
             return jda;
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
             logger.error("Failed to initialize JDA: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize JDA", e);
         }
