@@ -59,7 +59,6 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
  * </pre>
  */
 public interface ModalHandler {
-
     /**
      * Get the modal ID prefix this handler responds to.
      *

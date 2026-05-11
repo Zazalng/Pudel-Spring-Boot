@@ -33,7 +33,6 @@ import java.util.Map;
  * that triggered the tool.
  */
 public interface AgentToolContext {
-
     /**
      * Get the ID of the guild (if in guild context) or user (if in DM).
      * @return the target ID

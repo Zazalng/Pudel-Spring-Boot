@@ -40,9 +40,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface ModalHandler {
-
     /**
-     * Modal ID prefix to match.
+     * @return the modal ID prefix used to identify and route modal submissions to this handler
      */
     String value();
 }

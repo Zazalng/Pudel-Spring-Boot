@@ -58,7 +58,6 @@ import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionE
  * </pre>
  */
 public interface SelectMenuHandler {
-
     /**
      * Get the select menu ID prefix this handler responds to.
      *

@@ -57,7 +57,6 @@ import java.util.Optional;
  * </pre>
  */
 public interface AgentToolRegistry {
-
     /**
      * Register a tool provider with annotated @AgentTool methods.
      * The registry will scan the provider for @AgentTool annotations

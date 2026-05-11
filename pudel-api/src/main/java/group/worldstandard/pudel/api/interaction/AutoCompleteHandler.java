@@ -66,7 +66,6 @@ import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInterac
  * </pre>
  */
 public interface AutoCompleteHandler {
-
     /**
      * Get the command name this autocomplete handles.
      *

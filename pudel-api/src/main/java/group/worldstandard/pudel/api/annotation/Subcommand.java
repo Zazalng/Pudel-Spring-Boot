@@ -47,19 +47,26 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({})
 public @interface Subcommand {
-
     /**
-     * Subcommand name (required).
+     * Returns the name of the subcommand.
+     *
+     * @return the name of the subcommand as a String
      */
     String name();
 
     /**
-     * Subcommand description (required).
+     * Returns the description of the subcommand.
+     *
+     * @return the description of the subcommand as a String
      */
     String description();
 
     /**
-     * Subcommand options.
+     * Returns the command options associated with this subcommand.
+     * These options define the parameters that can be passed to the subcommand.
+     *
+     * @return an array of {@link CommandOption} annotations representing the options for this subcommand,
+     *         or an empty array if no options are defined
      */
     CommandOption[] options() default {};
 }

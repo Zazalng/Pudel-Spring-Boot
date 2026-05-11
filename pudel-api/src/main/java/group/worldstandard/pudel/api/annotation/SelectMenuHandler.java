@@ -40,9 +40,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface SelectMenuHandler {
-
     /**
-     * Select menu ID prefix to match.
+     * @return the select menu ID prefix as a String
      */
     String value();
 }

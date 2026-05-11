@@ -57,7 +57,6 @@ import net.dv8tion.jda.api.events.GenericEvent;
  * @param <T> the JDA event type this listener handles
  */
 public interface PluginEventListener<T extends GenericEvent> {
-
     /**
      * Gets the event class this listener handles.
      * @return the event class

@@ -50,7 +50,6 @@ package group.worldstandard.pudel.api.command;
  */
 @FunctionalInterface
 public interface TextCommandHandler {
-
     /**
      * Handles a text command invocation.
      *

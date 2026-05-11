@@ -53,7 +53,6 @@ package group.worldstandard.pudel.api.database;
  */
 @FunctionalInterface
 public interface PluginMigration {
-
     /**
      * Execute the migration.
      * <p>

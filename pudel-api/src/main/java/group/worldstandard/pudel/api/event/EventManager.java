@@ -47,7 +47,6 @@ import net.dv8tion.jda.api.events.GenericEvent;
  * programmatically for more control.
  */
 public interface EventManager {
-
     /**
      * Registers all event handlers in a listener object.
      * Methods annotated with {@link EventHandler} will be automatically registered.

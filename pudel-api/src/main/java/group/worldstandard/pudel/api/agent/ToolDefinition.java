@@ -49,7 +49,6 @@ import java.util.function.BiFunction;
  * </pre>
  */
 public final class ToolDefinition {
-
     /**
      * The unique name of the tool.
      * This identifier is used to reference the tool within the system and by the AI agent.
@@ -57,19 +56,31 @@ public final class ToolDefinition {
      */
     private final String name;
     /**
-     *
+     * A human-readable description of the tool's functionality.
+     * This description is used by AI agents to understand the purpose and behavior of the tool,
+     * enabling them to determine when it is appropriate to invoke this tool during execution.
+     * The description should clearly explain what the tool does, its intended use cases,
+     * and any relevant contextual information that may influence its application.
      */
     private final String description;
     /**
-     *
+     * Unique identifier of the plugin that provides this tool.
+     * This field stores the plugin ID as a string and is immutable once set.
+     * It is used to associate the tool with its originating plugin for tracking and management purposes.
      */
     private final String pluginId;
     /**
-     *
+     * The list of parameters defined for this tool.
+     * Each parameter specifies its name, type, description, whether it is required,
+     * and its default value if applicable.
      */
     private final List<ToolParameter> parameters;
     /**
-     *
+     * A set of keywords associated with this tool definition.
+     * These keywords are used by the AI agent to identify and match user intent
+     * when determining which tool to invoke. The keywords help improve
+     * the accuracy and relevance of tool selection during agent execution.
+     * This field is immutable and initialized as an empty set if no keywords are provided.
      */
     private final Set<String> keywords;
     /**

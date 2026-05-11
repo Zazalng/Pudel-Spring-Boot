@@ -45,7 +45,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({})
 public @interface CommandOption {
-
     /**
      * @return name of option.
      */
@@ -57,8 +56,8 @@ public @interface CommandOption {
     String description();
 
     /**
-     *
-     *
+     * Integrated type of Option used for auto-complete when performed.
+     * <p>
      * Use JDA's {@link OptionType} enum, for example:
      * STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, MENTIONABLE, NUMBER, ATTACHMENT
      *
@@ -72,22 +71,22 @@ public @interface CommandOption {
     boolean required() default false;
 
     /**
-     * Predefined choices for this option.
+     * @return Array of predefined choices for this option. Default empty array.
      */
     Choice[] choices() default {};
 
     /**
-     * Minimum value (for INTEGER and NUMBER types).
+     * @return Minimum value (for INTEGER and NUMBER types). Default {@link Double#MIN_VALUE}
      */
     double min() default Double.MIN_VALUE;
 
     /**
-     * Maximum value (for INTEGER and NUMBER types).
+     * @return Maximum value (for INTEGER and NUMBER types). Default {@link Double#MAX_VALUE}
      */
     double max() default Double.MAX_VALUE;
 
     /**
-     * Whether this option supports autocomplete.
+     * @return Whether this option supports auto-completion. Default {@link Boolean#FALSE}
      */
     boolean autocomplete() default false;
 }

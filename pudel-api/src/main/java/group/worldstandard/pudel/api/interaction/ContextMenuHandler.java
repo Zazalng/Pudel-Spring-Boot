@@ -99,7 +99,6 @@ import net.dv8tion.jda.api.interactions.commands.build.CommandData;
  * </pre>
  */
 public interface ContextMenuHandler {
-
     /**
      * Get the context menu command data.
      * <p>

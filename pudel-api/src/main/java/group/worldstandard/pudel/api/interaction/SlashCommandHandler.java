@@ -59,7 +59,6 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
  * </pre>
  */
 public interface SlashCommandHandler {
-
     /**
      * Get the slash command data for registration.
      * <p>

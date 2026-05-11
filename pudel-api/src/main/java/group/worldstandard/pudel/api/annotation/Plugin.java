@@ -60,24 +60,31 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Plugin {
-
     /**
-     * Plugin name (required).
+     * Returns the name of the plugin.
+     *
+     * @return the name of the plugin as a String
      */
     String name();
 
     /**
-     * Plugin version.
+     * Returns the version of the plugin.
+     *
+     * @return the version of the plugin as a String, defaults to "1.0.0"
      */
     String version() default "1.0.0";
 
     /**
-     * Plugin author.
+     * Returns the author of the plugin.
+     *
+     * @return the author of the plugin as a String, defaults to an empty string
      */
     String author() default "";
 
     /**
-     * Plugin description.
+     * Returns the description of the plugin.
+     *
+     * @return the description of the plugin as a String, defaults to an empty string
      */
     String description() default "";
 }

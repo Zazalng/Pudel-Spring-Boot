@@ -56,7 +56,6 @@ import java.util.List;
  * </pre>
  */
 public interface PluginDatabaseManager {
-
     /**
      * Get the database schema name assigned to this plugin.
      * <p>

@@ -45,7 +45,6 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
  * </pre>
  */
 public interface CommandContext {
-
     /**
      * Gets the original message event.
      * @return the message event

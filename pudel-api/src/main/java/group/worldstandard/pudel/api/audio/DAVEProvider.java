@@ -36,7 +36,6 @@ package group.worldstandard.pudel.api.audio;
  * @see <a href="https://discord.com/developers/docs/topics/voice-connections#dave-protocol">Discord DAVE Protocol Documentation</a>
  */
 public interface DAVEProvider {
-
     /**
      * Get the name of this DAVE implementation.
      *

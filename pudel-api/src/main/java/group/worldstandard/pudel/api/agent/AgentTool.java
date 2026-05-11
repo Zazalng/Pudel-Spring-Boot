@@ -57,7 +57,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface AgentTool {
-
     /**
      * The unique name of the tool.
      * If not specified, the method name will be used.

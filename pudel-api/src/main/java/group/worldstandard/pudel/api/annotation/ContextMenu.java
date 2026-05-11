@@ -61,35 +61,44 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface ContextMenu {
-
     /**
-     * Context menu name (required).
-     * Must be 1-32 characters.
+     * Returns the display name of the context menu.
+     * This name is shown to users in the Discord client when they right-click on a user or message.
+     *
+     * @return the name of the context menu (Max 32 characters)
      */
     String name();
 
     /**
-     * Command type: USER or MESSAGE (required).
+     * Returns the type of context menu this command represents.
      * <p>
-     * USER context menus are invoked on users (right-click user → Apps → Your Command).
-     * MESSAGE context menus are invoked on messages (right-click message → Apps → Your Command).
+     * The type determines whether the context menu appears when right-clicking on a user or a message.
+     * For user context menus, the handler receives a {@link net.dv8tion.jda.api.events.interaction.command.UserContextInteractionEvent}.
+     * For message context menus, the handler receives a {@link net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent}.
+     *
+     * @return the context menu type (USER or MESSAGE)
      */
     Command.Type type();
 
     /**
-     * Whether this is a global context menu.
+     * Indicates whether this context menu should be registered globally or per-guild.
      * <p>
-     * Global context menus take up to 1 hour to propagate.
-     * Guild-specific context menus are instant but only work in specified guilds.
-     * <p>
-     * Defaults to {@code true}.
+     * When {@code true}, the context menu will be available across all guilds the bot is in.
+     * When {@code false}, the context menu must be explicitly registered per guild using {@link #guildIds()}.
+     *
+     * @return {@code true} if the context menu should be registered globally, {@code false} otherwise; Default {@code true}
      */
     boolean global() default true;
 
     /**
-     * Guild IDs where this context menu should be registered.
-     * Only used if {@link #global()} is set to {@code false}.
-     * Empty array = all guilds the bot is in.
+     * Returns an array of guild IDs where this context menu should be registered.
+     * <p>
+     * This method is used when {@link #global()} is set to {@code false} to specify
+     * the exact guilds where the context menu should appear. If {@link #global()}
+     * is {@code true}, this setting has no effect and the context menu will be
+     * registered globally across all guilds.
+     *
+     * @return an array of guild IDs, or an empty array if not specified or if global registration is enabled
      */
     long[] guildIds() default {};
 }

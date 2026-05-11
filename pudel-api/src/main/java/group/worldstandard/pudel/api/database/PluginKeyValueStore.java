@@ -52,7 +52,6 @@ import java.util.Set;
  * </pre>
  */
 public interface PluginKeyValueStore {
-
     /**
      * Set a string value.
      *

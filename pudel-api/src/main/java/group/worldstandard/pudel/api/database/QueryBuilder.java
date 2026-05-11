@@ -55,7 +55,6 @@ import java.util.Optional;
  * @param <T> the entity type
  */
 public interface QueryBuilder<T> {
-
     /**
      * Add an equality condition (column = value).
      *

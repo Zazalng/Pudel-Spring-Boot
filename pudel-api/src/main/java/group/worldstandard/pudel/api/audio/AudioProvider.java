@@ -25,7 +25,6 @@ package group.worldstandard.pudel.api.audio;
  * <p>Audio data must be in Opus format for Discord compatibility.</p>
  */
 public interface AudioProvider {
-
     /**
      * Check if there is audio data available to send.
      * This is called before provide20MsAudio() to avoid unnecessary processing.

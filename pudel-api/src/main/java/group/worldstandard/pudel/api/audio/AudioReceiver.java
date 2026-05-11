@@ -27,7 +27,6 @@ package group.worldstandard.pudel.api.audio;
  * appropriate permissions and the connection to be DAVE-compliant.</p>
  */
 public interface AudioReceiver {
-
     /**
      * Called when audio data is received from a user.
      *

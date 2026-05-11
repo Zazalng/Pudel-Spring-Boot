@@ -62,7 +62,6 @@ package group.worldstandard.pudel.api.agent;
  * </pre>
  */
 public interface AgentToolProvider {
-
     /**
      * Called when the provider is registered.
      * Override to perform initialization.

@@ -61,7 +61,6 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
  * </pre>
  */
 public interface ButtonHandler {
-
     /**
      * Get the button ID prefix this handler responds to.
      * <p>

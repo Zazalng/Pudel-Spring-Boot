@@ -66,7 +66,6 @@ import java.util.Optional;
  * @param <T> the entity type
  */
 public interface PluginRepository<T> {
-
     /**
      * Save an entity (insert or update).
      * <p>

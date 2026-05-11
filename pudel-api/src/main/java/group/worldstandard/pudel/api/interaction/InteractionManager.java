@@ -59,7 +59,6 @@ import java.util.concurrent.CompletableFuture;
  * </pre>
  */
 public interface InteractionManager {
-
     // =====================================================
     // Slash Commands
     // =====================================================

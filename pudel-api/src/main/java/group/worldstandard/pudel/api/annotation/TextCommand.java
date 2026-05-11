@@ -56,30 +56,28 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface TextCommand {
-
     /**
-     * Command name (required).
+     * @return the primary name of the command that users will type to invoke it
      */
     String value();
 
     /**
-     * Command aliases.
+     * @return array of alternative names that can be used to invoke the command
      */
     String[] aliases() default {};
 
     /**
-     * Command description for help.
+     * @return the description of the command, used for help messages and command listings
      */
     String description() default "";
 
     /**
-     * Usage example.
+     * @return the usage syntax of the command, used to show users how to properly invoke it
      */
     String usage() default "";
 
     /**
-     * Required permissions for the command.
-     * Uses JDA Permission enum for type safety and IDE autocomplete.
+     * @return array of required permissions that users must have to execute the command
      */
     Permission[] permissions() default {};
 }

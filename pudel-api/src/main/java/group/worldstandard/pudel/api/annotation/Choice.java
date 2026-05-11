@@ -41,7 +41,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({})
 public @interface Choice {
-
     /**
      * @return Display name shown to users.
      */

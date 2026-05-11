@@ -18,7 +18,6 @@ package group.worldstandard.pudel.api;
  * </pre>
  */
 public interface PudelProperties {
-
     /**
      * Gets the bot name (e.g., "Pudel").
      *
