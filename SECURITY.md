@@ -179,13 +179,13 @@ When running with Docker:
 
 Pudel is built on the following core dependencies:
 
-| Dependency | Version  | Purpose |
-|------------|----------|---------|
-| Spring Boot | 4.1.0-M4 | Application framework |
-| JDA | 6.4.1    | Discord Gateway + REST |
-| Jackson | 3.1.1    | JSON serialization |
-| SLF4J | 2.0.17   | Logging |
-| PostgreSQL + pgvector | —        | Database + vector embeddings |
+| Dependency | Version   | Purpose |
+|------------|-----------|---------|
+| Spring Boot | 4.1.0-RC1 | Application framework |
+| JDA | 6.4.1     | Discord Gateway + REST |
+| Jackson | 3.1.3     | JSON serialization |
+| SLF4J | 2.0.17    | Logging |
+| PostgreSQL + pgvector | —         | Database + vector embeddings |
 
 We actively monitor dependencies for known vulnerabilities (CVEs). If you discover a vulnerable transitive dependency, please report it using the process above.
 
