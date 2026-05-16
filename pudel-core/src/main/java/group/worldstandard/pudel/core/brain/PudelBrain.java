@@ -14,169 +14,609 @@
  */
 package group.worldstandard.pudel.core.brain;
 
+import group.worldstandard.pudel.core.brain.context.EntityExtractor;
+import group.worldstandard.pudel.core.brain.context.PassiveContextEntry;
+import group.worldstandard.pudel.core.brain.context.PassiveContextProcessor;
+import group.worldstandard.pudel.core.brain.memory.DialogueHistoryManager;
+import group.worldstandard.pudel.core.brain.memory.MemoryManager;
+import group.worldstandard.pudel.core.brain.ollama.OllamaClient;
+import group.worldstandard.pudel.core.brain.ollama.OllamaClient.ConversationTurn;
+import group.worldstandard.pudel.core.brain.personality.PudelPersonality;
+import group.worldstandard.pudel.core.brain.personality.SystemPromptBuilder;
+import group.worldstandard.pudel.core.config.brain.PudelBrainConfig;
+import group.worldstandard.pudel.core.config.brain.PudelBrainConfig.Discord;
+import group.worldstandard.pudel.model.analyzer.TextAnalysis;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Message.Attachment;
+import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.utils.FileUpload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import group.worldstandard.pudel.core.brain.context.PassiveContextProcessor;
-import group.worldstandard.pudel.core.brain.memory.MemoryManager;
-import group.worldstandard.pudel.core.brain.personality.PersonalityEngine;
-import group.worldstandard.pudel.core.brain.response.ResponseGenerator;
-import group.worldstandard.pudel.core.service.ChatbotService.PudelPersonality;
-import group.worldstandard.pudel.model.PudelModelService;
-import group.worldstandard.pudel.model.analyzer.TextAnalysis;
 
-import java.util.List;
-import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Pudel's Brain - The central intelligence component.
+ * PudelBrain v2 - The reworked central intelligence component.
  * <p>
- * This component orchestrates:
- * - Text analysis (intent detection, entity extraction, language detection) via LangChain4j
- * - Memory management (context retrieval, storage with capacity limits)
- * - Personality application (biography, personality traits, dialogue style)
- * - Response generation (LLM + fallback template-based responses)
- * <p>
- * Uses LangChain4j + Ollama for intelligent analysis when available,
- * with pattern-based fallback for offline operation.
- * Memory capacity is controlled by subscription tiers.
+ * Key changes from the legacy brain:
+ * <ul>
+ *   <li>Ollama completion-focused (local / BYO API key)</li>
+ *   <li>Async Discord handling: sends typing indicator immediately, then sends
+ *       the completed response via simple sendMessage().queue() — no blocking
+ *       RestAction waiting that could hang Discord</li>
+ *   <li>Roleplay support with custom prompts from database</li>
+ *   <li>Passive context collection with message_id tracking, entity extraction,
+ *       reply/forward references, and attachment URL collection</li>
+ *   <li>Dialogue history with respond_to tracking</li>
+ *   <li>Agent tools via MCP (Model Context Protocol) — passive context and
+ *       dialogue history are accessed through MCP tools</li>
+ *   <li>Discord Markdown output (emoji, user mention, channel mention, etc.)</li>
+ *   <li>Attachment reading (text files) and reply (image/video)</li>
+ *   <li>No dependency on pudel-model module (deprecated)</li>
+ * </ul>
  */
 @Component
 public class PudelBrain {
+
     private static final Logger logger = LoggerFactory.getLogger(PudelBrain.class);
 
-    private final PudelModelService modelService;
-    private final MemoryManager memoryManager;
-    private final PersonalityEngine personalityEngine;
-    private final ResponseGenerator responseGenerator;
+    private final PudelBrainConfig brainConfig;
+    private final OllamaClient ollamaClient;
+    private final SystemPromptBuilder systemPromptBuilder;
     private final PassiveContextProcessor passiveContextProcessor;
+    private final DialogueHistoryManager dialogueHistoryManager;
+    private final MemoryManager memoryManager;
+    private final EntityExtractor entityExtractor;
 
-    public PudelBrain(PudelModelService modelService,
-                      MemoryManager memoryManager,
-                      PersonalityEngine personalityEngine,
-                      ResponseGenerator responseGenerator,
-                      PassiveContextProcessor passiveContextProcessor) {
-        this.modelService = modelService;
-        this.memoryManager = memoryManager;
-        this.personalityEngine = personalityEngine;
-        this.responseGenerator = responseGenerator;
+    public PudelBrain(PudelBrainConfig brainConfig,
+                       OllamaClient ollamaClient,
+                       SystemPromptBuilder systemPromptBuilder,
+                       PassiveContextProcessor passiveContextProcessor,
+                       DialogueHistoryManager dialogueHistoryManager,
+                       MemoryManager memoryManager,
+                       EntityExtractor entityExtractor) {
+        this.brainConfig = brainConfig;
+        this.ollamaClient = ollamaClient;
+        this.systemPromptBuilder = systemPromptBuilder;
         this.passiveContextProcessor = passiveContextProcessor;
-        logger.info("Pudel Brain initialized with LangChain4j text analyzer and PassiveContextProcessor");
+        this.dialogueHistoryManager = dialogueHistoryManager;
+        this.memoryManager = memoryManager;
+        this.entityExtractor = entityExtractor;
+
+        logger.info("PudelBrain v2 initialized (Ollama: {}, model: {})",
+                brainConfig.getOllama().getBaseUrl(),
+                brainConfig.getOllama().getModel());
+    }
+
+    // ===============================
+    // Main Message Processing
+    // ===============================
+
+    /**
+     * Process a message and generate a response asynchronously.
+     * <p>
+     * This is the main entry point for the reworked brain. It:
+     * <ol>
+     *   <li>Sends a typing indicator to Discord immediately</li>
+     *   <li>Builds the system prompt from personality settings</li>
+     *   <li>Gathers conversation history via MCP tools</li>
+     *   <li>Reads text attachments if present</li>
+     *   <li>Calls Ollama for completion</li>
+     *   <li>Sends the response via sendMessage().queue()</li>
+     *   <li>Stores the dialogue exchange with respond_to tracking</li>
+     * </ol>
+     *
+     * @param event        the Discord message event
+     * @param personality  the personality configuration
+     * @param isGuild      whether this is a guild message
+     * @param targetId     guild ID or user ID
+     */
+    public void processMessageAsync(MessageReceivedEvent event,
+                                     PudelPersonality personality,
+                                     boolean isGuild,
+                                     long targetId) {
+        long userId = event.getAuthor().getIdLong();
+        long channelId = event.getChannel().getIdLong();
+        long messageId = event.getMessage().getIdLong();
+        MessageChannelUnion channel = event.getChannel();
+
+        // Step 1: Send typing indicator immediately (non-blocking)
+        if (brainConfig.getDiscord().isSendTyping()) {
+            channel.sendTyping().queue(
+                    success -> logger.debug("Typing indicator sent"),
+                    error -> logger.debug("Failed to send typing: {}", error.getMessage())
+            );
+        }
+
+        // Step 2: Build the user message (including attachment content)
+        String userMessage = buildUserMessage(event);
+
+        // Step 3: Build system prompt from personality
+        String systemPrompt = systemPromptBuilder.buildSystemPrompt(
+                personality, isGuild, brainConfig.getCompletion().isEnableRoleplay());
+
+        // Step 4: Gather conversation history
+        List<ConversationTurn> history = gatherConversationHistory(
+                userId, channelId, isGuild, targetId);
+
+        // Step 5: Get passive context via MCP tool simulation
+        String passiveContext = gatherPassiveContext(channelId, isGuild, targetId);
+
+        // Step 6: Enrich the user message with context
+        String enrichedMessage = enrichMessageWithContext(userMessage, passiveContext);
+
+        // Step 7: Call Ollama asynchronously
+        CompletableFuture<String> responseFuture = ollamaClient.generateStreaming(
+                systemPrompt,
+                enrichedMessage,
+                history,
+                token -> {
+                    // We don't stream tokens to Discord (too many messages)
+                    // Instead, we collect the full response and send it once
+                }
+        );
+
+        // Step 8: Handle the completed response
+        final String finalUserMessage = userMessage;
+        responseFuture.thenAccept(response -> {
+            if (response != null && !response.isBlank()) {
+                // Ensure Discord Markdown formatting
+                if (brainConfig.getDiscord().isFormatMarkdown()) {
+                    response = ensureDiscordMarkdown(response);
+                }
+
+                // Truncate if needed
+                response = truncateForDiscord(response);
+
+                // Send the response (non-blocking)
+                final String finalResponse = response;
+                channel.sendMessage(finalResponse)
+                        .setMessageReference(messageId)
+                        .queue(
+                                sentMessage -> {
+                                    // Store dialogue history with respond_to tracking
+                                    storeDialogueExchange(
+                                            finalUserMessage, finalResponse, userId, channelId,
+                                            isGuild, targetId, messageId,
+                                            event.getMessage());
+                                    logger.debug("Response sent for message {}", messageId);
+                                },
+                                error -> logger.error("Failed to send response: {}", error.getMessage())
+                        );
+            } else {
+                logger.warn("Ollama returned empty response for message {}", messageId);
+                channel.sendMessage("I'm sorry, I couldn't generate a response. Please try again.")
+                        .setMessageReference(messageId)
+                        .queue();
+            }
+        }).exceptionally(throwable -> {
+            logger.error("Error generating response for message {}: {}",
+                    messageId, throwable.getMessage());
+            channel.sendMessage("I encountered an error while thinking. Please try again later.")
+                    .setMessageReference(messageId)
+                    .queue();
+            return null;
+        });
+    }
+
+    // ===============================
+    // Passive Context
+    // ===============================
+
+    /**
+     * Passively track context from a message without generating a response.
+     * <p>
+     * Used for building context when Pudel isn't directly addressed.
+     * The message is queued in the PassiveContextProcessor for later processing.
+     *
+     * @param event     the Discord message event
+     * @param targetId  guild ID or user ID for schema routing
+     * @param isGuild   whether this is a guild context
+     */
+    public void trackContext(MessageReceivedEvent event, long targetId, boolean isGuild) {
+        passiveContextProcessor.submit(event, targetId, isGuild);
     }
 
     /**
-     * Process a message and generate an intelligent response.
+     * Get passive context for the MCP tool interface.
+     * <p>
+     * This is called by MCP tools when the LLM requests context.
      *
-     * @param userMessage the user's message
-     * @param context the conversation context (history, personality, etc.)
-     * @param isGuild whether this is a guild message
-     * @param targetId guild ID or user ID
-     * @return the generated response
+     * @param channelId the channel ID
+     * @param isGuild   whether this is a guild context
+     * @param targetId  guild ID or user ID
+     * @param limit     maximum entries to return
+     * @return formatted context string for the LLM
      */
-    public BrainResponse processMessage(String userMessage,
-                                         ConversationContext context,
-                                         boolean isGuild,
-                                         long targetId) {
+    public String getPassiveContext(long channelId, boolean isGuild, long targetId, int limit) {
+        List<PassiveContextEntry> entries = passiveContextProcessor.getRecentContext(
+                channelId, isGuild, targetId, limit);
+
+        if (entries.isEmpty()) {
+            return "No recent context available.";
+        }
+
+        StringBuilder sb = new StringBuilder("Recent conversation context:\n");
+        for (PassiveContextEntry entry : entries) {
+            sb.append("- [Message ").append(entry.messageId()).append("] ");
+            sb.append("<@").append(entry.userId()).append(">: ");
+            sb.append(entry.content());
+            if (entry.replyToMessageId() != null) {
+                sb.append(" (replying to message ").append(entry.replyToMessageId()).append(")");
+            }
+            if (!entry.attachmentUrls().isEmpty()) {
+                sb.append(" [attachments: ").append(entry.attachmentUrls().size()).append("]");
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Fetch a specific message from passive context by message ID.
+     * <p>
+     * Used by MCP tools when the LLM references a specific message.
+     *
+     * @param messageId the message ID to fetch
+     * @param channelId the channel ID
+     * @param isGuild   whether this is a guild context
+     * @param targetId  guild ID or user ID
+     * @return the context entry, or null if not found
+     */
+    public PassiveContextEntry fetchContextByMessageId(long messageId, long channelId,
+                                                        boolean isGuild, long targetId) {
+        return passiveContextProcessor.fetchByMessageId(messageId, channelId, isGuild, targetId);
+    }
+
+    // ===============================
+    // Dialogue History
+    // ===============================
+
+    /**
+     * Get dialogue history for the MCP tool interface.
+     * <p>
+     * This is called by MCP tools when the LLM requests conversation history.
+     *
+     * @param userId  the user ID
+     * @param isGuild whether this is a guild context
+     * @param targetId guild ID or user ID
+     * @param limit   maximum turns to return
+     * @return formatted history string for the LLM
+     */
+    public String getDialogueHistory(long userId, boolean isGuild, long targetId, int limit) {
+        List<Map<String, Object>> history = dialogueHistoryManager.getRecentHistory(
+                userId, isGuild, targetId, limit);
+
+        if (history.isEmpty()) {
+            return "No previous conversation history.";
+        }
+
+        StringBuilder sb = new StringBuilder("Previous conversation:\n");
+        for (Map<String, Object> turn : history) {
+            String userMsg = (String) turn.getOrDefault("user_message", "");
+            String botMsg = (String) turn.getOrDefault("bot_response", "");
+            Object respondTo = turn.get("respond_to");
+
+            sb.append("User: ").append(userMsg).append("\n");
+            sb.append("Assistant: ").append(botMsg);
+            if (respondTo != null) {
+                sb.append(" (in response to message ").append(respondTo).append(")");
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Store a dialogue exchange.
+     */
+    public boolean storeDialogue(String userMessage, String botResponse, String intent,
+                                  long userId, long channelId, boolean isGuild, long targetId) {
+        return dialogueHistoryManager.storeDialogue(
+                userMessage, botResponse, intent, userId, channelId, isGuild, targetId);
+    }
+
+    /**
+     * Store a dialogue exchange with respond_to tracking.
+     */
+    public boolean storeDialogue(String userMessage, String botResponse, String intent,
+                                  long userId, long channelId, boolean isGuild, long targetId,
+                                  Long respondToMessageId,
+                                  List<String> userAttachmentUrls,
+                                  List<String> botAttachmentUrls) {
+        return dialogueHistoryManager.storeDialogue(
+                userMessage, botResponse, intent, userId, channelId, isGuild, targetId,
+                respondToMessageId, userAttachmentUrls, botAttachmentUrls);
+    }
+
+    // ===============================
+    // Utility Methods
+    // ===============================
+
+    /**
+     * Build the user message from the event, including text attachment content.
+     */
+    private String buildUserMessage(MessageReceivedEvent event) {
+        Message message = event.getMessage();
+        StringBuilder sb = new StringBuilder();
+
+        String content = message.getContentDisplay();
+        if (content != null && !content.isBlank()) {
+            sb.append(content);
+        }
+
+        if (brainConfig.getDiscord().isReadTextAttachments()) {
+            for (Attachment attachment : message.getAttachments()) {
+                if (attachment.getContentType() != null &&
+                        attachment.getContentType().startsWith("text/")) {
+                    if (!sb.isEmpty()) {
+                        sb.append("\n\n");
+                    }
+                    sb.append("[Attachment: ").append(attachment.getFileName()).append("]\n");
+                    sb.append("(Text attachment: ").append(attachment.getFileName()).append(")");
+                } else if (attachment.isImage()) {
+                    if (!sb.isEmpty()) {
+                        sb.append("\n");
+                    }
+                    sb.append("[Image: ").append(attachment.getFileName()).append("]");
+                } else if (attachment.isVideo()) {
+                    if (!sb.isEmpty()) {
+                        sb.append("\n");
+                    }
+                    sb.append("[Video: ").append(attachment.getFileName()).append("]");
+                }
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Gather conversation history for the LLM context.
+     */
+    private List<ConversationTurn> gatherConversationHistory(long userId, long channelId,
+                                                              boolean isGuild, long targetId) {
+        int limit = brainConfig.getCompletion().getMaxContextMessages();
+        List<Map<String, Object>> rawHistory = dialogueHistoryManager.getRecentHistory(
+                userId, isGuild, targetId, limit);
+
+        List<ConversationTurn> turns = new ArrayList<>();
+        for (Map<String, Object> entry : rawHistory) {
+            String userMsg = (String) entry.getOrDefault("user_message", "");
+            String botMsg = (String) entry.getOrDefault("bot_response", "");
+            if (userMsg != null && !userMsg.isBlank()) {
+                turns.add(new ConversationTurn(userMsg, botMsg != null ? botMsg : ""));
+            }
+        }
+        return turns;
+    }
+
+    /**
+     * Gather passive context for the LLM.
+     */
+    public String gatherPassiveContext(long channelId, boolean isGuild, long targetId) {
+        return getPassiveContext(channelId, isGuild, targetId, 10);
+    }
+
+    /**
+     * Enrich the user message with passive context.
+     */
+    private String enrichMessageWithContext(String userMessage, String passiveContext) {
+        if (passiveContext != null && !passiveContext.isBlank()
+                && !passiveContext.equals("No recent context available.")) {
+            return passiveContext + "\n\n---\n\nCurrent message: " + userMessage;
+        }
+        return userMessage;
+    }
+
+    /**
+     * Ensure the response uses proper Discord Markdown formatting.
+     */
+    private String ensureDiscordMarkdown(String response) {
+        int codeBlockCount = response.split("```", -1).length - 1;
+        if (codeBlockCount % 2 != 0) {
+            response += "\n```";
+        }
+        return response;
+    }
+
+    /**
+     * Truncate the response to fit Discord's message length limit.
+     */
+    private String truncateForDiscord(String response) {
+        Discord discordConfig = brainConfig.getDiscord();
+        int maxLength = discordConfig.getMaxMessageLength();
+
+        if (response.length() <= maxLength) {
+            return response;
+        }
+
+        int lastPeriod = response.lastIndexOf('.', maxLength - 100);
+        int lastNewline = response.lastIndexOf('\n', maxLength - 100);
+
+        int truncateAt = Math.max(lastPeriod, lastNewline);
+        if (truncateAt < maxLength / 2) {
+            truncateAt = maxLength - 3;
+        }
+
+        return response.substring(0, truncateAt) + "...";
+    }
+
+    /**
+     * Store a dialogue exchange after sending a response.
+     */
+    private void storeDialogueExchange(String userMessage, String botResponse,
+                                        long userId, long channelId,
+                                        boolean isGuild, long targetId,
+                                        long respondToMessageId,
+                                        Message userMessageObj) {
+        List<String> userAttachmentUrls = entityExtractor.extractAttachmentUrls(userMessageObj);
+
+        storeDialogue(userMessage, botResponse, "chat", userId, channelId, isGuild, targetId,
+                respondToMessageId, userAttachmentUrls, List.of());
+    }
+
+    // ===============================
+    // Attachment Reply Capability
+    // ===============================
+
+    /**
+     * Send a response with file attachments to a Discord channel.
+     * <p>
+     * Supports sending images, videos, and other file types as replies.
+     * Files can be provided as URLs (downloaded and sent) or as raw byte arrays.
+     *
+     * @param channel      the Discord channel to send to
+     * @param message      the text message to send (can be null if only sending files)
+     * @param attachments  list of file attachments to include
+     * @param replyToId    the message ID to reply to (0 for no reply)
+     */
+    public void sendResponseWithAttachments(MessageChannelUnion channel, String message,
+                                              List<FileAttachment> attachments, long replyToId) {
+        if ((message == null || message.isBlank()) && (attachments == null || attachments.isEmpty())) {
+            logger.warn("sendResponseWithAttachments called with no content");
+            return;
+        }
+
         try {
-            // Step 1: Analyze message with LangChain4j TextAnalyzer
-            TextAnalysis analysis = modelService.analyzeText(userMessage);
-            logger.debug("Text Analysis: intent={}, sentiment={}, language={}",
-                    analysis.intent(), analysis.sentiment(), analysis.language());
+            // Build the message action
+            var messageAction = channel.sendMessage(message != null ? message : "");
 
-            // Step 2: Retrieve relevant memories based on context
-            List<MemoryManager.MemoryEntry> relevantMemories =
-                    memoryManager.retrieveRelevantMemories(userMessage, isGuild, targetId);
-            logger.debug("Retrieved {} relevant memories for {} {}",
-                    relevantMemories.size(), isGuild ? "guild" : "user", targetId);
+            // Add file uploads
+            if (attachments != null && !attachments.isEmpty()) {
+                for (FileAttachment file : attachments) {
+                    try {
+                        InputStream data = file.data();
+                        if (data != null) {
+                            messageAction = messageAction.addFiles(
+                                    FileUpload.fromData(data, file.fileName()));
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error adding file {}: {}", file.fileName(), e.getMessage());
+                    }
+                }
+            }
 
-            // Log conversation history size for debugging
-            logger.debug("Conversation history contains {} entries", context.history().size());
+            // Set reply reference
+            if (replyToId > 0) {
+                messageAction = messageAction.setMessageReference(replyToId);
+            }
 
-            // Step 3: Build enriched context with memories
-            EnrichedContext enrichedContext = new EnrichedContext(
-                    context,
-                    analysis,
-                    relevantMemories
-            );
-
-            // Step 4: Apply personality traits to understand response style
-            PersonalityEngine.PersonalityProfile profile =
-                    personalityEngine.buildProfile(context.personality());
-
-            // Step 5: Generate response based on enriched context and personality
-            String response = responseGenerator.generate(
-                    userMessage,
-                    enrichedContext,
-                    profile
-            );
-
-            // Step 6: Return brain response with metadata
-            return new BrainResponse(
-                    response,
-                    analysis.intent(),
-                    analysis.sentiment(),
-                    analysis.confidence(),
-                    relevantMemories.size()
+            // Send asynchronously
+            messageAction.queue(
+                    sent -> logger.debug("Response with {} attachments sent", attachments != null ? attachments.size() : 0),
+                    error -> logger.error("Failed to send response with attachments: {}", error.getMessage())
             );
 
         } catch (Exception e) {
-            logger.error("Error processing message in brain: {}", e.getMessage(), e);
-            return new BrainResponse(
-                    personalityEngine.getErrorResponse(context.personality()),
-                    "error",
-                    "neutral",
-                    0.0,
-                    0
-            );
+            logger.error("Error sending response with attachments: {}", e.getMessage());
         }
     }
 
     /**
-     * Passively track context from a message without generating a response.
-     * Used for building memory when Pudel isn't directly addressed.
+     * Send a response with image attachments.
      * <p>
-     * Uses PassiveContextProcessor for proper queue management:
-     * - Deduplication: only keeps newest message per user+channel
-     * - Age expiration: drops messages older than 1 minute
-     * - Rate limiting: processes in controlled batches
-     * - LLM fallback: uses fast analysis if LLM times out
+     * Convenience method for sending images generated or processed by the bot.
      *
-     * @param message the message content
-     * @param userId the user who sent the message
-     * @param channelId the channel ID
-     * @param isGuild whether this is a guild message
-     * @param targetId guild ID or user ID
+     * @param channel   the Discord channel
+     * @param message   the text message
+     * @param images    list of image data (bytes + filename)
+     * @param replyToId the message ID to reply to
      */
-    public void trackContext(String message, long userId, long channelId,
-                             boolean isGuild, long targetId) {
-        // Delegate to PassiveContextProcessor for proper queue management
-        // This prevents the "doom" scenario where messages pile up faster than
-        // LLM can process them, causing timeouts and garbage collection
-        passiveContextProcessor.submit(message, userId, channelId, isGuild, targetId);
+    public void sendImageReply(MessageChannelUnion channel, String message,
+                                List<FileAttachment> images, long replyToId) {
+        sendResponseWithAttachments(channel, message, images, replyToId);
     }
 
     /**
-     * Get statistics about passive context processing.
+     * Send a response with a video attachment.
+     *
+     * @param channel   the Discord channel
+     * @param message   the text message
+     * @param videoData the video file data
+     * @param fileName  the video file name
+     * @param replyToId the message ID to reply to
+     */
+    public void sendVideoReply(MessageChannelUnion channel, String message,
+                                byte[] videoData, String fileName, long replyToId) {
+        List<FileAttachment> attachments = List.of(
+                new FileAttachment(fileName, new ByteArrayInputStream(videoData)));
+        sendResponseWithAttachments(channel, message, attachments, replyToId);
+    }
+
+    /**
+     * Download a file from a URL and return it as a FileAttachment.
+     * <p>
+     * Useful for downloading images/videos from URLs to re-send them.
+     *
+     * @param url      the URL to download from
+     * @param fileName the file name to use
+     * @return the file attachment, or null on error
+     */
+    public FileAttachment downloadFile(String url, String fileName) {
+        try {
+            URL fileUrl = URI.create(url).toURL();
+            try (InputStream is = fileUrl.openStream()) {
+                byte[] data = is.readAllBytes();
+                return new FileAttachment(fileName, new ByteArrayInputStream(data));
+            }
+        } catch (Exception e) {
+            logger.error("Error downloading file from {}: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    // ===============================
+    // Status & Diagnostics
+    // ===============================
+
+    /**
+     * Check if the Ollama server is available.
+     */
+    public boolean isOllamaAvailable() {
+        return ollamaClient.isServerReachable();
+    }
+
+    /**
+     * Check if the configured Ollama model is available.
+     */
+    public boolean isModelAvailable() {
+        return ollamaClient.isModelAvailable();
+    }
+
+    /**
+     * Get passive context queue statistics.
      */
     public PassiveContextProcessor.QueueStats getPassiveContextStats() {
         return passiveContextProcessor.getStats();
     }
 
     /**
-     * Store a dialogue exchange in memory.
+     * Get the brain configuration.
      */
-    public boolean storeDialogue(String userMessage, String botResponse, String intent,
-                                 long userId, long channelId, boolean isGuild, long targetId) {
-        return memoryManager.storeDialogue(
-                userMessage, botResponse, intent, userId, channelId, isGuild, targetId
-        );
+    public PudelBrainConfig getConfig() {
+        return brainConfig;
     }
 
     /**
-     * Get the model service for external use.
+     * Get the Ollama client for external use.
      */
-    public PudelModelService getModelService() {
-        return modelService;
+    public OllamaClient getOllamaClient() {
+        return ollamaClient;
+    }
+
+    /**
+     * Get the entity extractor for external use.
+     */
+    public EntityExtractor getEntityExtractor() {
+        return entityExtractor;
     }
 
     /**
@@ -187,62 +627,91 @@ public class PudelBrain {
     }
 
     /**
-     * Analyze text using the LangChain4j analyzer.
-     * @param text the text to analyze
-     * @return the analysis result
+     * Get the dialogue history manager for external use.
      */
-    public TextAnalysis analyzeText(String text) {
-        return modelService.analyzeText(text);
+    public DialogueHistoryManager getDialogueHistoryManager() {
+        return dialogueHistoryManager;
     }
 
     /**
-     * Check if LLM-powered analysis is available.
+     * Check if the LLM-based text analyzer is available.
+     * In the new brain, this checks if Ollama is reachable.
      */
     public boolean isLLMAnalyzerAvailable() {
-        return modelService.isAnalyzerLLMAvailable();
+        return ollamaClient.isServerReachable();
     }
 
-    // ===============================
-    // Inner Classes / Records
-    // ===============================
-
     /**
-     * Response from the brain with metadata.
+     * Analyze text using the brain's text analysis capabilities.
+     * <p>
+     * Provides basic pattern-based analysis. For full LLM-based analysis,
+     * use the Ollama client directly.
+     *
+     * @param text the text to analyze
+     * @return the text analysis result
      */
-    public record BrainResponse(
-            String response,
-            String intent,
-            String sentiment,
-            double confidence,
-            int memoriesUsed
-    ) {}
-
-    /**
-     * Conversation context (passed from ChatbotService).
-     */
-    public record ConversationContext(
-            List<Map<String, Object>> history,
-            PudelPersonality personality,
-            boolean isGuild,
-            long targetId,
-            long userId
-    ) {}
-
-    /**
-     * Enriched context with text analysis and memories.
-     */
-    public record EnrichedContext(
-            ConversationContext baseContext,
-            TextAnalysis textAnalysis,
-            List<MemoryManager.MemoryEntry> relevantMemories
-    ) {
-        public List<Map<String, Object>> getHistory() {
-            return baseContext.history();
+    public TextAnalysis analyzeText(String text) {
+        if (text == null || text.isBlank()) {
+            return new TextAnalysis("en", "unknown", 0.0, "neutral",
+                    Map.of(), List.of(), false, false, false, false);
         }
 
-        public PudelPersonality getPersonality() {
-            return baseContext.personality();
+        String lower = text.toLowerCase().trim();
+
+        // Detect intent
+        String intent = "chat";
+        if (lower.matches("^(hi|hello|hey|howdy|greetings|sup|yo).*")) {
+            intent = "greeting";
+        } else if (lower.matches("^(bye|goodbye|see you|farewell|cya|gtg).*")) {
+            intent = "farewell";
+        } else if (lower.endsWith("?") || lower.startsWith("what") || lower.startsWith("how")
+                || lower.startsWith("why") || lower.startsWith("when") || lower.startsWith("where")
+                || lower.startsWith("who") || lower.startsWith("can you")
+                || lower.startsWith("could you")) {
+            intent = "question";
+        } else if (lower.matches("^(please |help |could you |would you |can you ).*")) {
+            intent = "help";
         }
+
+        // Detect sentiment
+        String sentiment = "neutral";
+        if (lower.contains("thank") || lower.contains("great") || lower.contains("awesome")
+                || lower.contains("love") || lower.contains("amazing") || lower.contains("wonderful")
+                || lower.contains("happy") || lower.contains("good") || lower.contains("nice")) {
+            sentiment = "positive";
+        } else if (lower.contains("hate") || lower.contains("bad") || lower.contains("terrible")
+                || lower.contains("awful") || lower.contains("sad") || lower.contains("angry")
+                || lower.contains("stupid") || lower.contains("worst") || lower.contains("horrible")) {
+            sentiment = "negative";
+        }
+
+        // Extract simple entities (mentions, channels, URLs)
+        Map<String, List<String>> entities = new HashMap<>();
+        java.util.regex.Pattern mentionPattern = java.util.regex.Pattern.compile("<@!?(\\d+)>");
+        java.util.regex.Matcher matcher = mentionPattern.matcher(text);
+        List<String> mentions = new ArrayList<>();
+        while (matcher.find()) {
+            mentions.add(matcher.group(1));
+        }
+        if (!mentions.isEmpty()) {
+            entities.put("users", mentions);
+        }
+
+        // Extract keywords (simple word extraction)
+        List<String> keywords = Arrays.stream(lower.split("\\s+"))
+                .filter(w -> w.length() > 3)
+                .filter(w -> !Set.of("this", "that", "with", "from", "have", "been", "were", "they", "them", "their", "what", "when", "where", "which", "while", "about", "would", "could", "should").contains(w))
+                .limit(5)
+                .toList();
+
+        boolean isQuestion = intent.equals("question") || lower.endsWith("?");
+        boolean isCommand = intent.equals("help") || lower.startsWith("!");
+        boolean isGreeting = intent.equals("greeting");
+        boolean isFarewell = intent.equals("farewell");
+
+        return new TextAnalysis(
+                "en", intent, 0.7, sentiment, entities, keywords,
+                isQuestion, isCommand, isGreeting, isFarewell
+        );
     }
 }
-

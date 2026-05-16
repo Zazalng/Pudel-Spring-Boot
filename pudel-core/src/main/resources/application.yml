@@ -1,6 +1,8 @@
 spring:
   application:
     name: pudel-discord-bot
+  config:
+    import: "optional:classpath:application-brain.yml"
   servlet:
     multipart:
       enabled: true

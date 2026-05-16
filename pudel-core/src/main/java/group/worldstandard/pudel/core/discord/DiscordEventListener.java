@@ -23,48 +23,52 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
+import group.worldstandard.pudel.core.brain.PudelBrain;
+import group.worldstandard.pudel.core.brain.context.PassiveContextProcessor;
 import group.worldstandard.pudel.core.command.CommandContextImpl;
 import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import group.worldstandard.pudel.core.command.CommandRegistry;
 import group.worldstandard.pudel.core.entity.GuildSettings;
 import group.worldstandard.pudel.core.event.PluginEventManager;
-import group.worldstandard.pudel.core.service.ChatbotService;
 import group.worldstandard.pudel.core.service.CommandExecutionService;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
 import group.worldstandard.pudel.core.service.GuildSettingsService;
 
 /**
  * Listens to Discord events and dispatches commands.
- * Also handles chatbot interactions and dispatches events to plugin event handlers.
+ * Also dispatches events to plugin event handlers.
  */
 @Component
 public class DiscordEventListener extends ListenerAdapter {
-    private static final Logger logger = LoggerFactory.getLogger(DiscordEventListener.class);
+     private static final Logger logger = LoggerFactory.getLogger(DiscordEventListener.class);
 
-    private final CommandRegistry commandRegistry;
-    private final GuildInitializationService guildInitializationService;
-    private final CommandExecutionService commandExecutionService;
-    private final PluginEventManager pluginEventManager;
-    private final ChatbotService chatbotService;
-    private final CommandMetadataRegistry commandMetadataRegistry;
-    private final GuildSettingsService guildSettingsService;
-    private static final String DEFAULT_PREFIX = "!";
+     private final CommandRegistry commandRegistry;
+     private final GuildInitializationService guildInitializationService;
+     private final CommandExecutionService commandExecutionService;
+     private final PluginEventManager pluginEventManager;
+     private final CommandMetadataRegistry commandMetadataRegistry;
+     private final GuildSettingsService guildSettingsService;
+     private final PudelBrain pudelBrain;
+     private final PassiveContextProcessor passiveContextProcessor;
+     private static final String DEFAULT_PREFIX = "!";
 
-    public DiscordEventListener(CommandRegistry commandRegistry,
-                               GuildInitializationService guildInitializationService,
-                               @Lazy CommandExecutionService commandExecutionService,
-                               PluginEventManager pluginEventManager,
-                               @Lazy ChatbotService chatbotService,
-                               CommandMetadataRegistry commandMetadataRegistry,
-                               GuildSettingsService guildSettingsService) {
-        this.commandRegistry = commandRegistry;
-        this.guildInitializationService = guildInitializationService;
-        this.commandExecutionService = commandExecutionService;
-        this.pluginEventManager = pluginEventManager;
-        this.chatbotService = chatbotService;
-        this.commandMetadataRegistry = commandMetadataRegistry;
-        this.guildSettingsService = guildSettingsService;
-    }
+     public DiscordEventListener(CommandRegistry commandRegistry,
+                                GuildInitializationService guildInitializationService,
+                                @Lazy CommandExecutionService commandExecutionService,
+                                PluginEventManager pluginEventManager,
+                                @Lazy CommandMetadataRegistry commandMetadataRegistry,
+                                GuildSettingsService guildSettingsService,
+                                PudelBrain pudelBrain,
+                                PassiveContextProcessor passiveContextProcessor) {
+         this.commandRegistry = commandRegistry;
+         this.guildInitializationService = guildInitializationService;
+         this.commandExecutionService = commandExecutionService;
+         this.pluginEventManager = pluginEventManager;
+         this.commandMetadataRegistry = commandMetadataRegistry;
+         this.guildSettingsService = guildSettingsService;
+         this.pudelBrain = pudelBrain;
+         this.passiveContextProcessor = passiveContextProcessor;
+     }
 
     /**
      * Generic event handler that dispatches all events to plugin handlers.
@@ -105,15 +109,6 @@ public class DiscordEventListener extends ListenerAdapter {
             if (isChannelIgnored(event.getChannel().getId(), settings)) {
                 return; // Completely ignore this channel
             }
-
-            // Check if bot should only respond in specific channel
-            if (settings.getBotChannel() != null &&
-                !event.getChannel().getId().equals(settings.getBotChannel())) {
-                // Still allow chatbot if directly mentioned even in other channels
-                if (!chatbotService.shouldRespondAsChatbot(event, selfId)) {
-                    return;
-                }
-            }
         }
 
         // Check if message starts with prefix (command mode)
@@ -140,23 +135,19 @@ public class DiscordEventListener extends ListenerAdapter {
             }
         }
 
-        // Check AI enabled status for guild
-        boolean aiEnabled = true;
-        if (event.isFromGuild() && settings != null) {
-            aiEnabled = settings.getAiEnabled() != null ? settings.getAiEnabled() : true;
-        }
+        // Non-command message: check if bot is mentioned to trigger response
+        boolean isMentioned = messageContent.contains("<@" + selfId + ">")
+                || messageContent.contains("<@!" + selfId + ">");
 
-        if (!aiEnabled) {
-            // AI is disabled - no chatbot responses, only @mention commands (already handled above)
-            return;
-        }
+        boolean isGuild = event.isFromGuild();
+        long targetId = isGuild ? event.getGuild().getIdLong() : event.getAuthor().getIdLong();
 
-        // Check if this should trigger chatbot response
-        if (chatbotService.shouldRespondAsChatbot(event, selfId)) {
-            chatbotService.handleChatbotMessage(event);
+        if (isMentioned) {
+            // Bot is mentioned - process with PudelBrain
+            pudelBrain.processMessageAsync(event, null, isGuild, targetId);
         } else {
-            // Track passive context for memory building (doesn't trigger a response)
-            chatbotService.trackPassiveContext(event);
+            // Not a command and not a mention - passively track context
+            passiveContextProcessor.submit(event, targetId, isGuild);
         }
     }
 
@@ -299,3 +290,4 @@ public class DiscordEventListener extends ListenerAdapter {
         return false;
     }
 }
+
