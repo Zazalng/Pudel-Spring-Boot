@@ -94,10 +94,16 @@ public class OllamaClient {
         try {
             ObjectNode requestBody = buildRequestBody(systemPrompt, userMessage, history, true);
 
+            String requestJson = requestBody.toString();
+            logger.debug("Ollama request: model={}, prompt length={}, stream={}", model, userMessage != null ? userMessage.length() : 0, true);
+            if (logger.isTraceEnabled()) {
+                logger.trace("Ollama request body: {}", requestJson);
+            }
+
             webClient.post()
                     .uri("/api/generate")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(requestBody.toString())
+                    .bodyValue(requestJson)
                     .accept(MediaType.APPLICATION_NDJSON)
                     .retrieve()
                     .bodyToFlux(String.class)
@@ -129,6 +135,9 @@ public class OllamaClient {
                     })
                     .doOnError(error -> {
                         logger.error("Ollama streaming error: {}", error.getMessage());
+                        if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException wce) {
+                            logger.error("Ollama error response body: {}", wce.getResponseBodyAsString());
+                        }
                         // Return whatever we have so far
                         if (!fullResponse.isEmpty()) {
                             future.complete(fullResponse.toString().trim());
