@@ -251,6 +251,14 @@ public class PassiveContextProcessor {
 
         List<PassiveContextEntry.ForwardedMessageRef> forwardedMessages = buildForwardedRefs(message, entities);
 
+        // If content is empty but we have forwarded messages, use the first forwarded content as the main content
+        if ((content == null || content.isBlank()) && !forwardedMessages.isEmpty()) {
+            content = forwardedMessages.getFirst().content();
+            if (content == null || content.isBlank()) {
+                content = "[Forwarded message]";
+            }
+        }
+
         return new PassiveContextEntry(
                 messageId, userId, channelId, content,
                 entities, attachmentUrls, replyToMessageId,
@@ -385,6 +393,9 @@ public class PassiveContextProcessor {
             jdbcTemplate.execute(
                     "CREATE INDEX IF NOT EXISTS idx_pc_channel ON " + schemaName + ".passive_context(channel_id)"
             );
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_user ON " + schemaName + ".passive_context(user_id)"
+            );
         } catch (Exception e) {
             logger.debug("Error ensuring passive_context table in {}: {}", schemaName, e.getMessage());
         }
@@ -396,35 +407,33 @@ public class PassiveContextProcessor {
     private void storeForwardedMessages(String schemaName, long passiveContextMessageId,
                                          List<PassiveContextEntry.ForwardedMessageRef> forwarded) {
         try {
-            // Ensure forwarded_messages table exists
+            // Ensure forwarded_messages table exists with proper schema
             jdbcTemplate.execute(
                     "CREATE TABLE IF NOT EXISTS " + schemaName + ".forwarded_messages (" +
                     "    id BIGSERIAL PRIMARY KEY," +
+                    "    passive_context_id BIGINT REFERENCES " + schemaName + ".passive_context(id) ON DELETE CASCADE," +
                     "    passive_context_message_id BIGINT NOT NULL," +
-                    "    message_id BIGINT NOT NULL," +
-                    "    author_id BIGINT," +
                     "    author_name VARCHAR(255)," +
                     "    content TEXT," +
                     "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")"
             );
 
-            // Get the passive_context ID for this message
-            Long passiveCtxId = jdbcTemplate.queryForObject(
-                    "SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?",
-                    Long.class, passiveContextMessageId
+            // Create index for faster lookups
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_fwd_msgs_passive_ctx ON " + schemaName + ".forwarded_messages(passive_context_id)"
             );
 
-            if (passiveCtxId != null) {
-                for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
-                    jdbcTemplate.update(
-                            "INSERT INTO " + schemaName + ".forwarded_messages " +
-                            "(passive_context_id, author_name, content) " +
-                            "VALUES (?, ?, ?)",
-                            passiveCtxId, fwd.authorName(), fwd.content()
-                    );
-                }
+            // Store each forwarded message
+            for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
+                jdbcTemplate.update(
+                        "INSERT INTO " + schemaName + ".forwarded_messages " +
+                        "(passive_context_id, passive_context_message_id, author_name, content) " +
+                        "VALUES ((SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?), ?, ?, ?)",
+                        passiveContextMessageId, passiveContextMessageId, fwd.authorName(), fwd.content()
+                );
             }
+            logger.debug("Stored {} forwarded messages for message {}", forwarded.size(), passiveContextMessageId);
         } catch (Exception e) {
             logger.debug("Error storing forwarded messages: {}", e.getMessage());
         }
@@ -560,9 +569,7 @@ public class PassiveContextProcessor {
             String entitiesJson = extractStringValue(row.get("entities"));
             String attachmentUrlsStr = extractStringValue(row.get("attachment_urls"));
 
-            @SuppressWarnings("unchecked")
             Map<String, List<String>> entities = parseEntitiesJson(entitiesJson);
-            @SuppressWarnings("unchecked")
             List<String> attachmentUrls = parseTextArray(attachmentUrlsStr);
 
             return new PassiveContextEntry(
