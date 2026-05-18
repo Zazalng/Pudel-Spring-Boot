@@ -13,7 +13,6 @@
     <modules>
         <module>pudel-core</module>
         <module>pudel-api</module>
-        <module>pudel-model</module>
     </modules>
 
     <licenses>

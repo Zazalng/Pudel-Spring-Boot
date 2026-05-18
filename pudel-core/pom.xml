@@ -48,6 +48,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jdave.version>0.1.8</jdave.version>
         <jwt.version>0.13.0</jwt.version>
+        <langchain4j.version>1.15.0</langchain4j.version>
         <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
@@ -56,10 +57,6 @@
         <dependency>
             <groupId>group.worldstandard</groupId>
             <artifactId>pudel-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>group.worldstandard</groupId>
-            <artifactId>pudel-model</artifactId>
         </dependency>
 
         <!-- Spring Boot Web and Core -->
@@ -86,6 +83,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
         <!-- Swagger Ui -->
         <dependency>
@@ -117,6 +118,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- LangChain4j for unified AI/LLM integration -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>${langchain4j.version}</version>
         </dependency>
 
         <!-- Discord API -->

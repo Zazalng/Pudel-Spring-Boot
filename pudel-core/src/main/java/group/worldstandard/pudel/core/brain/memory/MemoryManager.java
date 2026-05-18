@@ -23,7 +23,7 @@ import group.worldstandard.pudel.core.service.GuildDataService;
 import group.worldstandard.pudel.core.service.SchemaManagementService;
 import group.worldstandard.pudel.core.service.SubscriptionService;
 import group.worldstandard.pudel.core.service.UserDataService;
-import group.worldstandard.pudel.model.analyzer.TextAnalysis;
+import group.worldstandard.pudel.core.brain.analyzer.TextAnalysis;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;

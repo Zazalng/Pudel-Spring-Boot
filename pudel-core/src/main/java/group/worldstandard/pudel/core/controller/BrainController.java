@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.brain.PudelBrain;
 import group.worldstandard.pudel.core.brain.memory.MemoryManager;
 import group.worldstandard.pudel.core.service.SubscriptionService;
-import group.worldstandard.pudel.model.analyzer.TextAnalysis;
+import group.worldstandard.pudel.core.brain.analyzer.TextAnalysis;
 
 import java.util.HashMap;
 import java.util.Map;

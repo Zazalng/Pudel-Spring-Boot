@@ -12,7 +12,7 @@
  *
  * See the LICENSE and PLUGIN_EXCEPTION files in the project root for details.
  */
-package group.worldstandard.pudel.model.analyzer;
+package group.worldstandard.pudel.core.brain.analyzer;
 
 import java.util.List;
 import java.util.Map;

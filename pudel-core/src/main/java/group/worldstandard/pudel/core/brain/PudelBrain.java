@@ -25,7 +25,7 @@ import group.worldstandard.pudel.core.brain.personality.PudelPersonality;
 import group.worldstandard.pudel.core.brain.personality.SystemPromptBuilder;
 import group.worldstandard.pudel.core.config.brain.PudelBrainConfig;
 import group.worldstandard.pudel.core.config.brain.PudelBrainConfig.Discord;
-import group.worldstandard.pudel.model.analyzer.TextAnalysis;
+import group.worldstandard.pudel.core.brain.analyzer.TextAnalysis;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;

@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import group.worldstandard.pudel.model.agent.AgentDataExecutor;
+import group.worldstandard.pudel.core.brain.agent.AgentDataExecutor;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;

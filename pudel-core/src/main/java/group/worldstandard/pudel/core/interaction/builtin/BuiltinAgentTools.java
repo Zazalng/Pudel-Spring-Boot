@@ -18,7 +18,7 @@ import group.worldstandard.pudel.api.PudelProperties;
 import group.worldstandard.pudel.api.agent.AgentTool;
 import group.worldstandard.pudel.api.agent.AgentToolContext;
 import group.worldstandard.pudel.api.agent.AgentToolProvider;
-import group.worldstandard.pudel.model.agent.AgentDataExecutor;
+import group.worldstandard.pudel.core.brain.agent.AgentDataExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
