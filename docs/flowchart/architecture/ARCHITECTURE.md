@@ -1,4 +1,4 @@
-# Pudel Architecture v2.3.0
+# Pudel Architecture v2.3.1
 
 This document describes the complete architecture of Pudel Discord Bot — reflecting the current implementation with Components V2 interactive panels, two-tier plugin control (admin global + guild local), per-guild command sync, and the annotation-based plugin system.
 
@@ -29,7 +29,7 @@ This document describes the complete architecture of Pudel Discord Bot — refle
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│                             PUDEL DISCORD BOT v2.3.0                          │
+│                             PUDEL DISCORD BOT v2.3.1                          │
 ├───────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
 │  ┌────────────────────┐       ┌─────────────────────┐       ┌──────────────┐  │
@@ -412,7 +412,7 @@ The `/settings` command opens a single ephemeral message with a rich interactive
 
 ---
 
-## Brain Architecture (v2.3.0)
+## Brain Architecture (v2.3.1)
 
 PudelBrain v2 is Ollama completion-focused with async Discord handling, passive context collection, dialogue history tracking, and a dual MCP/Agent tool system.
 
@@ -718,4 +718,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2026-05-17 for Pudel v2.3.0*
+*Last updated: 2026-05-17 for Pudel v2.3.1*
