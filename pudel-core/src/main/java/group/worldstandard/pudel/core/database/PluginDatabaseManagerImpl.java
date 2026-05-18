@@ -478,7 +478,9 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
      * @param columns the column names to include in the index
      */
     void createIndexInternal(String fullTableName, boolean unique, String... columns) {
-        String indexName = "idx_" + fullTableName + "_" + String.join("_", columns);
+        // Replace dots with underscores in index name to avoid PostgreSQL syntax errors
+        // fullTableName format: plugin_uuid.tablename -> index name: idx_plugin_uuid_tablename_column
+        String indexName = "idx_" + fullTableName.replace(".", "_") + "_" + String.join("_", columns);
         String sql = String.format("CREATE %sINDEX IF NOT EXISTS %s ON %s (%s)",
                 unique ? "UNIQUE " : "",
                 indexName,

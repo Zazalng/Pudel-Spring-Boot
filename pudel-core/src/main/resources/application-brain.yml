@@ -18,7 +18,7 @@ pudel:
       model: "${OLLAMA_MODEL:qwen3:8b}"
       timeout-seconds: 120
       temperature: 0.7
-      max-tokens: 262143
+      max-tokens: 65535
 
     # Completion behavior
     completion:
