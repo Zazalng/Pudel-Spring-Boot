@@ -123,6 +123,15 @@ public class PluginAnnotationProcessor {
          Class<?> pluginClass = pluginInstance.getClass();
          int registered = 0;
 
+         // Derive schema name from dbPrefix for handler registration
+         // dbPrefix format: p_{uuid}_ -> schema name: plugin_{uuid}
+         // This ensures handler registration matches the prefix used by the plugin
+         // when generating button/modal/select-menu IDs via context.getDatabaseManager().getSchemaName()
+         String handlerPrefix = dbPrefix;
+         if (dbPrefix != null && dbPrefix.startsWith("p_") && dbPrefix.endsWith("_")) {
+             handlerPrefix = "plugin_" + dbPrefix.substring(2, dbPrefix.length() - 1);
+         }
+
          // Process @SlashCommand methods
          registered += processSlashCommands(pluginId, pluginInstance, pluginClass);
 
@@ -130,13 +139,13 @@ public class PluginAnnotationProcessor {
          registered += processTextCommands(pluginId, pluginInstance, pluginClass, context);
 
          // Process @ButtonHandler methods
-         registered += processButtonHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         registered += processButtonHandlers(pluginId, pluginInstance, pluginClass, handlerPrefix);
 
          // Process @ModalHandler methods
-         registered += processModalHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         registered += processModalHandlers(pluginId, pluginInstance, pluginClass, handlerPrefix);
 
          // Process @SelectMenuHandler methods
-         registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass, handlerPrefix);
 
          // Process @ContextMenu methods
          registered += processContextMenus(pluginId, pluginInstance, pluginClass);

@@ -341,8 +341,8 @@ public class PudelBrain {
     // ===============================
 
     /**
-     * Build the user message from the event, including text attachment content.
-     * Strips bot name/nickname if the bot was mentioned by name.
+     * Build the user message from the event, including text attachment content,
+     * embed content (forwarded messages), and stripping bot name/nickname if mentioned by name.
      */
     private String buildUserMessage(MessageReceivedEvent event) {
         Message message = event.getMessage();
@@ -355,6 +355,45 @@ public class PudelBrain {
             sb.append(cleaned);
         }
 
+        // Include embed content (forwarded messages, link previews, etc.)
+        if (!message.getEmbeds().isEmpty()) {
+            for (var embed : message.getEmbeds()) {
+                if (!sb.isEmpty()) {
+                    sb.append("\n\n");
+                }
+                sb.append("[Forwarded message");
+
+                // Add author info
+                if (embed.getAuthor() != null && embed.getAuthor().getName() != null) {
+                    sb.append(" from ").append(embed.getAuthor().getName());
+                }
+                sb.append("]");
+
+                // Add title
+                if (embed.getTitle() != null && !embed.getTitle().isBlank()) {
+                    sb.append("\n**").append(embed.getTitle()).append("**");
+                }
+
+                // Add description (main content)
+                if (embed.getDescription() != null && !embed.getDescription().isBlank()) {
+                    sb.append("\n").append(embed.getDescription());
+                }
+
+                // Add fields
+                if (!embed.getFields().isEmpty()) {
+                    for (var field : embed.getFields()) {
+                        sb.append("\n").append(field.getName()).append(": ").append(field.getValue());
+                    }
+                }
+
+                // Add footer (often contains source info)
+                if (embed.getFooter() != null && embed.getFooter().getText() != null) {
+                    sb.append("\n_").append(embed.getFooter().getText()).append("_");
+                }
+            }
+        }
+
+        // Include text attachments
         if (brainConfig.getDiscord().isReadTextAttachments()) {
             for (Attachment attachment : message.getAttachments()) {
                 if (attachment.getContentType() != null &&
