@@ -501,10 +501,12 @@ public class PassiveContextProcessor {
 
             List<PassiveContextEntry> entries = new ArrayList<>();
             for (Map<String, Object> row : rows) {
-                Map<String, List<String>> entities = parseEntitiesJson(
-                        (String) row.getOrDefault("entities", "{}"));
-                List<String> attachmentUrls = parseTextArray(
-                        (String) row.getOrDefault("attachment_urls", "{}"));
+                // Handle JSONB columns that may be returned as PGobject instead of String
+                String entitiesJson = extractStringValue(row.get("entities"));
+                String attachmentUrlsStr = extractStringValue(row.get("attachment_urls"));
+
+                Map<String, List<String>> entities = parseEntitiesJson(entitiesJson);
+                List<String> attachmentUrls = parseTextArray(attachmentUrlsStr);
 
                 entries.add(new PassiveContextEntry(
                         ((Number) row.get("message_id")).longValue(),
@@ -554,12 +556,14 @@ public class PassiveContextProcessor {
             }
 
             Map<String, Object> row = rows.getFirst();
+            // Handle JSONB columns that may be returned as PGobject instead of String
+            String entitiesJson = extractStringValue(row.get("entities"));
+            String attachmentUrlsStr = extractStringValue(row.get("attachment_urls"));
+
             @SuppressWarnings("unchecked")
-            Map<String, List<String>> entities = parseEntitiesJson(
-                    (String) row.getOrDefault("entities", "{}"));
+            Map<String, List<String>> entities = parseEntitiesJson(entitiesJson);
             @SuppressWarnings("unchecked")
-            List<String> attachmentUrls = parseTextArray(
-                    (String) row.getOrDefault("attachment_urls", "{}"));
+            List<String> attachmentUrls = parseTextArray(attachmentUrlsStr);
 
             return new PassiveContextEntry(
                     ((Number) row.get("message_id")).longValue(),
@@ -616,6 +620,21 @@ public class PassiveContextProcessor {
         } catch (Exception e) {
             return Map.of();
         }
+    }
+
+    /**
+     * Extract a String value from a database column that may be returned as
+     * PGobject (for JSONB/TEXT[] types) instead of String.
+     */
+    private String extractStringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String str) {
+            return str;
+        }
+        // Handle PGobject (JSONB, TEXT[], etc.)
+        return value.toString();
     }
 
     /**

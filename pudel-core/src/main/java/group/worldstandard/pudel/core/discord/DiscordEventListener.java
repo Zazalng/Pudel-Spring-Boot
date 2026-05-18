@@ -33,6 +33,8 @@ import group.worldstandard.pudel.core.event.PluginEventManager;
 import group.worldstandard.pudel.core.service.CommandExecutionService;
 import group.worldstandard.pudel.core.service.GuildInitializationService;
 import group.worldstandard.pudel.core.service.GuildSettingsService;
+import group.worldstandard.pudel.core.util.DiscordMessageParser;
+import group.worldstandard.pudel.core.util.DiscordMessageParser.ParseResult;
 
 /**
  * Listens to Discord events and dispatches commands.
@@ -48,27 +50,30 @@ public class DiscordEventListener extends ListenerAdapter {
      private final PluginEventManager pluginEventManager;
      private final CommandMetadataRegistry commandMetadataRegistry;
      private final GuildSettingsService guildSettingsService;
-     private final PudelBrain pudelBrain;
-     private final PassiveContextProcessor passiveContextProcessor;
-     private static final String DEFAULT_PREFIX = "!";
+    private final PudelBrain pudelBrain;
+    private final PassiveContextProcessor passiveContextProcessor;
+    private final DiscordMessageParser messageParser;
+    private static final String DEFAULT_PREFIX = "!";
 
-     public DiscordEventListener(CommandRegistry commandRegistry,
-                                GuildInitializationService guildInitializationService,
-                                @Lazy CommandExecutionService commandExecutionService,
-                                PluginEventManager pluginEventManager,
-                                @Lazy CommandMetadataRegistry commandMetadataRegistry,
-                                GuildSettingsService guildSettingsService,
-                                PudelBrain pudelBrain,
-                                PassiveContextProcessor passiveContextProcessor) {
-         this.commandRegistry = commandRegistry;
-         this.guildInitializationService = guildInitializationService;
-         this.commandExecutionService = commandExecutionService;
-         this.pluginEventManager = pluginEventManager;
-         this.commandMetadataRegistry = commandMetadataRegistry;
-         this.guildSettingsService = guildSettingsService;
-         this.pudelBrain = pudelBrain;
-         this.passiveContextProcessor = passiveContextProcessor;
-     }
+    public DiscordEventListener(CommandRegistry commandRegistry,
+                                 GuildInitializationService guildInitializationService,
+                                 @Lazy CommandExecutionService commandExecutionService,
+                                 PluginEventManager pluginEventManager,
+                                 @Lazy CommandMetadataRegistry commandMetadataRegistry,
+                                 GuildSettingsService guildSettingsService,
+                                 PudelBrain pudelBrain,
+                                 PassiveContextProcessor passiveContextProcessor,
+                                 DiscordMessageParser messageParser) {
+        this.commandRegistry = commandRegistry;
+        this.guildInitializationService = guildInitializationService;
+        this.commandExecutionService = commandExecutionService;
+        this.pluginEventManager = pluginEventManager;
+        this.commandMetadataRegistry = commandMetadataRegistry;
+        this.guildSettingsService = guildSettingsService;
+        this.pudelBrain = pudelBrain;
+        this.passiveContextProcessor = passiveContextProcessor;
+        this.messageParser = messageParser;
+    }
 
     /**
      * Generic event handler that dispatches all events to plugin handlers.
@@ -135,15 +140,24 @@ public class DiscordEventListener extends ListenerAdapter {
             }
         }
 
-        // Non-command message: check if bot is mentioned to trigger response
-        boolean isMentioned = messageContent.contains("<@" + selfId + ">")
-                || messageContent.contains("<@!" + selfId + ">");
-
+        // Non-command message: check if bot is mentioned (by ID or by name/nickname)
         boolean isGuild = event.isFromGuild();
         long targetId = isGuild ? event.getGuild().getIdLong() : event.getAuthor().getIdLong();
 
+        // Use DiscordMessageParser to detect mentions by ID, name, or nickname
+        ParseResult parseResult = messageParser.parseMessage(event);
+        boolean isMentionedById = parseResult.mentionsBotById();
+        boolean isMentionedByName = parseResult.mentionsBotByName();
+        boolean isReplyToBot = parseResult.isReplyToBot();
+
+        // Check for @mention by ID (original check, kept for compatibility)
+        boolean isMentionedByIdFallback = messageContent.contains("<@" + selfId + ">")
+                || messageContent.contains("<@!" + selfId + ">");
+
+        boolean isMentioned = isMentionedById || isMentionedByIdFallback || isMentionedByName || isReplyToBot;
+
         if (isMentioned) {
-            // Bot is mentioned - process with PudelBrain
+            // Bot is mentioned (by ID, name, nickname, or reply) - process with PudelBrain
             pudelBrain.processMessageAsync(event, null, isGuild, targetId);
         } else {
             // Not a command and not a mention - passively track context

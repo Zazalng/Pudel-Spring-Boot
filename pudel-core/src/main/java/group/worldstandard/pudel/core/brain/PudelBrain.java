@@ -342,6 +342,7 @@ public class PudelBrain {
 
     /**
      * Build the user message from the event, including text attachment content.
+     * Strips bot name/nickname if the bot was mentioned by name.
      */
     private String buildUserMessage(MessageReceivedEvent event) {
         Message message = event.getMessage();
@@ -349,7 +350,9 @@ public class PudelBrain {
 
         String content = message.getContentDisplay();
         if (content != null && !content.isBlank()) {
-            sb.append(content);
+            // Strip bot name/nickname from the beginning of the message
+            String cleaned = stripBotName(content, event);
+            sb.append(cleaned);
         }
 
         if (brainConfig.getDiscord().isReadTextAttachments()) {
@@ -447,6 +450,71 @@ public class PudelBrain {
         }
 
         return response.substring(0, truncateAt) + "...";
+    }
+
+    /**
+     * Strip bot name/nickname from the beginning of a message.
+     * This is used when the bot is mentioned by name (not @mention).
+     */
+    private String stripBotName(String content, MessageReceivedEvent event) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+
+        String selfName = event.getJDA().getSelfUser().getName();
+        String lowerContent = content.toLowerCase();
+        String lowerName = selfName.toLowerCase();
+
+        // Check for nickname in guild
+        String nickname = null;
+        if (event.isFromGuild()) {
+            var selfMember = event.getGuild().getSelfMember();
+            if (selfMember != null) {
+                nickname = selfMember.getNickname();
+            }
+        }
+
+        String lowerNick = nickname != null ? nickname.toLowerCase() : null;
+
+        // Try to strip nickname first (more specific), then bot name
+        String result = tryStripPrefix(lowerContent, lowerNick);
+        if (result == null) {
+            result = tryStripPrefix(lowerContent, lowerName);
+        }
+
+        if (result != null) {
+            // Preserve original case by stripping the same length from original content
+            int stripLen = content.length() - result.length();
+            return content.substring(stripLen).trim();
+        }
+
+        return content;
+    }
+
+    /**
+     * Try to strip a prefix (name/nickname) from the content.
+     * Returns the stripped content in lowercase, or null if no match.
+     */
+    private String tryStripPrefix(String lowerContent, String prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            return null;
+        }
+
+        // Match patterns like "pudel, ", "pudel: ", "pudel ", "pudel\n"
+        if (lowerContent.startsWith(prefix + ", ")
+                || lowerContent.startsWith(prefix + ": ")
+                || lowerContent.startsWith(prefix + "\n")) {
+            return lowerContent.substring(prefix.length() + 2).trim();
+        }
+        if (lowerContent.startsWith(prefix + " ")) {
+            return lowerContent.substring(prefix.length() + 1).trim();
+        }
+        // Exact match (just the bot name)
+        if (lowerContent.equals(prefix)) {
+            return "";
+        }
+
+        return null;
     }
 
     /**
