@@ -4,9 +4,6 @@
 -- This migration creates plugin schemas and moves tables from public schema
 -- to the correct plugin schemas based on plugin_database_registry.
 --
--- The old prefix format was: p_{uuid}_{tableName}
--- The new schema format is: plugin_{uuid}.{tableName}
---
 -- Plugin tables found in public schema:
 --   p_304934d6_prank_container      -> plugin_304934d6.prank_container
 --   p_304934d6_prank_collection     -> plugin_304934d6.prank_collection
@@ -22,65 +19,69 @@
 DO $$
 DECLARE
     plugin_record RECORD;
-    schema_name TEXT;
-    old_prefix TEXT;
+    target_schema TEXT;
+    src_prefix TEXT;
     table_record RECORD;
-    new_table_name TEXT;
+    dest_table TEXT;
     total_migrated INTEGER := 0;
     plugin_migrated INTEGER;
+    schema_exists BOOLEAN;
 BEGIN
     -- Iterate over all registered plugins
     FOR plugin_record IN
         SELECT plugin_id, db_prefix FROM plugin_database_registry WHERE enabled = true
     LOOP
-        old_prefix := plugin_record.db_prefix;
+        src_prefix := plugin_record.db_prefix;
         -- Derive schema name from db_prefix (p_{uuid}_ -> plugin_{uuid})
         -- Remove 'p_' prefix and trailing '_'
-        schema_name := 'plugin_' || substring(old_prefix FROM 3 FOR length(old_prefix) - 3);
+        target_schema := 'plugin_' || substring(src_prefix FROM 3 FOR length(src_prefix) - 3);
+
+        -- Check if schema exists
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.schemata s WHERE s.schema_name = target_schema
+        ) INTO schema_exists;
 
         -- Create the plugin schema if it doesn't exist
-        IF NOT EXISTS (
-            SELECT 1 FROM information_schema.schemata WHERE schema_name = schema_name
-        ) THEN
-            EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', schema_name);
-            RAISE NOTICE 'Created schema: %', schema_name;
+        IF NOT schema_exists THEN
+            EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', target_schema);
+            RAISE NOTICE 'Created schema: %', target_schema;
         END IF;
 
         plugin_migrated := 0;
 
         -- Find and move tables from public schema that match the old prefix
         FOR table_record IN
-            SELECT tablename
-            FROM pg_tables
-            WHERE schemaname = 'public'
-            AND tablename LIKE old_prefix || '%'
+            SELECT t.tablename
+            FROM pg_tables t
+            WHERE t.schemaname = 'public'
+            AND t.tablename LIKE src_prefix || '%'
         LOOP
             -- Extract the actual table name (remove the prefix)
-            new_table_name := substring(table_record.tablename FROM length(old_prefix) + 1);
+            dest_table := substring(table_record.tablename FROM length(src_prefix) + 1);
 
             -- Check if table already exists in plugin schema
             IF NOT EXISTS (
-                SELECT 1 FROM pg_tables
-                WHERE schemaname = schema_name AND tablename = new_table_name
+                SELECT 1 FROM pg_tables t2
+                WHERE t2.schemaname = target_schema AND t2.tablename = dest_table
             ) THEN
                 BEGIN
                     -- Move table from public schema to plugin schema
                     EXECUTE format(
                         'ALTER TABLE public.%I SET SCHEMA %I',
-                        table_record.tablename, schema_name
+                        table_record.tablename, target_schema
                     );
                     plugin_migrated := plugin_migrated + 1;
                     total_migrated := total_migrated + 1;
-                    RAISE NOTICE 'Moved table public.% to %.%', table_record.tablename, schema_name, new_table_name;
+                    RAISE NOTICE 'Moved table public.% to %.%', table_record.tablename, target_schema, dest_table;
                 EXCEPTION WHEN OTHERS THEN
                     RAISE WARNING 'Failed to move table %: %', table_record.tablename, SQLERRM;
                 END;
             ELSE
-                RAISE NOTICE 'Table % already exists in schema %, skipping', new_table_name, schema_name;
+                RAISE NOTICE 'Table % already exists in schema %, skipping', dest_table, target_schema;
             END IF;
         END LOOP;
 
-        RAISE NOTICE 'Plugin %: schema %, migrated % tables', plugin_record.plugin_id, schema_name, plugin_migrated;
+        RAISE NOTICE 'Plugin %: schema %, migrated % tables', plugin_record.plugin_id, target_schema, plugin_migrated;
     END LOOP;
 
     RAISE NOTICE 'Total tables migrated: %', total_migrated;
@@ -88,7 +89,7 @@ END $$;
 
 -- Verify the migration
 SELECT 'Plugin schemas:' AS info;
-SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'plugin_%';
+SELECT s.schema_name FROM information_schema.schemata s WHERE s.schema_name LIKE 'plugin_%';
 
 SELECT 'Tables in plugin schemas:' AS info;
-SELECT schemaname, tablename FROM pg_tables WHERE schemaname LIKE 'plugin_%' ORDER BY schemaname, tablename;
+SELECT t.schemaname, t.tablename FROM pg_tables t WHERE t.schemaname LIKE 'plugin_%' ORDER BY t.schemaname, t.tablename;
