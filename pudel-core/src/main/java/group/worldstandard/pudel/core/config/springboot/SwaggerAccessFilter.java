@@ -94,6 +94,21 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
         this.jwtUtil = jwtUtil;
     }
 
+    /**
+     * Processes the incoming request to enforce access control for Swagger UI endpoints.
+     * This filter checks for valid authentication tokens in the following order:
+     * 1. Cookie-based authentication using a secure HTTP-only cookie.
+     * 2. Authorization header authentication (Bearer or DPoP) for XHR/fetch requests.
+     * 3. Query parameter authentication (only if explicitly allowed).
+     * If none of the above provide a valid token, an unauthorized response is sent,
+     * either in HTML or JSON format depending on the Accept header.
+     *
+     * @param request the HTTP servlet request containing client data
+     * @param response the HTTP servlet response to be sent back to the client
+     * @param filterChain the filter chain to proceed with the request processing
+     * @throws ServletException if a servlet-specific error occurs
+     * @throws IOException if an I/O error occurs during filtering
+     */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -164,6 +179,17 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
         }
     }
 
+    /**
+     * Determines whether the given request should bypass the filter.
+     * <p>
+     * This method allows CORS preflight requests (HTTP OPTIONS) to pass through without filtering,
+     * as they do not carry credentials and need to reach the CorsFilter to provide the correct headers.
+     * Additionally, it exempts Swagger UI and OpenAPI documentation paths from filtering to allow
+     * unrestricted access to API documentation resources.
+     *
+     * @param request the HTTP servlet request to evaluate
+     * @return {@code true} if the request should not be filtered; {@code false} otherwise
+     */
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         // Always allow CORS preflight requests through — they carry no credentials and
@@ -178,6 +204,14 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
                 && !path.startsWith("/v3/api-docs");
     }
 
+    /**
+     * Extracts the authentication token from the cookies present in the HTTP request.
+     * This method searches for a cookie with the name specified by the constant SWAGGER_SESSION_COOKIE.
+     * If such a cookie is found, its value is returned; otherwise, null is returned.
+     *
+     * @param request the HTTP servlet request containing the cookies to search
+     * @return the value of the cookie named SWAGGER_SESSION_COOKIE if present, otherwise null
+     */
     private String extractTokenFromCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
@@ -190,6 +224,14 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
         return null;
     }
 
+    /**
+     * Sends an HTTP 401 Unauthorized response with a JSON payload indicating that Swagger UI access
+     * requires admin authentication via a crypto challenge.
+     * The response includes structured information about the authentication flow, along with relevant endpoints.
+     *
+     * @param response the HttpServletResponse object used to send the JSON response
+     * @throws IOException if an I/O error occurs while writing the response
+     */
     private void sendJsonUnauthorized(HttpServletResponse response) throws IOException {
         response.setContentType("application/json");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -208,6 +250,15 @@ public class SwaggerAccessFilter extends OncePerRequestFilter {
                 """);
     }
 
+    /**
+     * Sends an HTTP 401 Unauthorized response with HTML content indicating that Swagger UI access
+     * requires admin authentication via a crypto challenge.
+     * The response includes styled HTML with instructions on how to authenticate,
+     * including relevant endpoints and steps to obtain access.
+     *
+     * @param response the HttpServletResponse object used to send the HTML response
+     * @throws IOException if an I/O error occurs while writing the response
+     */
     private void sendHtmlUnauthorized(HttpServletResponse response) throws IOException {
         response.setContentType("text/html;charset=UTF-8");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

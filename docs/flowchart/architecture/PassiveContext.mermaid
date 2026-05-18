@@ -1,75 +1,95 @@
-%% Pudel Passive Context Processor v2.1.1
+%% Pudel Passive Context Processor v2.3.0
+%% Collects messages Pudel observes but doesn't respond to
 
 flowchart TD
     subgraph Input["📨 Message Stream"]
-        MSG1[/"Message 1"/]
-        MSG2[/"Message 2"/]
-        MSG3[/"Message 3"/]
+        MSG1[/"Message 1<br/>User: Hello everyone"/]
+        MSG2[/"Message 2<br/>User: Check this out!"/]
+        MSG3[/"Message 3<br/>User: [image.png]"/]
         MSG_N[/"..."/]
     end
 
-    subgraph Queue["📋 Bounded Queue"]
-        QUEUE["BlockingQueue<br/>(capacity: 1000)"]
-        DEDUP["Deduplication<br/>(message ID check)"]
+    subgraph Queue["📋 ConcurrentLinkedQueue"]
+        QUEUE["PendingContext Queue<br/>maxQueueSize: 200"]
+        DEDUP["Deduplication<br/>userId:channelId → messageId<br/>keeps newest only"]
     end
 
     subgraph Processor["⚙️ PassiveContextProcessor"]
-        THREAD["Background Thread"]
-        BATCH["Batch Processing<br/>(up to 10 messages)"]
-        TIMEOUT["Process Timeout<br/>(5 seconds)"]
+        SUBMIT["submit()<br/>with targetId + isGuild"]
+        BATCH["@Scheduled processBatch()<br/>batchSize: 5<br/>processingIntervalMs: 1000"]
+        EXPIRE["Age Expiration<br/>maxAgeMs: 120000<br/>(2 minutes)"]
     end
 
     subgraph Processing["🔄 Processing Pipeline"]
-        EXTRACT["Extract context<br/>(user, channel, content)"]
-        EMBED["Generate embeddings<br/>(Ollama)"]
-        STORE["Store in memory<br/>(pgvector)"]
+        BUILD["buildContextEntry()<br/>Extract from MessageReceivedEvent"]
+        EXTRACT["EntityExtractor<br/>extractEntities()<br/>users, channels, roles<br/>emojis, URLs, attachments"]
+        ATTACH["extractAttachmentUrls()<br/>Discord CDN links"]
+        REPLY["Capture reply_to<br/>message.getReferencedMessage()"]
+        FORWARD["buildForwardedRefs()<br/>From embeds"]
     end
 
-    subgraph Memory["🧠 Memory Storage"]
-        PGVECTOR["PostgreSQL + pgvector"]
-        SCHEMA["guild_{id}.memory_embeddings"]
+    subgraph Storage["💾 Database Storage"]
+        PC_TABLE["passive_context table<br/>message_id BIGINT UNIQUE<br/>user_id, channel_id<br/>content TEXT<br/>entities JSONB<br/>attachment_urls TEXT[]<br/>forwarded_content JSONB<br/>created_at TIMESTAMP"]
+        FWD_TABLE["forwarded_messages table<br/>passive_context_id FK<br/>message_id, author_id<br/>author_name, content"]
+    end
+
+    subgraph Retrieval["🔍 Retrieval (via MCP Tools"]
+        GET_RECENT["get_passive_context<br/>getRecentContext()<br/>channelId + limit"]
+        GET_BY_ID["get_message_by_id<br/>fetchByMessageId()<br/>messageId lookup"]
+        GET_FWD["get_forwarded_messages<br/>loadForwardedMessages()<br/>from forwarded_messages table"]
     end
 
     subgraph Stats["📊 Statistics"]
-        RECEIVED["received: N"]
-        PROCESSED["processed: N"]
-        DROPPED["dropped: N"]
-        DEDUPLICATED["deduplicated: N"]
+        SUBMITTED["totalSubmitted"]
+        PROCESSED["totalProcessed"]
+        EXPIRED["totalExpired"]
+        DEDUPLICATED["totalDeduplicated"]
     end
 
     %% Flow
-    MSG1 --> QUEUE
-    MSG2 --> QUEUE
-    MSG3 --> QUEUE
-    MSG_N --> QUEUE
+    MSG1 -->|"trackContext()"| SUBMIT
+    MSG2 -->|"trackContext()"| SUBMIT
+    MSG3 -->|"trackContext()"| SUBMIT
+    MSG_N -->|"trackContext()"| SUBMIT
 
+    SUBMIT --> QUEUE
     QUEUE --> DEDUP
-    DEDUP --> THREAD
+    DEDUP --> BATCH
 
-    THREAD --> BATCH
-    BATCH --> TIMEOUT
+    BATCH --> EXPIRE
+    EXPIRE -->|"expired"| Stats
+    EXPIRE -->|"ready"| BUILD
 
-    TIMEOUT -->|"timeout"| Stats
-    TIMEOUT -->|"ready"| EXTRACT
+    BUILD --> EXTRACT
+    BUILD --> ATTACH
+    BUILD --> REPLY
+    BUILD --> FORWARD
 
-    EXTRACT --> EMBED
-    EMBED --> STORE
-    STORE --> PGVECTOR
-    PGVECTOR --> SCHEMA
+    EXTRACT --> PC_TABLE
+    ATTACH --> PC_TABLE
+    REPLY --> PC_TABLE
+    FORWARD --> FWD_TABLE
 
-    STORE --> Stats
+    PC_TABLE --> Stats
+
+    %% Retrieval
+    GET_RECENT -->|"query by channel_id<br/>ORDER BY created_at DESC"| PC_TABLE
+    GET_BY_ID -->|"query by message_id"| PC_TABLE
+    GET_FWD -->|"JOIN forwarded_messages"| FWD_TABLE
 
     %% Styling
     classDef input fill:#1565c0,stroke:#0d47a1,color:#fff
     classDef queue fill:#7b1fa2,stroke:#4a148c,color:#fff
     classDef processor fill:#00796b,stroke:#004d40,color:#fff
     classDef processing fill:#2e7d32,stroke:#1b5e20,color:#fff
-    classDef memory fill:#f57c00,stroke:#e65100,color:#fff
+    classDef storage fill:#f57c00,stroke:#e65100,color:#fff
+    classDef retrieval fill:#1a237e,stroke:#0d47a1,color:#fff
     classDef stats fill:#455a64,stroke:#263238,color:#fff
 
     class MSG1,MSG2,MSG3,MSG_N input
     class QUEUE,DEDUP queue
-    class THREAD,BATCH,TIMEOUT processor
-    class EXTRACT,EMBED,STORE processing
-    class PGVECTOR,SCHEMA memory
-    class RECEIVED,PROCESSED,DROPPED,DEDUPLICATED stats
+    class SUBMIT,BATCH,EXPIRE processor
+    class BUILD,EXTRACT,ATTACH,REPLY,FORWARD processing
+    class PC_TABLE,FWD_TABLE storage
+    class GET_RECENT,GET_BY_ID,GET_FWD retrieval
+    class SUBMITTED,PROCESSED,EXPIRED,DEDUPLICATED stats

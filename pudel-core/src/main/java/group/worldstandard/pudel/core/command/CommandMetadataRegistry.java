@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class CommandMetadataRegistry {
-
     // Text command metadata: commandName -> metadata
     private final Map<String, CommandMetadata> textCommands = new ConcurrentHashMap<>();
 
@@ -191,4 +190,3 @@ public class CommandMetadataRegistry {
         }
     }
 }
-

@@ -38,7 +38,6 @@ import java.util.function.Consumer;
  * The buffer is bounded to {@link #MAX_ENTRIES} and evicts oldest entries first.
  */
 public class InMemoryLogAppender extends AppenderBase<ILoggingEvent> {
-
     /** Maximum number of log entries to keep in the ring buffer. */
     public static final int MAX_ENTRIES = 10_000;
 
@@ -177,4 +176,3 @@ public class InMemoryLogAppender extends AppenderBase<ILoggingEvent> {
             String stacktrace
     ) {}
 }
-

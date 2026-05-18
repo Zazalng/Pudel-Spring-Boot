@@ -1,4 +1,4 @@
-%% Pudel Command System v2.2.2
+%% Pudel Command System v2.3.0
 %% Components V2 + Two-Tier Sync + Unified Built-in Architecture
 
 flowchart TD
@@ -7,6 +7,7 @@ flowchart TD
         TEXT[/"User types !command"/]
         BUTTON[/"User clicks button"/]
         MODAL[/"User submits modal<br/>(text input or<br/>EntitySelectMenu)"/]
+        CONTEXT[/"User right-clicks user/message<br/>→ Apps → Context Menu"/]
     end
 
     subgraph SlashFlow["⚡ Slash Command Flow"]
@@ -31,6 +32,13 @@ flowchart TD
         BUTTON_HELP["@ButtonHandler('help:')<br/>BuiltinTextCommands"]
         BUTTON_PLUGIN["@ButtonHandler('prefix')<br/>Plugin"]
         MODAL_HANDLER["@ModalHandler<br/>(prefix match)"]
+    end
+
+    subgraph ContextMenuFlow["🎯 Context Menu Flow"]
+        CONTEXT_LISTENER["InteractionEventListener"]
+        CONTEXT_MANAGER["InteractionManagerImpl<br/>(lookup handler)"]
+        CONTEXT_BUILTIN["@ContextMenu<br/>BuiltinCommands<br/>(future)"]
+        CONTEXT_PLUGIN["@ContextMenu<br/>Plugin Class<br/>(USER or MESSAGE)"]
     end
 
     subgraph Registration["📋 Registration & Sync<br/>(BuiltinSlashCommandRegistrar)"]
@@ -91,6 +99,12 @@ flowchart TD
     INTERACT_MANAGER --> BUTTON_PLUGIN
     INTERACT_MANAGER --> MODAL_HANDLER
 
+    %% Context menu flow
+    CONTEXT --> CONTEXT_LISTENER
+    CONTEXT_LISTENER --> CONTEXT_MANAGER
+    CONTEXT_MANAGER --> CONTEXT_BUILTIN
+    CONTEXT_MANAGER --> CONTEXT_PLUGIN
+
     %% Registration
     REGISTRAR --> PROC_SLASH
     REGISTRAR --> PROC_TEXT
@@ -101,12 +115,18 @@ flowchart TD
     %% All handlers lead to response
     SLASH_BUILTIN --> REPLY_EPH
     SLASH_PLUGIN --> REPLY_PUB
+    SLASH_PLUGIN --> REPLY_EPH
     TEXT_BUILTIN --> REPLY_PUB
     TEXT_PLUGIN --> REPLY_PUB
     BUTTON_SETTINGS --> REPLY_EPH
     BUTTON_HELP --> REPLY_PUB
     BUTTON_PLUGIN --> REPLY_EPH
     MODAL_HANDLER --> REPLY_EPH
+    BUTTON_PLUGIN --> REPLY_PUB
+    MODAL_HANDLER --> REPLY_PUB
+    CONTEXT_BUILTIN --> REPLY_EPH
+    CONTEXT_PLUGIN --> REPLY_EPH
+    CONTEXT_PLUGIN --> REPLY_PUB
 
     %% Styling
     classDef input fill:#1e3a5f,stroke:#4a90d9,color:#fff
@@ -116,10 +136,11 @@ flowchart TD
     classDef cv2 fill:#5865F2,stroke:#4752C4,color:#fff
     classDef help fill:#00796b,stroke:#004d40,color:#fff
     classDef registration fill:#33691e,stroke:#1b5e20,color:#fff
+    classDef contextMenu fill:#2d4a3d,stroke:#00897b,color:#fff
 
-    class SLASH,TEXT,BUTTON,MODAL input
-    class SLASH_BUILTIN,SLASH_PLUGIN,TEXT_BUILTIN,TEXT_PLUGIN,BUTTON_SETTINGS,BUTTON_HELP,BUTTON_PLUGIN,MODAL_HANDLER handler
-    class SLASH_LISTENER,SLASH_MANAGER,TEXT_LISTENER,TEXT_EXEC,TEXT_REGISTRY,INTERACT_LISTENER,INTERACT_MANAGER system
+    class SLASH,TEXT,BUTTON,MODAL,CONTEXT input
+    class SLASH_BUILTIN,SLASH_PLUGIN,TEXT_BUILTIN,TEXT_PLUGIN,BUTTON_SETTINGS,BUTTON_HELP,BUTTON_PLUGIN,MODAL_HANDLER,CONTEXT_BUILTIN,CONTEXT_PLUGIN handler
+    class SLASH_LISTENER,SLASH_MANAGER,TEXT_LISTENER,TEXT_EXEC,TEXT_REGISTRY,INTERACT_LISTENER,INTERACT_MANAGER,CONTEXT_LISTENER,CONTEXT_MANAGER system
     class REPLY_EPH,REPLY_PUB response
     class CV2,VIEWS,SESSION cv2
     class HELP_EMBED,HELP_BUTTONS,HELP_SESSION help

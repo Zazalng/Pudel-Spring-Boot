@@ -32,9 +32,10 @@ import java.lang.annotation.Target;
  * <p>
  * Example usage:
  * <pre>
+ * {@code
  * public class MyPluginTools implements AgentToolProvider {
  *
- *     &#064;AgentTool(
+ *     @AgentTool(
  *         name = "get_weather",
  *         description = "Get the current weather for a location",
  *         keywords = {"weather", "temperature", "forecast"}
@@ -43,17 +44,19 @@ import java.lang.annotation.Target;
  *         return "The weather in " + location + " is sunny, 25°C";
  *     }
  * }
+ * }
  * </pre>
  * <p>
  * Tool methods must:
- * - Have {@link AgentToolContext} as the first parameter
- * - Return a String (the tool's response to the agent)
- * - Only use primitive types, String, or simple objects for other parameters
+ * <ul>
+ *     <li>Have {@link AgentToolContext} as the first parameter</li>
+ *     <li>Return a String (the tool's response to the agent)</li>
+ *     <li>Only use primitive types, String, or simple objects for other parameters</li>
+ * </ul>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface AgentTool {
-
     /**
      * The unique name of the tool.
      * If not specified, the method name will be used.

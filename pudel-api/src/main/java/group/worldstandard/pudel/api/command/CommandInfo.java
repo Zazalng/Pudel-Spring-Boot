@@ -33,9 +33,10 @@ import java.lang.annotation.Target;
  * and handler registration in one step:
  * <pre>
  * {@code @TextCommand(name = "greet", description = "Greet someone",
- *         usage = "greet <user>", aliases = {"hi", "hello"})}
+ *         usage = "greet <user>", aliases = {"hi", "hello"})
  * public void greet(CommandContext context) {
  *     context.reply("Hello!");
+ * }
  * }
  * </pre>
  * <p>
@@ -45,7 +46,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface CommandInfo {
-
     /**
      * The command name.
      * @return the command name
@@ -77,4 +77,3 @@ public @interface CommandInfo {
      */
     Permission[] permissions() default {};
 }
-

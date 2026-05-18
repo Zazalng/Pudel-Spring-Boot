@@ -41,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @see group.worldstandard.pudel.core.service.InMemoryLogAppender
  */
 public final class PluginLoggerManager {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginLoggerManager.class);
 
     /** Default log level for dynamically registered plugin loggers. */
@@ -181,4 +180,3 @@ public final class PluginLoggerManager {
         return className.substring(0, lastDot);
     }
 }
-

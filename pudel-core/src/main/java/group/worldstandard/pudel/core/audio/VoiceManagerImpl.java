@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 public class VoiceManagerImpl implements VoiceManager {
-
     private static final Logger logger = LoggerFactory.getLogger(VoiceManagerImpl.class);
 
     private static final int MINIMUM_JAVA_VERSION_FOR_JDAVE = 25;
@@ -414,4 +413,3 @@ public class VoiceManagerImpl implements VoiceManager {
         return guild != null && guild.getAudioManager().isSelfDeafened();
     }
 }
-

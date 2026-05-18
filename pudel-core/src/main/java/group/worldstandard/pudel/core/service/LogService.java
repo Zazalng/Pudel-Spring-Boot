@@ -33,7 +33,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @Service
 public class LogService {
-
     private static final Logger log = LoggerFactory.getLogger(LogService.class);
 
     /** Active SSE emitters (one per connected admin client). */
@@ -191,4 +190,3 @@ public class LogService {
         };
     }
 }
-

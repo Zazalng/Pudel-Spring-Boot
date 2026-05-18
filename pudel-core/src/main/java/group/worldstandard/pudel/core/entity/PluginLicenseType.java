@@ -22,7 +22,6 @@ package group.worldstandard.pudel.core.entity;
  * </p>
  */
 public enum PluginLicenseType {
-
     /**
      * MIT License - Most permissive, allows commercial use without source disclosure.
      * Recommended for open source plugins.
@@ -97,4 +96,3 @@ public enum PluginLicenseType {
         return !copyleft && !openSource || this == MIT || this == APACHE_2;
     }
 }
-

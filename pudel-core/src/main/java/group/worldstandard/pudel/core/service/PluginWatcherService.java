@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Service
 public class PluginWatcherService {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginWatcherService.class);
     private static final long UPDATE_CHECK_INTERVAL_MS = 60_000; // 1 minute
     private static final long FILE_STABILITY_DELAY_MS = 1000; // Wait for file to finish writing

@@ -22,7 +22,6 @@ import org.hibernate.validator.constraints.URL;
  * DTO for updating a plugin in the marketplace.
  */
 public class UpdatePluginRequest {
-
     @Size(min = 2, max = 50, message = "Plugin name must be between 2 and 50 characters")
     private String name;
 
@@ -82,4 +81,3 @@ public class UpdatePluginRequest {
         this.version = version;
     }
 }
-

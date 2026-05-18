@@ -15,45 +15,16 @@
 package group.worldstandard.pudel.core.config.brain;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
- * Configuration properties for chatbot behavior.
- * Controls when and how Pudel responds as a chatbot.
+ * Configuration properties for chatbot embedding behavior.
+ * Controls vector embedding settings for semantic memory search.
  */
 @ConfigurationProperties(prefix = "pudel.chatbot")
+@Component
 public class ChatbotConfig {
-
-    private Triggers triggers = new Triggers();
-    private int contextSize = 10;
-    private PassiveTracking passiveTracking = new PassiveTracking();
     private Embedding embedding = new Embedding();
-
-    public Triggers getTriggers() {
-        return triggers;
-    }
-
-    public void setTriggers(Triggers triggers) {
-        this.triggers = triggers;
-    }
-
-    public int getContextSize() {
-        return contextSize;
-    }
-
-    public void setContextSize(int contextSize) {
-        this.contextSize = contextSize;
-    }
-
-    public PassiveTracking getPassiveTracking() {
-        return passiveTracking;
-    }
-
-    public void setPassiveTracking(PassiveTracking passiveTracking) {
-        this.passiveTracking = passiveTracking;
-    }
 
     public Embedding getEmbedding() {
         return embedding;
@@ -61,57 +32,6 @@ public class ChatbotConfig {
 
     public void setEmbedding(Embedding embedding) {
         this.embedding = embedding;
-    }
-
-    /**
-     * Chatbot trigger configuration.
-     */
-    public static class Triggers {
-        private boolean onMention = true;
-        private boolean onDirectMessage = true;
-        private boolean onReplyToBot = true;
-        private List<String> keywords = new ArrayList<>();
-        private List<String> alwaysActiveChannels = new ArrayList<>();
-
-        public boolean isOnMention() {
-            return onMention;
-        }
-
-        public void setOnMention(boolean onMention) {
-            this.onMention = onMention;
-        }
-
-        public boolean isOnDirectMessage() {
-            return onDirectMessage;
-        }
-
-        public void setOnDirectMessage(boolean onDirectMessage) {
-            this.onDirectMessage = onDirectMessage;
-        }
-
-        public boolean isOnReplyToBot() {
-            return onReplyToBot;
-        }
-
-        public void setOnReplyToBot(boolean onReplyToBot) {
-            this.onReplyToBot = onReplyToBot;
-        }
-
-        public List<String> getKeywords() {
-            return keywords;
-        }
-
-        public void setKeywords(List<String> keywords) {
-            this.keywords = keywords;
-        }
-
-        public List<String> getAlwaysActiveChannels() {
-            return alwaysActiveChannels;
-        }
-
-        public void setAlwaysActiveChannels(List<String> alwaysActiveChannels) {
-            this.alwaysActiveChannels = alwaysActiveChannels;
-        }
     }
 
     /**
@@ -155,47 +75,4 @@ public class ChatbotConfig {
             this.ivfLists = ivfLists;
         }
     }
-
-    /**
-     * Passive context tracking configuration.
-     */
-    public static class PassiveTracking {
-        private boolean enabled = true;
-        private int minMessageLength = 20;
-        private boolean trackUrlMentions = true;
-        private boolean trackDatesMentions = true;
-
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
-
-        public int getMinMessageLength() {
-            return minMessageLength;
-        }
-
-        public void setMinMessageLength(int minMessageLength) {
-            this.minMessageLength = minMessageLength;
-        }
-
-        public boolean isTrackUrlMentions() {
-            return trackUrlMentions;
-        }
-
-        public void setTrackUrlMentions(boolean trackUrlMentions) {
-            this.trackUrlMentions = trackUrlMentions;
-        }
-
-        public boolean isTrackDatesMentions() {
-            return trackDatesMentions;
-        }
-
-        public void setTrackDatesMentions(boolean trackDatesMentions) {
-            this.trackDatesMentions = trackDatesMentions;
-        }
-    }
 }
-

@@ -26,7 +26,6 @@ import group.worldstandard.pudel.api.command.CommandContext;
  * Implementation of CommandContext.
  */
 public class CommandContextImpl implements CommandContext {
-
     private final MessageReceivedEvent event;
     private final String command;
     private final String[] args;
@@ -89,4 +88,3 @@ public class CommandContextImpl implements CommandContext {
         return event.isFromGuild();
     }
 }
-

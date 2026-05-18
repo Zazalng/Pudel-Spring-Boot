@@ -23,7 +23,6 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "pudel.discord")
 public class DiscordBotProperties {
-
     private String token;
     private String prefix = "!";
     private int shards = 1;
@@ -61,4 +60,3 @@ public class DiscordBotProperties {
         this.enableVoice = enableVoice;
     }
 }
-

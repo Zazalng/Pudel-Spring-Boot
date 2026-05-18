@@ -35,4 +35,3 @@ public class OAuthCallbackRequest {
         this.code = code;
     }
 }
-

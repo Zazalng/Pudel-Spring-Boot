@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
  * Implementation of QueryBuilder for complex queries.
  */
 public class QueryBuilderImpl<T> implements QueryBuilder<T> {
-
     private final PluginRepositoryImpl<T> repository;
     private final String fullTableName;
     private final Class<T> entityClass;

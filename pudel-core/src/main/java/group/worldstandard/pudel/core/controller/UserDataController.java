@@ -35,7 +35,6 @@ import java.util.Map;
 @RequestMapping("/api/user/data")
 @CrossOrigin(origins = "*")
 public class UserDataController {
-
     private static final Logger logger = LoggerFactory.getLogger(UserDataController.class);
 
     private final UserDataService userDataService;
@@ -302,4 +301,3 @@ public class UserDataController {
         public String category;
     }
 }
-

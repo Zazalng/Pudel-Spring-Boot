@@ -30,12 +30,10 @@ import java.util.Map;
  * This class is instantiated per-request with the appropriate context,
  * and provides @Tool annotated methods that delegate to the plugin registry.
  * <p>
- * Since LangChain4j requires @Tool annotations at compile time but plugins
- * register tools dynamically, this adapter provides a bridge by having
+ * Since LangChain4j requires @Tool annotations at compile time but pluginssss
  * a generic "execute_plugin_tool" method that can call any registered tool.
  */
 public class PluginToolAdapter {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginToolAdapter.class);
 
     private final AgentToolRegistryImpl registry;

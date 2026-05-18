@@ -43,6 +43,6 @@ public class PudelPropertiesImpl implements PudelProperties {
 
     @Override
     public String getUserAgent(){
-        return "%s (v%s) - %s".formatted(name, version, codename);
+        return "%s/%s %s".formatted(name, version, codename);
     }
 }

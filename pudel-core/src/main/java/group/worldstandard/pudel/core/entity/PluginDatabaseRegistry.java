@@ -22,13 +22,13 @@ import java.time.Instant;
  * <p>
  * Each plugin gets a unique UUID-based prefix assigned on first installation.
  * This ensures isolation between plugins and allows version tracking.
+ * The schema name is derived from the dbPrefix (format: "plugin_{shortUuid}").
  */
 @jakarta.persistence.Entity
 @Table(name = "plugin_database_registry", indexes = {
         @Index(name = "idx_plugin_db_registry_plugin_id", columnList = "plugin_id", unique = true)
 })
 public class PluginDatabaseRegistry {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,6 +42,7 @@ public class PluginDatabaseRegistry {
     /**
      * The unique database prefix assigned to this plugin.
      * Format: "p_{shortUuid}_" (e.g., "p_a1b2c3d4_")
+     * The schema name is derived from this prefix.
      */
     @Column(name = "db_prefix", nullable = false, unique = true, length = 50)
     private String dbPrefix;
@@ -91,6 +92,20 @@ public class PluginDatabaseRegistry {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+    }
+
+    /**
+     * Derives the schema name from the dbPrefix.
+     * dbPrefix format: "p_{shortUuid}_" -> schema: "plugin_{shortUuid}"
+     *
+     * @return the schema name for this plugin
+     */
+    public String deriveSchemaName() {
+        if (dbPrefix == null || dbPrefix.isEmpty()) {
+            return "plugin_unknown";
+        }
+        String shortUuid = dbPrefix.replaceAll("^p_", "").replaceAll("_$", "");
+        return "plugin_" + shortUuid;
     }
 
     // Getters and Setters

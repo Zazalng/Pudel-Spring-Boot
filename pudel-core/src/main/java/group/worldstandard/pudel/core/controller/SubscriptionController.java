@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/subscription")
 @CrossOrigin(origins = "*")
 public class SubscriptionController {
-
     private final SubscriptionService subscriptionService;
 
     public SubscriptionController(SubscriptionService subscriptionService) {
@@ -202,4 +201,3 @@ public class SubscriptionController {
         return Math.round((double) current / limit * 10000.0) / 100.0; // 2 decimal places
     }
 }
-

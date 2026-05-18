@@ -32,7 +32,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Spring Security configuration for JWT-based authentication.
+ * Configuration class for setting up web security in the application.
+ * This class defines security rules, CORS policies, and filter configurations necessary
+ * for protecting API endpoints while allowing appropriate access levels based on authentication status.
+ * It integrates JWT-based authentication and custom access control for Swagger documentation.
  */
 @Configuration
 @EnableWebSecurity
@@ -51,6 +54,16 @@ public class SecurityConfiguration {
     }
 
 
+    /**
+     * Configures the security filter chain for the application, defining authorization rules,
+     * session management, CORS integration, CSRF protection settings, and exception handling.
+     * This method sets up permit-all access for specific public endpoints, requires authentication
+     * for admin and user-specific routes, applies custom filters for JWT and Swagger access control,
+     * and configures an authentication entry point for unauthorized requests.
+     *
+     * @param http the HttpSecurity object to configure security settings
+     * @return the built SecurityFilterChain instance with applied configurations
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
         http.csrf(AbstractHttpConfigurer::disable)
@@ -114,6 +127,13 @@ public class SecurityConfiguration {
         return http.build();
     }
 
+    /**
+     * Creates and configures a CORS configuration source that defines cross-origin resource sharing policies.
+     * The configuration allows specified origins, common HTTP methods, required headers for authorization,
+     * exposes specific response headers, enables credentials, and sets a max age for preflight requests.
+     *
+     * @return a CorsConfigurationSource instance with preconfigured CORS settings applied to all paths
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

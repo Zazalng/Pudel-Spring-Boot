@@ -1,30 +1,35 @@
-%% Pudel DPoP (RFC 9449) Flow v2.1.1
-%% Demonstrating Proof-of-Possession
+%% Pudel DPoP (RFC 9449) Flow v2.2.0 (BFF Style)
+%% Demonstrating Proof-of-Possession with Backend-managed keys
 
 sequenceDiagram
     participant Client as Vue Frontend
-    participant Crypto as Web Crypto API
     participant API as Pudel API
     participant Filter as JwtAuthenticationFilter
     participant DPoP as DPoPService
     participant JWT as JwtUtil
+    participant KeyManager as DPoPKeyManager
     participant Discord as Discord OAuth2
 
-    Note over Client,Discord: Step 1: Generate Client Keypair (one-time)
+    Note over Client,Discord: Step 1: Backend Generates Keypair (per session)
 
-    Client->>Crypto: generateKey("RSA-PSS" or "ECDSA")
-    Crypto-->>Client: { publicKey, privateKey }
-    Client->>Client: Store keypair in browser
+    Client->>API: GET /api/dpop/public-key
+    API->>KeyManager: getPublicKeyJwk()
+    KeyManager-->>API: Return public key JWK
+    API-->>Client: Public key JWK
+    Note right of Client: Store public key for proof creation
 
     Note over Client,Discord: Step 2: DPoP-Bound Token Request
 
-    Client->>Client: Create DPoP proof JWT
-    Note right of Client: Header: { typ: "dpop+jwt",<br/>alg: "RS256", jwk: publicKey }<br/>Payload: { jti: uuid, htm: "POST",<br/>htu: "/api/auth/discord/callback",<br/>iat: now }
-    Client->>Crypto: sign(proof, privateKey)
-    Crypto-->>Client: signed DPoP proof
+    Client->>Client: Create DPoP proof payload
+    Note right of Client: Payload: { jti: uuid, htm: "POST",<br/>htu: "/api/auth/discord/callback",<br/>iat: now }
+    Client->>API: POST /api/dpop/sign
+    Note right of Client: Body: { payload: "<payload JSON>" }
+    API->>KeyManager: signDPoPProof(payload)
+    KeyManager-->>API: Signed DPoP proof JWT
+    API-->>Client: Signed DPoP proof
 
     Client->>API: POST /api/auth/discord/callback
-    Note right of Client: DPoP: <proof JWT><br/>Body: { code: "oauth_code" }
+    Note right of Client: DPoP: <signed proof><br/>Body: { code: "oauth_code" }
 
     API->>DPoP: validateProofForTokenRequest(proof, "POST", uri)
     DPoP->>DPoP: Verify proof signature (from JWK in header)
@@ -47,10 +52,13 @@ sequenceDiagram
 
     Note over Client,Discord: Step 3: Protected Resource Access
 
-    Client->>Client: Create fresh DPoP proof
+    Client->>Client: Create fresh DPoP proof payload
     Note right of Client: Payload: { jti: new_uuid,<br/>htm: "GET",<br/>htu: "/api/guilds/123/settings",<br/>iat: now,<br/>ath: SHA256(access_token) }
-    Client->>Crypto: sign(proof, privateKey)
-    Crypto-->>Client: fresh proof
+    Client->>API: POST /api/dpop/sign
+    Note right of Client: Body: { payload: "<payload JSON>" }
+    API->>KeyManager: signDPoPProof(payload)
+    KeyManager-->>API: Signed DPoP proof JWT
+    API-->>Client: Signed DPoP proof
 
     Client->>Filter: GET /api/guilds/123/settings
     Note right of Client: Authorization: DPoP <token><br/>DPoP: <fresh proof>
@@ -88,4 +96,3 @@ sequenceDiagram
     API->>DPoP: revokeTokenBinding(token)
     DPoP->>DPoP: Remove tokenBindings[token]
     API-->>Client: 200 OK
-

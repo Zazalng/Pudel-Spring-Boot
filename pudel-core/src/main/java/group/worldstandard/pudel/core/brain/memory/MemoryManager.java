@@ -42,7 +42,6 @@ import java.util.*;
  */
 @Component
 public class MemoryManager {
-
     private static final Logger logger = LoggerFactory.getLogger(MemoryManager.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -107,16 +106,21 @@ public class MemoryManager {
     /**
      * Store passive context (messages that Pudel observes but doesn't respond to).
      * Used for building memory when Pudel isn't directly addressed.
+     * <p>
+     * NOTE: This legacy method is kept for backward compatibility but the new
+     * PassiveContextProcessor handles all passive context storage with the
+     * updated schema (message_id, attachment_urls, forwarded_content).
      */
+    @Deprecated
     public void storePassiveContext(String message, long userId, long channelId,
-                                    TextAnalysis analysis,
-                                    boolean isGuild, long targetId) {
+                                     TextAnalysis analysis,
+                                     boolean isGuild, long targetId) {
         try {
             String schemaName = isGuild
                     ? schemaManagementService.getGuildSchemaName(targetId)
                     : schemaManagementService.getUserSchemaName(targetId);
 
-            // Check if passive_context table exists
+            // Check if passive_context table exists; create with new schema if missing
             if (!tableExists(schemaName, "passive_context")) {
                 createPassiveContextTable(schemaName);
             }
@@ -132,10 +136,10 @@ public class MemoryManager {
                 }
             }
 
-            // Store context
+            // Store context with new schema columns (message_id defaults to 0 for legacy calls)
             String sql = "INSERT INTO " + schemaName + ".passive_context " +
-                    "(user_id, channel_id, content, intent, sentiment, entities, created_at) " +
-                    "VALUES (?, ?, ?, ?, ?, ?::jsonb, ?)";
+                    "(message_id, user_id, channel_id, content, intent, sentiment, entities, created_at) " +
+                    "VALUES (0, ?, ?, ?, ?, ?, ?::jsonb, ?)";
 
             String entitiesJson = entitiesToJson(analysis.entities());
 
@@ -311,17 +315,32 @@ public class MemoryManager {
 
     private void createPassiveContextTable(String schemaName) {
         try {
+            // Updated schema to match the new v2 format used by PassiveContextProcessor
             String sql = "CREATE TABLE IF NOT EXISTS " + schemaName + ".passive_context (" +
                     "id BIGSERIAL PRIMARY KEY, " +
+                    "message_id BIGINT NOT NULL DEFAULT 0, " +
                     "user_id BIGINT NOT NULL, " +
                     "channel_id BIGINT NOT NULL, " +
                     "content TEXT NOT NULL, " +
                     "intent VARCHAR(50), " +
                     "sentiment VARCHAR(20), " +
                     "entities JSONB, " +
+                    "attachment_urls TEXT[], " +
+                    "forwarded_content JSONB, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")";
             jdbcTemplate.execute(sql);
+
+            // Create indexes
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_msg_id ON " + schemaName + ".passive_context(message_id)"
+            );
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_user ON " + schemaName + ".passive_context(user_id)"
+            );
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_channel ON " + schemaName + ".passive_context(channel_id)"
+            );
 
             // Create index on content for searching
             String indexSql = "CREATE INDEX IF NOT EXISTS idx_" + schemaName.replace("_", "") + "_passive_content " +
@@ -558,4 +577,3 @@ public class MemoryManager {
         }
     }
 }
-

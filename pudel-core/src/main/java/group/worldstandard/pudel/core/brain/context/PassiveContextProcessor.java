@@ -14,379 +14,651 @@
  */
 package group.worldstandard.pudel.core.brain.context;
 
+import group.worldstandard.pudel.core.config.brain.PudelBrainConfig;
+import group.worldstandard.pudel.core.config.brain.PudelBrainConfig.PassiveContext;
+import group.worldstandard.pudel.core.service.SchemaManagementService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import group.worldstandard.pudel.core.brain.memory.MemoryManager;
-import group.worldstandard.pudel.model.PudelModelService;
-import group.worldstandard.pudel.model.analyzer.TextAnalysis;
+import tools.jackson.databind.ObjectMapper;
 
-import java.util.Comparator;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Manages passive context processing with proper queue management.
+ * Processes passive context collection for the reworked PudelBrain.
  * <p>
- * Solves the "doom" problem where messages pile up faster than LLM can process them.
+ * Collects messages that Pudel observes but doesn't directly respond to,
+ * building understanding of ongoing conversations. Messages are queued,
+ * deduplicated (newest per user+channel), and expire after a configurable age.
  * <p>
- * Features:
- * - Priority queue: newer messages get processed first (LIFO for freshness)
- * - Age-based expiration: messages older than MAX_AGE are dropped
- * - Deduplication: same user+channel only keeps the most recent message
- * - Rate limiting: only N messages processed per second
- * - Graceful degradation: falls back to fast analysis when queue is full
- * - Batch processing: processes messages in controlled batches
+ * Key features:
+ * - Deduplication: only keeps newest message per user+channel
+ * - Age expiration: drops messages older than configured max age
+ * - Rate limiting: processes in controlled batches
+ * - Entity extraction: extracts users, channels, roles, emojis, URLs, attachments
+ * - Message ID tracking: stores the Discord message ID for each context entry
+ * - Reply tracking: captures reply-to references
+ * - Forwarded message tracking: captures forwarded message data
+ * - Attachment URL collection: stores Discord CDN links
+ * <p>
+ * Unlike the old processor, this version does NOT use LLM analysis for
+ * passive context. Instead, it stores raw messages with extracted entities
+ * for later retrieval via MCP tools when the LLM needs context.
  */
 @Component
 public class PassiveContextProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(PassiveContextProcessor.class);
 
-    private final PudelModelService modelService;
-    private final MemoryManager memoryManager;
-    private final PassiveContextConfig config;
+    private final PudelBrainConfig brainConfig;
+    private final EntityExtractor entityExtractor;
+    private final JdbcTemplate jdbcTemplate;
+    private final SchemaManagementService schemaManagementService;
 
-    // Priority queue - newest messages first (based on timestamp)
-    private final PriorityBlockingQueue<ContextMessage> messageQueue;
+    // Queue for incoming passive context messages
+    private final ConcurrentLinkedQueue<PendingContext> pendingQueue = new ConcurrentLinkedQueue<>();
 
-    // Track messages per user+channel to deduplicate
-    private final ConcurrentHashMap<String, ContextMessage> latestMessageByKey;
+    // Deduplication map: "userId:channelId" -> messageId (keeps newest)
+    private final ConcurrentHashMap<String, Long> latestMessageIds = new ConcurrentHashMap<>();
 
-    // Processing thread
-    private ScheduledExecutorService scheduler;
-    private ExecutorService llmExecutor;
-    private final AtomicBoolean running = new AtomicBoolean(false);
+    // Statistics
+    private final AtomicLong totalSubmitted = new AtomicLong(0);
+    private final AtomicLong totalProcessed = new AtomicLong(0);
+    private final AtomicLong totalExpired = new AtomicLong(0);
+    private final AtomicLong totalDeduplicated = new AtomicLong(0);
 
-    // Stats
-    private final AtomicLong messagesReceived = new AtomicLong(0);
-    private final AtomicLong messagesProcessed = new AtomicLong(0);
-    private final AtomicLong messagesDropped = new AtomicLong(0);
-    private final AtomicLong messagesDeduplicated = new AtomicLong(0);
+    /**
+     * Inner record to hold a pending context message with routing information.
+     */
+    private record PendingContext(
+            long messageId,
+            long userId,
+            long channelId,
+            MessageReceivedEvent event,
+            long targetId,
+            boolean isGuild,
+            LocalDateTime timestamp
+    ) {
+        PendingContext(long messageId, long userId, long channelId,
+                       MessageReceivedEvent event, long targetId, boolean isGuild) {
+            this(messageId, userId, channelId, event, targetId, isGuild, LocalDateTime.now());
+        }
+    }
 
-    public PassiveContextProcessor(PudelModelService modelService,
-                                   MemoryManager memoryManager,
-                                   PassiveContextConfig config) {
-        this.modelService = modelService;
-        this.memoryManager = memoryManager;
-        this.config = config;
-
-        // Priority queue: newer messages (higher timestamp) first
-        this.messageQueue = new PriorityBlockingQueue<>(
-                config.getMaxQueueSize(),
-                Comparator.comparingLong(ContextMessage::timestamp).reversed()
-        );
-        this.latestMessageByKey = new ConcurrentHashMap<>();
+    public PassiveContextProcessor(PudelBrainConfig brainConfig, EntityExtractor entityExtractor,
+                                    JdbcTemplate jdbcTemplate, SchemaManagementService schemaManagementService) {
+        this.brainConfig = brainConfig;
+        this.entityExtractor = entityExtractor;
+        this.jdbcTemplate = jdbcTemplate;
+        this.schemaManagementService = schemaManagementService;
     }
 
     @PostConstruct
-    public void start() {
-        if (!config.isEnabled()) {
-            logger.info("PassiveContextProcessor is disabled via configuration");
-            return;
+    public void init() {
+        PassiveContext config = brainConfig.getPassiveContext();
+        if (config.isEnabled()) {
+            logger.info("PassiveContextProcessor initialized: maxQueueSize={}, maxAgeMs={}, batchSize={}",
+                    config.getMaxQueueSize(), config.getMaxAgeMs(), config.getBatchSize());
+        } else {
+            logger.info("PassiveContextProcessor disabled");
         }
-
-        running.set(true);
-
-        // Dedicated executor for LLM calls - 2 threads for parallel processing
-        llmExecutor = Executors.newFixedThreadPool(2, r -> {
-            Thread t = new Thread(r, "PassiveContext-LLM");
-            t.setDaemon(true);
-            return t;
-        });
-
-        // Scheduler for periodic batch processing
-        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "PassiveContext-Scheduler");
-            t.setDaemon(true);
-            return t;
-        });
-
-        scheduler.scheduleWithFixedDelay(
-                this::processBatch,
-                config.getProcessingIntervalMs(),
-                config.getProcessingIntervalMs(),
-                TimeUnit.MILLISECONDS
-        );
-
-        logger.info("PassiveContextProcessor started with queue size {}, batch size {}, max age {}ms",
-                config.getMaxQueueSize(), config.getBatchSize(), config.getMaxMessageAgeMs());
     }
 
     @PreDestroy
-    public void stop() {
-        running.set(false);
-
-        if (scheduler != null) {
-            scheduler.shutdown();
-            try {
-                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                    scheduler.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                scheduler.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        if (llmExecutor != null) {
-            llmExecutor.shutdown();
-            try {
-                if (!llmExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    llmExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                llmExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-        }
-
-        logger.info("PassiveContextProcessor stopped. Stats: received={}, processed={}, dropped={}, deduplicated={}",
-                messagesReceived.get(), messagesProcessed.get(),
-                messagesDropped.get(), messagesDeduplicated.get());
+    public void shutdown() {
+        logger.info("PassiveContextProcessor shutting down. Stats: submitted={}, processed={}, expired={}, deduplicated={}",
+                totalSubmitted.get(), totalProcessed.get(), totalExpired.get(), totalDeduplicated.get());
     }
 
     /**
-     * Submit a message for passive context processing.
-     * This method returns immediately - processing happens asynchronously.
+     * Submit a message for passive context collection.
+     * <p>
+     * The message is queued for later processing. Deduplication happens
+     * at submission time (only newest message per user+channel is kept).
      *
-     * @param message   The message content
-     * @param userId    The user who sent the message
-     * @param channelId The channel ID
-     * @param isGuild   Whether this is a guild message
-     * @param targetId  Guild ID or user ID
+     * @param event the message received event
+     * @param targetId guild ID (if isGuild) or user ID (if DM) for schema routing
+     * @param isGuild whether this is a guild context
      */
-    public void submit(String message, long userId, long channelId, boolean isGuild, long targetId) {
-        if (!running.get() || !config.isEnabled()) {
+    public void submit(MessageReceivedEvent event, long targetId, boolean isGuild) {
+        if (!brainConfig.getPassiveContext().isEnabled()) {
             return;
         }
 
-        // Skip very short messages
-        if (message == null || message.length() < config.getMinMessageLength()) {
+        // Skip bot messages
+        if (event.getAuthor().isBot()) {
             return;
         }
 
-        messagesReceived.incrementAndGet();
+        long messageId = event.getMessage().getIdLong();
+        long userId = event.getAuthor().getIdLong();
+        long channelId = event.getChannel().getIdLong();
+        String dedupKey = userId + ":" + channelId;
 
-        // Create context message
-        String dedupeKey = userId + ":" + channelId;
-        long timestamp = System.currentTimeMillis();
-        ContextMessage contextMessage = new ContextMessage(
-                message, userId, channelId, isGuild, targetId, timestamp, dedupeKey
-        );
-
-        // Deduplication: replace older message from same user+channel
-        ContextMessage existing = latestMessageByKey.put(dedupeKey, contextMessage);
-        if (existing != null) {
-            // Remove the old message from queue if present
-            messageQueue.remove(existing);
-            messagesDeduplicated.incrementAndGet();
+        // Deduplication: only keep newest message per user+channel
+        Long existing = latestMessageIds.put(dedupKey, messageId);
+        if (existing != null && existing != messageId) {
+            totalDeduplicated.incrementAndGet();
+            pendingQueue.removeIf(p -> p.userId == userId && p.channelId == channelId);
         }
 
-        // Check queue capacity
-        if (messageQueue.size() >= config.getMaxQueueSize()) {
-            // Queue is full - drop oldest messages
-            dropOldestMessages(config.getMaxQueueSize() / 4);
+        PassiveContext config = brainConfig.getPassiveContext();
+        if (pendingQueue.size() >= config.getMaxQueueSize()) {
+            pendingQueue.poll();
         }
 
-        // Add to queue
-        if (!messageQueue.offer(contextMessage)) {
-            messagesDropped.incrementAndGet();
-            latestMessageByKey.remove(dedupeKey, contextMessage);
-            logger.debug("Queue full, dropping passive context message");
-        }
+        pendingQueue.offer(new PendingContext(messageId, userId, channelId, event, targetId, isGuild));
+        totalSubmitted.incrementAndGet();
     }
 
     /**
-     * Process a batch of messages from the queue.
+     * Process pending context entries in batches.
      */
-    private void processBatch() {
-        if (!running.get() || messageQueue.isEmpty()) {
+    @Scheduled(fixedDelayString = "${pudel.brain.passive-context.processing-interval-ms:1000}")
+    public void processBatch() {
+        if (!brainConfig.getPassiveContext().isEnabled() || pendingQueue.isEmpty()) {
             return;
         }
 
-        // First, clean up expired messages
-        cleanupExpiredMessages();
+        PassiveContext config = brainConfig.getPassiveContext();
+        int batchSize = config.getBatchSize();
+        long maxAgeMs = config.getMaxAgeMs();
+        java.time.LocalDateTime cutoffTime = java.time.LocalDateTime.now().minusNanos(maxAgeMs * 1_000_000);
 
-        // Process up to batchSize messages
-        for (int i = 0; i < config.getBatchSize() && !messageQueue.isEmpty(); i++) {
-            ContextMessage msg = messageQueue.poll();
-            if (msg == null) {
-                break;
-            }
+        List<PendingContext> batch = new ArrayList<>();
+        PendingContext pending;
+        int expired = 0;
 
-            // Remove from deduplication map
-            latestMessageByKey.remove(msg.dedupeKey(), msg);
-
-            // Check if message is too old
-            long age = System.currentTimeMillis() - msg.timestamp();
-            if (age > config.getMaxMessageAgeMs()) {
-                messagesDropped.incrementAndGet();
-                logger.debug("Dropping expired passive context message (age: {}ms)", age);
+        while ((pending = pendingQueue.poll()) != null) {
+            if (pending.timestamp.isBefore(cutoffTime)) {
+                expired++;
                 continue;
             }
 
-            // Process the message
-            processMessage(msg);
-        }
-    }
+            String dedupKey = pending.userId + ":" + pending.channelId;
+            Long latest = latestMessageIds.get(dedupKey);
+            if (latest != null && latest != pending.messageId) {
+                continue;
+            }
 
-    /**
-     * Process a single context message.
-     */
-    private void processMessage(ContextMessage msg) {
-        try {
-            // Use LLM async analysis with timeout
-            CompletableFuture<TextAnalysis> analysisFuture = CompletableFuture
-                    .supplyAsync(() -> modelService.analyzeText(msg.message()), llmExecutor)
-                    .orTimeout(config.getLlmTimeoutSeconds(), TimeUnit.SECONDS);
-
-            analysisFuture
-                    .thenAccept(analysis -> {
-                        if (analysis.containsInterestingInfo()) {
-                            try {
-                                memoryManager.storePassiveContext(
-                                        msg.message(),
-                                        msg.userId(),
-                                        msg.channelId(),
-                                        analysis,
-                                        msg.isGuild(),
-                                        msg.targetId()
-                                );
-                                messagesProcessed.incrementAndGet();
-                                logger.debug("Stored passive context for user {} in channel {}",
-                                        msg.userId(), msg.channelId());
-                            } catch (Exception e) {
-                                logger.debug("Error storing passive context: {}", e.getMessage());
-                            }
-                        } else {
-                            messagesProcessed.incrementAndGet();
-                            logger.debug("Passive context not interesting, skipping storage");
-                        }
-                    })
-                    .exceptionally(e -> {
-                        // Timeout or error - try fast analysis as fallback
-                        logger.debug("LLM analysis failed/timed out, using fast fallback: {}", e.getMessage());
-                        try {
-                            TextAnalysis fastAnalysis = modelService.analyzeTextFast(msg.message());
-                            if (fastAnalysis.containsInterestingInfo()) {
-                                memoryManager.storePassiveContext(
-                                        msg.message(),
-                                        msg.userId(),
-                                        msg.channelId(),
-                                        fastAnalysis,
-                                        msg.isGuild(),
-                                        msg.targetId()
-                                );
-                            }
-                            messagesProcessed.incrementAndGet();
-                        } catch (Exception ex) {
-                            logger.debug("Fast fallback also failed: {}", ex.getMessage());
-                            messagesDropped.incrementAndGet();
-                        }
-                        return null;
-                    });
-
-        } catch (Exception e) {
-            logger.debug("Error processing passive context: {}", e.getMessage());
-            messagesDropped.incrementAndGet();
-        }
-    }
-
-    /**
-     * Clean up expired messages from the queue.
-     */
-    private void cleanupExpiredMessages() {
-        long now = System.currentTimeMillis();
-        int removed = 0;
-
-        // Use removeIf would require synchronization, instead drain expired ones
-        while (!messageQueue.isEmpty()) {
-            ContextMessage peek = messageQueue.peek();
-            if (peek != null && (now - peek.timestamp()) > config.getMaxMessageAgeMs()) {
-                ContextMessage removedMsg = messageQueue.poll();
-                if (removedMsg != null) {
-                    latestMessageByKey.remove(removedMsg.dedupeKey(), removedMsg);
-                    removed++;
-                    messagesDropped.incrementAndGet();
-                }
-            } else {
-                break; // Queue is sorted by timestamp, so all remaining are newer
+            batch.add(pending);
+            if (batch.size() >= batchSize) {
+                break;
             }
         }
 
-        if (removed > 0) {
-            logger.debug("Cleaned up {} expired passive context messages", removed);
+        if (expired > 0) {
+            totalExpired.addAndGet(expired);
+        }
+
+        if (!batch.isEmpty()) {
+            processEntries(batch);
+            totalProcessed.addAndGet(batch.size());
         }
     }
 
     /**
-     * Drop messages when queue is full.
-     * Since we use LIFO (newest first), we let old messages naturally expire.
-     * This method just logs the overflow condition.
+     * Process a batch of pending context entries.
      */
-    private void dropOldestMessages(int count) {
-        // With our priority queue (newest first) + age-based expiration,
-        // old messages will naturally be cleaned up by cleanupExpiredMessages().
-        // Here we just acknowledge the overflow.
-        messagesDropped.addAndGet(count);
-        logger.debug("Queue overflow - {} oldest messages will be dropped via expiration", count);
+    private void processEntries(List<PendingContext> batch) {
+        for (PendingContext pending : batch) {
+            try {
+                PassiveContextEntry entry = buildContextEntry(pending.event, brainConfig.getPassiveContext());
+                if (entry != null) {
+                    storeContextEntry(entry, pending.targetId, pending.isGuild);
+                }
+            } catch (Exception e) {
+                logger.debug("Error processing passive context for message {}: {}",
+                        pending.messageId, e.getMessage());
+            }
+        }
     }
 
     /**
-     * Get current queue statistics.
+     * Build a PassiveContextEntry from a message event.
      */
-    public QueueStats getStats() {
-        return new QueueStats(
-                messageQueue.size(),
-                config.getMaxQueueSize(),
-                messagesReceived.get(),
-                messagesProcessed.get(),
-                messagesDropped.get(),
-                messagesDeduplicated.get()
+    private PassiveContextEntry buildContextEntry(MessageReceivedEvent event, PassiveContext config) {
+        Message message = event.getMessage();
+        long messageId = message.getIdLong();
+        long userId = event.getAuthor().getIdLong();
+        long channelId = event.getChannel().getIdLong();
+        String content = message.getContentRaw();
+
+        Map<String, List<String>> entities = config.isExtractEntities()
+                ? entityExtractor.extractEntities(event)
+                : Map.of();
+
+        List<String> attachmentUrls = config.isTrackAttachments()
+                ? entityExtractor.extractAttachmentUrls(message)
+                : List.of();
+
+        Long replyToMessageId = null;
+        Message referenced = message.getReferencedMessage();
+        if (referenced != null) {
+            replyToMessageId = referenced.getIdLong();
+        }
+
+        List<PassiveContextEntry.ForwardedMessageRef> forwardedMessages = buildForwardedRefs(message, entities);
+
+        return new PassiveContextEntry(
+                messageId, userId, channelId, content,
+                entities, attachmentUrls, replyToMessageId,
+                forwardedMessages, LocalDateTime.now()
         );
     }
 
     /**
-     * Check if the processor is running and accepting messages.
+     * Build forwarded message references from message embeds.
+     * Extracts author info and content from forwarded message embeds.
      */
-    public boolean isRunning() {
-        return running.get();
+    private List<PassiveContextEntry.ForwardedMessageRef> buildForwardedRefs(Message message,
+            Map<String, List<String>> entities) {
+        List<PassiveContextEntry.ForwardedMessageRef> refs = new ArrayList<>();
+        List<String> forwarded = entities.get("forwarded");
+        if (forwarded != null) {
+            for (String fwd : forwarded) {
+                // fwd format: "embed:authorName"
+                String authorName = fwd.replace("embed:", "");
+                refs.add(new PassiveContextEntry.ForwardedMessageRef(
+                        authorName, ""));
+            }
+        }
+        // Also check message embeds directly for richer forwarded data
+        if (!message.getEmbeds().isEmpty()) {
+            for (var embed : message.getEmbeds()) {
+                if (embed.getAuthor() != null) {
+                    String authorName = embed.getAuthor() != null ? embed.getAuthor().getName() : "";
+                    String content = embed.getDescription() != null ? embed.getDescription() : "";
+                    // Only add if we have meaningful content
+                    if (!content.isBlank() || !embed.getFields().isEmpty()) {
+                        // Build content from embed fields
+                        StringBuilder fullContent = new StringBuilder(content);
+                        for (var field : embed.getFields()) {
+                            if (!fullContent.isEmpty()) fullContent.append("\n");
+                            fullContent.append(field.getName()).append(": ").append(field.getValue());
+                        }
+                        refs.add(new PassiveContextEntry.ForwardedMessageRef(
+                                authorName, fullContent.toString()));
+                    }
+                }
+            }
+        }
+        return refs;
     }
 
     /**
-     * Context message record for the queue.
+     * Store a context entry in the database.
+     * Stores to the guild schema's passive_context table with message_id, entities,
+     * attachment_urls, and forwarded_content.
+     *
+     * @param entry the context entry to store
+     * @param targetId guild ID (if isGuild) or user ID (if DM) for schema routing
+     * @param isGuild whether this is a guild context
      */
-    private record ContextMessage(
-            String message,
-            long userId,
-            long channelId,
-            boolean isGuild,
-            long targetId,
-            long timestamp,
-            String dedupeKey
-    ) {}
+    private void storeContextEntry(PassiveContextEntry entry, long targetId, boolean isGuild) {
+        try {
+            String schemaName;
+            if (isGuild) {
+                schemaName = schemaManagementService.getGuildSchemaName(targetId);
+            } else {
+                schemaName = schemaManagementService.getUserSchemaName(targetId);
+            }
+
+            if (schemaName == null) {
+                logger.debug("No schema found for target {}, skipping passive context storage", targetId);
+                return;
+            }
+
+            // Ensure passive_context table exists
+            ensurePassiveContextTable(schemaName);
+
+            // Convert entities to JSON
+            String entitiesJson = entitiesToJson(entry.entities());
+            String attachmentUrlsArray = entry.attachmentUrls().isEmpty() ? "{}"
+                    : "{\"" + String.join("\",\"", entry.attachmentUrls()) + "\"}";
+            String forwardedContentJson = forwardedToJson(entry.forwardedMessages());
+
+            String sql = "INSERT INTO " + schemaName + ".passive_context " +
+                    "(message_id, user_id, channel_id, content, entities, attachment_urls, forwarded_content, created_at) " +
+                    "VALUES (?, ?, ?, ?, ?::jsonb, ?::text[], ?::jsonb, ?) " +
+                    "ON CONFLICT (message_id) DO UPDATE SET " +
+                    "content = EXCLUDED.content, entities = EXCLUDED.entities, " +
+                    "attachment_urls = EXCLUDED.attachment_urls, forwarded_content = EXCLUDED.forwarded_content";
+
+            jdbcTemplate.update(sql,
+                    entry.messageId(),
+                    entry.userId(),
+                    entry.channelId(),
+                    entry.content(),
+                    entitiesJson,
+                    "{" + entry.attachmentUrls().stream().map(s -> "\"" + s + "\"").collect(java.util.stream.Collectors.joining(",")) + "}",
+                    forwardedContentJson,
+                    Timestamp.valueOf(entry.timestamp())
+            );
+
+            // Store forwarded messages in separate table if any
+            if (!entry.forwardedMessages().isEmpty()) {
+                storeForwardedMessages(schemaName, entry.messageId(), entry.forwardedMessages());
+            }
+
+            logger.debug("Stored passive context: msg={} user={} channel={} schema={}",
+                    entry.messageId(), entry.userId(), entry.channelId(), schemaName);
+
+        } catch (Exception e) {
+            logger.debug("Error storing passive context for message {}: {}",
+                    entry.messageId(), e.getMessage());
+        }
+    }
 
     /**
-     * Queue statistics.
+     * Ensure the passive_context table exists in the schema.
      */
+    private void ensurePassiveContextTable(String schemaName) {
+        try {
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS " + schemaName + ".passive_context (" +
+                    "    id BIGSERIAL PRIMARY KEY," +
+                    "    message_id BIGINT NOT NULL UNIQUE," +
+                    "    user_id BIGINT NOT NULL," +
+                    "    channel_id BIGINT NOT NULL," +
+                    "    content TEXT NOT NULL," +
+                    "    entities JSONB," +
+                    "    attachment_urls TEXT[]," +
+                    "    forwarded_content JSONB," +
+                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")"
+            );
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_msg_id ON " + schemaName + ".passive_context(message_id)"
+            );
+            jdbcTemplate.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pc_channel ON " + schemaName + ".passive_context(channel_id)"
+            );
+        } catch (Exception e) {
+            logger.debug("Error ensuring passive_context table in {}: {}", schemaName, e.getMessage());
+        }
+    }
+
+    /**
+     * Store forwarded messages in the forwarded_messages table.
+     */
+    private void storeForwardedMessages(String schemaName, long passiveContextMessageId,
+                                         List<PassiveContextEntry.ForwardedMessageRef> forwarded) {
+        try {
+            // Ensure forwarded_messages table exists
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS " + schemaName + ".forwarded_messages (" +
+                    "    id BIGSERIAL PRIMARY KEY," +
+                    "    passive_context_message_id BIGINT NOT NULL," +
+                    "    message_id BIGINT NOT NULL," +
+                    "    author_id BIGINT," +
+                    "    author_name VARCHAR(255)," +
+                    "    content TEXT," +
+                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")"
+            );
+
+            // Get the passive_context ID for this message
+            Long passiveCtxId = jdbcTemplate.queryForObject(
+                    "SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?",
+                    Long.class, passiveContextMessageId
+            );
+
+            if (passiveCtxId != null) {
+                for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
+                    jdbcTemplate.update(
+                            "INSERT INTO " + schemaName + ".forwarded_messages " +
+                            "(passive_context_id, author_name, content) " +
+                            "VALUES (?, ?, ?)",
+                            passiveCtxId, fwd.authorName(), fwd.content()
+                    );
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error storing forwarded messages: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Convert entities map to JSON string.
+     */
+    private String entitiesToJson(Map<String, List<String>> entities) {
+        if (entities == null || entities.isEmpty()) {
+            return "{}";
+        }
+        StringBuilder json = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, List<String>> entry : entities.entrySet()) {
+            if (!first) json.append(",");
+            json.append("\"").append(entry.getKey()).append("\":[");
+            boolean firstVal = true;
+            for (String val : entry.getValue()) {
+                if (!firstVal) json.append(",");
+                json.append("\"").append(val.replace("\"", "\\\"")).append("\"");
+                firstVal = false;
+            }
+            json.append("]");
+            first = false;
+        }
+        json.append("}");
+        return json.toString();
+    }
+
+    /**
+     * Convert forwarded messages list to JSON string.
+     */
+    private String forwardedToJson(List<PassiveContextEntry.ForwardedMessageRef> forwarded) {
+        if (forwarded == null || forwarded.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder json = new StringBuilder("[");
+        boolean first = true;
+        for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
+            if (!first) json.append(",");
+            json.append(",\"author_name\":\"").append(fwd.authorName().replace("\"", "\\\""))
+                .append("\",\"content\":\"").append(fwd.content().replace("\"", "\\\"")).append("\"}");
+            first = false;
+        }
+        json.append("]");
+        return json.toString();
+    }
+
+    /**
+     * Retrieve recent passive context for a channel.
+     * Queries the database for the most recent passive context entries.
+     */
+    public List<PassiveContextEntry> getRecentContext(long channelId, boolean isGuild, long targetId, int limit) {
+        try {
+            String schemaName = isGuild
+                    ? schemaManagementService.getGuildSchemaName(targetId)
+                    : schemaManagementService.getUserSchemaName(targetId);
+
+            // Check if passive_context table exists
+            Integer tableExists = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = 'passive_context'",
+                    Integer.class, schemaName
+            );
+            if (tableExists == null || tableExists == 0) {
+                return List.of();
+            }
+
+            String sql = "SELECT message_id, user_id, channel_id, content, entities, attachment_urls, " +
+                    "forwarded_content, created_at FROM " + schemaName + ".passive_context " +
+                    "WHERE channel_id = ? ORDER BY created_at DESC LIMIT ?";
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, channelId, limit);
+
+            List<PassiveContextEntry> entries = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                Map<String, List<String>> entities = parseEntitiesJson(
+                        (String) row.getOrDefault("entities", "{}"));
+                List<String> attachmentUrls = parseTextArray(
+                        (String) row.getOrDefault("attachment_urls", "{}"));
+
+                entries.add(new PassiveContextEntry(
+                        ((Number) row.get("message_id")).longValue(),
+                        ((Number) row.get("user_id")).longValue(),
+                        ((Number) row.get("channel_id")).longValue(),
+                        (String) row.get("content"),
+                        entities,
+                        attachmentUrls,
+                        null, // replyToMessageId not stored directly in passive_context
+                        List.of(), // forwarded messages loaded separately if needed
+                        ((Timestamp) row.get("created_at")).toLocalDateTime()
+                ));
+            }
+            return entries;
+
+        } catch (Exception e) {
+            logger.debug("Error getting recent context for channel {}: {}", channelId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Fetch a specific message from passive context by message ID.
+     */
+    public PassiveContextEntry fetchByMessageId(long messageId, long channelId, boolean isGuild, long targetId) {
+        try {
+            String schemaName = isGuild
+                    ? schemaManagementService.getGuildSchemaName(targetId)
+                    : schemaManagementService.getUserSchemaName(targetId);
+
+            // First check the in-memory queue
+            for (PendingContext pending : pendingQueue) {
+                if (pending.messageId == messageId) {
+                    PassiveContext config = brainConfig.getPassiveContext();
+                    return buildContextEntry(pending.event, config);
+                }
+            }
+
+            // Then check the database
+            String sql = "SELECT message_id, user_id, channel_id, content, entities, attachment_urls, " +
+                    "forwarded_content, created_at FROM " + schemaName + ".passive_context " +
+                    "WHERE message_id = ?";
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, messageId);
+            if (rows.isEmpty()) {
+                return null;
+            }
+
+            Map<String, Object> row = rows.getFirst();
+            @SuppressWarnings("unchecked")
+            Map<String, List<String>> entities = parseEntitiesJson(
+                    (String) row.getOrDefault("entities", "{}"));
+            @SuppressWarnings("unchecked")
+            List<String> attachmentUrls = parseTextArray(
+                    (String) row.getOrDefault("attachment_urls", "{}"));
+
+            return new PassiveContextEntry(
+                    ((Number) row.get("message_id")).longValue(),
+                    ((Number) row.get("user_id")).longValue(),
+                    ((Number) row.get("channel_id")).longValue(),
+                    (String) row.get("content"),
+                    entities,
+                    attachmentUrls,
+                    null,
+                    loadForwardedMessages(schemaName, messageId),
+                    ((Timestamp) row.get("created_at")).toLocalDateTime()
+            );
+
+        } catch (Exception e) {
+            logger.debug("Error fetching message {} from passive context: {}", messageId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Load forwarded messages for a given passive context message.
+     */
+    private List<PassiveContextEntry.ForwardedMessageRef> loadForwardedMessages(String schemaName, long messageId) {
+        try {
+            String sql = "SELECT message_id, author_id, author_name, content FROM " + schemaName +
+                    ".forwarded_messages WHERE passive_context_message_id = " +
+                    "(SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?)";
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, messageId);
+            List<PassiveContextEntry.ForwardedMessageRef> refs = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                refs.add(new PassiveContextEntry.ForwardedMessageRef(
+                        (String) row.getOrDefault("author_name", ""),
+                        (String) row.getOrDefault("content", "")
+                ));
+            }
+            return refs;
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    /**
+     * Parse entities JSON string back to a Map.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, List<String>> parseEntitiesJson(String json) {
+        if (json == null || json.isBlank() || json.equals("{}")) {
+            return Map.of();
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(json, Map.class);
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * Parse a PostgreSQL text array string to a List.
+     */
+    private List<String> parseTextArray(String arrayStr) {
+        if (arrayStr == null || arrayStr.isBlank() || arrayStr.equals("{}")) {
+            return List.of();
+        }
+        // Remove curly braces and split by comma
+        String trimmed = arrayStr.substring(1, arrayStr.length() - 1);
+        if (trimmed.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(trimmed.split(","))
+                .map(s -> s.replace("\"", "").trim())
+                .filter(s -> !s.isBlank())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Get queue statistics.
+     */
+    public QueueStats getStats() {
+        return new QueueStats(
+                pendingQueue.size(),
+                totalSubmitted.get(),
+                totalProcessed.get(),
+                totalExpired.get(),
+                totalDeduplicated.get()
+        );
+    }
+
+    // ===============================
+    // Inner Types
+    // ===============================
+
     public record QueueStats(
-            int currentSize,
-            int maxSize,
-            long totalReceived,
+            int queueSize,
+            long totalSubmitted,
             long totalProcessed,
-            long totalDropped,
+            long totalExpired,
             long totalDeduplicated
-    ) {
-        public double processRate() {
-            return totalReceived > 0 ? (double) totalProcessed / totalReceived * 100 : 0;
-        }
-
-        public double dropRate() {
-            return totalReceived > 0 ? (double) totalDropped / totalReceived * 100 : 0;
-        }
-    }
+    ) {}
 }
+

@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class SubscriptionService {
-
     private static final Logger logger = LoggerFactory.getLogger(SubscriptionService.class);
 
     private final SubscriptionRepository subscriptionRepository;
@@ -393,4 +392,3 @@ public class SubscriptionService {
         }
     }
 }
-

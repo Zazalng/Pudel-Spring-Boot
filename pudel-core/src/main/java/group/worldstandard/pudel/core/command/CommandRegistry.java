@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class CommandRegistry {
-
     private final Map<String, TextCommandHandler> commands = new ConcurrentHashMap<>();
 
     /**
@@ -91,4 +90,3 @@ public class CommandRegistry {
         return commands.size();
     }
 }
-

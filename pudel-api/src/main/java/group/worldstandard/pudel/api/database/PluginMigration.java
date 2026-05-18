@@ -26,7 +26,7 @@ package group.worldstandard.pudel.api.database;
  * <p>
  * Example:
  * <pre>
- * {@code @OnEnable}
+ * {@code @OnEnable
  * public void onEnable(PluginContext context) {
  *     PluginDatabaseManager db = context.getDatabaseManager();
  *
@@ -48,11 +48,11 @@ package group.worldstandard.pudel.api.database;
  *         manager.createIndex("users", false, "email");
  *     });
  * }
+ * }
  * </pre>
  */
 @FunctionalInterface
 public interface PluginMigration {
-
     /**
      * Execute the migration.
      * <p>

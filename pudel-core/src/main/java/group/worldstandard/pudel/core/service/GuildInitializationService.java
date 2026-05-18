@@ -31,7 +31,6 @@ import group.worldstandard.pudel.core.repository.GuildSettingsRepository;
 @Service
 @Transactional
 public class GuildInitializationService {
-
     private static final Logger logger = LoggerFactory.getLogger(GuildInitializationService.class);
 
     private final GuildSettingsRepository guildSettingsRepository;
@@ -149,4 +148,3 @@ public class GuildInitializationService {
         return guildSettingsRepository.save(settings);
     }
 }
-

@@ -25,7 +25,6 @@ import java.util.Optional;
  */
 @Repository
 public interface PluginDatabaseRegistryRepository extends JpaRepository<PluginDatabaseRegistry, Long> {
-
     /**
      * Find a registry entry by plugin ID.
      *

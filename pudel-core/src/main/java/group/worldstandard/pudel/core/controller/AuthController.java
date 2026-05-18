@@ -15,6 +15,7 @@
 package group.worldstandard.pudel.core.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
@@ -32,10 +33,25 @@ import group.worldstandard.pudel.core.service.AuthService;
  * REST controller for authentication endpoints.
  * Supports DPoP (Demonstrating Proof-of-Possession) for enhanced token security.
  * <p>
- * To use DPoP:
+ * <b>BFF (Backend-for-Frontend) DPoP Approach:</b>
+ * <p>
+ * In this implementation, we use a BFF approach to enhance security against XSS attacks:
  * <ol>
- *   <li>Generate an asymmetric key pair (RSA or EC) on the client</li>
- *   <li>Include a DPoP proof in the "DPoP" header when requesting tokens</li>
+ *   <li>Backend generates and manages DPoP keypair per user session</li>
+ *   <li>Frontend requests public key from /api/dpop/public-key endpoint</li>
+ *   <li>Frontend creates DPoP proof payload (jti, htm, htu, iat, ath)</li>
+ *   <li>Frontend sends payload to /api/dpop/sign endpoint for backend signing</li>
+ *   <li>Backend returns signed DPoP proof to frontend</li>
+ *   <li>Frontend uses signed proof in DPoP header</li>
+ *   <li>Private key never leaves backend, enhancing security against XSS</li>
+ * </ol>
+ * <p>
+ * To use DPoP with this BFF approach:
+ * <ol>
+ *   <li>GET /api/dpop/public-key to obtain the backend-managed public key</li>
+ *   <li>Create DPoP proof payload (jti, htm, htu, iat, ath)</li>
+ *   <li>POST /api/dpop/sign with the payload to get a signed proof</li>
+ *   <li>Include the signed proof in the DPoP header when requesting tokens</li>
  *   <li>Use the "DPoP" authorization scheme instead of "Bearer" for protected resources</li>
  * </ol>
  */
@@ -65,7 +81,8 @@ public class AuthController {
     @PostMapping("/discord/callback")
     public ResponseEntity<?> discordCallback(@RequestBody OAuthCallbackRequest request,
                                              @RequestHeader(value = DPOP_HEADER, required = false) String dpopProof,
-                                             HttpServletRequest httpRequest) {
+                                             HttpServletRequest httpRequest,
+                                             HttpSession session) {
         log.info("Received OAuth callback request (DPoP: {})", dpopProof != null);
 
         if (request.getCode() == null || request.getCode().isEmpty()) {
@@ -81,7 +98,8 @@ public class AuthController {
                 request.getCode(),
                 dpopProof,
                 httpMethod,
-                httpUri
+                httpUri,
+                session
         );
 
         if (response == null) {
@@ -205,4 +223,3 @@ public class AuthController {
         }
     }
 }
-

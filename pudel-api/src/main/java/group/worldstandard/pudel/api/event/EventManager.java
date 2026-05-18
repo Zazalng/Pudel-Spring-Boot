@@ -26,18 +26,20 @@ import net.dv8tion.jda.api.events.GenericEvent;
  * <b>Preferred approach:</b> Create a {@link Listener} class with
  * {@link EventHandler @EventHandler} annotated methods:
  * <pre>
+ * {@code
  * public class MyListener implements Listener {
  *
- *     {@code @EventHandler(priority = EventPriority.NORMAL)}
+ *     @EventHandler(priority = EventPriority.NORMAL)
  *     public void onMessage(MessageReceivedEvent event) {
  *         // Handle message
  *     }
  * }
  *
  * // Register in your @Plugin class:
- * {@code @OnEnable}
+ * @OnEnable
  * public void onEnable(PluginContext context) {
  *     context.registerListener(new MyListener());
+ * }
  * }
  * </pre>
  * <p>
@@ -45,7 +47,6 @@ import net.dv8tion.jda.api.events.GenericEvent;
  * programmatically for more control.
  */
 public interface EventManager {
-
     /**
      * Registers all event handlers in a listener object.
      * Methods annotated with {@link EventHandler} will be automatically registered.
@@ -101,4 +102,3 @@ public interface EventManager {
      */
     int getTotalHandlerCount();
 }
-

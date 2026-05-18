@@ -14,6 +14,7 @@
  */
 package group.worldstandard.pudel.core.interaction.builtin;
 
+import group.worldstandard.pudel.api.PudelProperties;
 import group.worldstandard.pudel.api.agent.AgentTool;
 import group.worldstandard.pudel.api.agent.AgentToolContext;
 import group.worldstandard.pudel.api.agent.AgentToolProvider;
@@ -43,19 +44,22 @@ import java.util.Map;
  */
 @Component
 public class BuiltinAgentTools implements AgentToolProvider {
-
     private static final Logger logger = LoggerFactory.getLogger(BuiltinAgentTools.class);
     public static final String PLUGIN_ID = "pudel-core-tools";
 
     private final AgentDataExecutor dataExecutor;
+    private final PudelProperties pudelProperties;
 
-    public BuiltinAgentTools(AgentDataExecutor dataExecutor) {
+    public BuiltinAgentTools(AgentDataExecutor dataExecutor,
+                             PudelProperties pudelProperties
+    ) {
         this.dataExecutor = dataExecutor;
+        this.pudelProperties = pudelProperties;
     }
 
     @Override
     public String getProviderName() {
-        return "Pudel Core Data Tools";
+        return pudelProperties.getUserAgent();
     }
 
     @Override
@@ -469,4 +473,3 @@ public class BuiltinAgentTools implements AgentToolProvider {
         return sanitized;
     }
 }
-

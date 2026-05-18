@@ -67,4 +67,3 @@ public enum VoiceConnectionStatus {
      */
     ERROR
 }
-

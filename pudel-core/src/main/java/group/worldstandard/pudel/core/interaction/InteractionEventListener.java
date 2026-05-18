@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
  */
 @Component
 public class InteractionEventListener extends ListenerAdapter {
-
     private static final Logger logger = LoggerFactory.getLogger(InteractionEventListener.class);
 
     private final InteractionManagerImpl interactionManager;

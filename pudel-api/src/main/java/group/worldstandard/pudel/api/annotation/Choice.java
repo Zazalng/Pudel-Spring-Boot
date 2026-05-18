@@ -41,14 +41,13 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({})
 public @interface Choice {
-
     /**
-     * Display name shown to users.
+     * @return Display name shown to users.
      */
     String name();
 
     /**
-     * Value passed to the handler.
+     * @return Value passed to the handler.
      */
     String value();
 }

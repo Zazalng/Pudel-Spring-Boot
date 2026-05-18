@@ -26,9 +26,7 @@ import java.util.Optional;
  */
 @Repository
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long> {
-
     Optional<Subscription> findByTargetIdAndType(String targetId, SubscriptionType type);
 
     boolean existsByTargetIdAndType(String targetId, SubscriptionType type);
 }
-

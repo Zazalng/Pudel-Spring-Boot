@@ -132,7 +132,7 @@ JWT_PUBLIC_KEY_PATH=./keys/pb.key
 ollama run phi3:mini
 
 # Start Pudel
-java -jar pudel-core/target/pudel-core-2.2.2.jar
+java -jar pudel-core/target/pudel-core-2.3.0.jar
 ```
 
 ---
@@ -171,7 +171,7 @@ All built-in commands follow the same `@Plugin` annotation pattern as plugins.
 <dependency>
     <groupId>group.worldstandard</groupId>
     <artifactId>pudel-api</artifactId>
-    <version>2.2.2</version>
+    <version>2.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -343,7 +343,7 @@ Are **NOT considered derivative works** of Pudel. This allows proprietary and co
 
 ## Status
 
-**Version**: 2.2.2 (Stable)
+**Version**: 2.3.0 (Stable)
 
 **Note**: Only changes or bug fixes originating from the API qualify for a semantic version update.
 

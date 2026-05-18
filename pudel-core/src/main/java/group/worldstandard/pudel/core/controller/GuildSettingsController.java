@@ -123,7 +123,7 @@ public class GuildSettingsController {
             }
 
             GuildSettings settings = guildSettingsService.getOrCreateGuildSettings(guildId);
-            log.info("Created/verified settings for guild: {}", guildId);
+            log.info("Created/verified settings for guild: {}", guildId.replaceAll("\\D", ""));
             return ResponseEntity.status(HttpStatus.CREATED).body(settings);
         } catch (Exception e) {
             log.error("Error creating guild settings", e);
@@ -331,4 +331,3 @@ public class GuildSettingsController {
         }
     }
 }
-

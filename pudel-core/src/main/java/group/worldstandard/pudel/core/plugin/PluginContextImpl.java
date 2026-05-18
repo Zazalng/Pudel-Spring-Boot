@@ -209,8 +209,8 @@ public class PluginContextImpl implements PluginContext {
                 if (databaseManager == null) {
                     PluginDatabaseManager newManager = databaseService.getManagerForPlugin(getPluginName(), getPluginVersion());
 
-                    logger.debug("[{}] Database manager initialized with prefix: {}",
-                            getPluginName(), newManager.getPrefix());
+                    logger.debug("[{}] Database manager initialized with schema: {}",
+                            getPluginName(), newManager.getSchemaName());
                     databaseManager = newManager;
                 }
             }
@@ -254,4 +254,3 @@ public class PluginContextImpl implements PluginContext {
         }
     }
 }
-

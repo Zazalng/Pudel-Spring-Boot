@@ -1,6 +1,8 @@
 spring:
   application:
     name: pudel-discord-bot
+  config:
+    import: "optional:classpath:application-brain.yml"
   servlet:
     multipart:
       enabled: true
@@ -52,7 +54,7 @@ pudel:
   branding:
     name: ${PUDEL_BRANDING_NAME:Pudel}
     codename: ${PUDEL_BRANDING_CODENAME:Canis Lupus Familiaris}
-    version: ${PUDEL_BRANDING_VERSION:2.2.2}
+    version: ${PUDEL_BRANDING_VERSION:Undeclared}
   discord:
     token: ${DISCORD_BOT_TOKEN:}
     prefix: "!"

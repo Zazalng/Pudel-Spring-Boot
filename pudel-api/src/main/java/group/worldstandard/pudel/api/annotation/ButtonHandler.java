@@ -40,9 +40,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface ButtonHandler {
-
     /**
-     * Button ID prefix to match.
+     * @return original prefix before sanitize by Core infrastructure
      */
     String value();
 }

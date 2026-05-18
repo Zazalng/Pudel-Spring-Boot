@@ -40,7 +40,6 @@ import group.worldstandard.pudel.core.service.GuildInitializationService;
  */
 @Component
 public class CommandBootstrapRunner implements ApplicationRunner {
-
     private static final Logger logger = LoggerFactory.getLogger(CommandBootstrapRunner.class);
 
     private final CommandRegistry commandRegistry;

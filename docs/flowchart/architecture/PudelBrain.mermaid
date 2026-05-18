@@ -1,89 +1,90 @@
-%% Pudel Brain Architecture v2.1.1
+%% Pudel Brain Architecture v2.3.0
+%% PudelBrain v2 — Ollama completion-focused with passive context, dialogue history, MCP tools
 
 flowchart TD
     subgraph Input["📨 Input"]
         MESSAGE[/"User Message<br/>@Pudel how are you?"/]
     end
 
+    subgraph Discord["🎮 Discord Handling"]
+        TYPING["sendTyping().queue()<br/>Non-blocking"]
+        SEND["sendMessage().queue()<br/>Async response"]
+    end
+
     subgraph Analysis["🔍 Text Analysis"]
-        ANALYZER["TextAnalyzerService<br/>(LangChain4j + Ollama)"]
+        ANALYZER["EntityExtractor<br/>extractEntities()"]
         INTENT["Intent Detection"]
         SENTIMENT["Sentiment Analysis"]
-        ENTITIES["Entity Extraction"]
-        LANGUAGE["Language Detection"]
     end
 
-    subgraph Memory["🧠 Memory System"]
-        MEMORY_MGR["MemoryManager"]
-        EMBEDDINGS["Memory Embeddings<br/>(pgvector in guild_{id} schema)"]
-        SEMANTIC["Semantic Search<br/>(IVFFlat index)"]
-        CONTEXT["Relevant Context"]
-    end
-
-    subgraph Personality["👤 Personality Engine"]
-        PERSONALITY_ENGINE["PersonalityEngine"]
-        GUILD_SETTINGS["GuildSettings<br/>biography, personality,<br/>preferences, quirks,<br/>dialogue_style,<br/>topics_interest,<br/>topics_avoid,<br/>system_prompt_prefix"]
-        TRAITS["Apply Traits"]
+    subgraph Context["🧠 Context Gathering"]
+        PASSIVE["PassiveContextProcessor<br/>getRecentContext()"]
+        DIALOGUE["DialogueHistoryManager<br/>getRecentHistory()"]
+        PERSONALITY["SystemPromptBuilder<br/>buildSystemPrompt()"]
     end
 
     subgraph Generation["💬 Response Generation"]
-        RESPONSE_GEN["ResponseGenerator"]
         PROMPT["Build Prompt<br/>+ System Prompt<br/>+ Context<br/>+ Personality"]
-        OLLAMA["Ollama LLM<br/>(phi3:mini, gemma)"]
+        OLLAMA["OllamaClient<br/>generateStreaming()"]
+        MARKDOWN["ensureDiscordMarkdown()<br/>truncateForDiscord()"]
     end
 
     subgraph Agent["🤖 Agent System (optional)"]
         AGENT_CHECK{"Data management<br/>intent?"}
-        AGENT_SVC["PudelAgentService"]
-        AGENT_TOOLS["Agent Tools<br/>- createTable<br/>- storeData<br/>- searchData<br/>- remember/recall"]
-        EXECUTOR["AgentDataExecutor<br/>(guild_{id} schema)"]
+        AGENT_SVC["PudelAgentService<br/>processWithTools()"]
+        MCP_TOOLS["MCP Tools<br/>get_passive_context<br/>get_dialogue_history<br/>get_message_by_id<br/>get_forwarded_messages<br/>get_brain_status"]
+        AGENT_TOOLS["Agent Tools<br/>create_table, store_data<br/>search_data, remember/recall"]
+    end
+
+    subgraph Storage["💾 Storage"]
+        STORE_DIALOGUE["DialogueHistoryManager<br/>storeDialogue()<br/>respond_to tracking"]
+        STORE_CONTEXT["PassiveContextProcessor<br/>submit() → batch process<br/>message_id, entities JSONB"]
     end
 
     subgraph Output["📤 Output"]
-        RESPONSE[/"Bot Response"/]
+        RESPONSE[/"Bot Response<br/>Discord Markdown formatted"/]
     end
 
     %% Flow
-    MESSAGE --> ANALYZER
+    MESSAGE --> TYPING
+    TYPING --> ANALYZER
     ANALYZER --> INTENT
     ANALYZER --> SENTIMENT
-    ANALYZER --> ENTITIES
-    ANALYZER --> LANGUAGE
 
     INTENT --> AGENT_CHECK
-
     AGENT_CHECK -->|"Yes"| AGENT_SVC
+    AGENT_SVC --> MCP_TOOLS
     AGENT_SVC --> AGENT_TOOLS
-    AGENT_TOOLS --> EXECUTOR
-    EXECUTOR --> RESPONSE
+    AGENT_TOOLS --> RESPONSE
 
-    AGENT_CHECK -->|"No"| MEMORY_MGR
-    MEMORY_MGR --> EMBEDDINGS
-    EMBEDDINGS --> SEMANTIC
-    SEMANTIC --> CONTEXT
-
-    CONTEXT --> PERSONALITY_ENGINE
-    GUILD_SETTINGS --> PERSONALITY_ENGINE
-    PERSONALITY_ENGINE --> TRAITS
-
-    TRAITS --> RESPONSE_GEN
-    RESPONSE_GEN --> PROMPT
+    AGENT_CHECK -->|"No"| PASSIVE
+    PASSIVE --> DIALOGUE
+    DIALOGUE --> PERSONALITY
+    PERSONALITY --> PROMPT
     PROMPT --> OLLAMA
-    OLLAMA --> RESPONSE
+    OLLAMA --> MARKDOWN
+    MARKDOWN --> SEND
+    SEND --> RESPONSE
+
+    %% Storage
+    SEND --> STORE_DIALOGUE
+    MESSAGE --> STORE_CONTEXT
 
     %% Styling
     classDef input fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef discord fill:#5865F2,stroke:#4752C4,color:#fff
     classDef analysis fill:#7b1fa2,stroke:#4a148c,color:#fff
-    classDef memory fill:#00796b,stroke:#004d40,color:#fff
-    classDef personality fill:#f57c00,stroke:#e65100,color:#fff
+    classDef context fill:#00796b,stroke:#004d40,color:#fff
     classDef generation fill:#2e7d32,stroke:#1b5e20,color:#fff
     classDef agent fill:#c62828,stroke:#b71c1c,color:#fff
+    classDef storage fill:#f57c00,stroke:#e65100,color:#fff
     classDef output fill:#455a64,stroke:#263238,color:#fff
 
     class MESSAGE input
-    class ANALYZER,INTENT,SENTIMENT,ENTITIES,LANGUAGE analysis
-    class MEMORY_MGR,EMBEDDINGS,SEMANTIC,CONTEXT memory
-    class PERSONALITY_ENGINE,GUILD_SETTINGS,TRAITS personality
-    class RESPONSE_GEN,PROMPT,OLLAMA generation
-    class AGENT_CHECK,AGENT_SVC,AGENT_TOOLS,EXECUTOR agent
+    class TYPING,SEND discord
+    class ANALYZER,INTENT,SENTIMENT analysis
+    class PASSIVE,DIALOGUE,PERSONALITY context
+    class PROMPT,OLLAMA,MARKDOWN generation
+    class AGENT_CHECK,AGENT_SVC,MCP_TOOLS,AGENT_TOOLS agent
+    class STORE_DIALOGUE,STORE_CONTEXT storage
     class RESPONSE output

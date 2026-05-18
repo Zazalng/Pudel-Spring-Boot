@@ -34,7 +34,6 @@ import java.util.Optional;
 @Service
 @Transactional
 public class GuildDataService {
-
     private static final Logger logger = LoggerFactory.getLogger(GuildDataService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -51,18 +50,31 @@ public class GuildDataService {
 
     /**
      * Store a dialogue entry (user message + bot response) in guild schema.
+     * Includes respond_to (message ID the bot responded to) and attachment_urls.
      */
     public void storeDialogue(long guildId, long userId, long channelId,
                               String userMessage, String botResponse, String intent) {
+        storeDialogue(guildId, userId, channelId, userMessage, botResponse, intent, null, null);
+    }
+
+    /**
+     * Store a dialogue entry with respond_to and attachment_urls.
+     */
+    public void storeDialogue(long guildId, long userId, long channelId,
+                              String userMessage, String botResponse, String intent,
+                              Long respondTo, List<String> attachmentUrls) {
         String schemaName = schemaManagementService.getGuildSchemaName(guildId);
 
         try {
             String sql = "INSERT INTO " + schemaName + ".dialogue_history " +
-                    "(user_id, channel_id, user_message, bot_response, intent, created_at) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)";
+                    "(user_id, channel_id, user_message, bot_response, intent, respond_to, attachment_urls, created_at) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             jdbcTemplate.update(sql, userId, channelId, userMessage, botResponse, intent,
+                    respondTo,
+                    attachmentUrls != null && !attachmentUrls.isEmpty()
+                            ? attachmentUrls.toArray(new String[0]) : null,
                     Timestamp.valueOf(LocalDateTime.now()));
-            logger.debug("Stored dialogue for guild {} user {}", guildId, userId);
+            logger.debug("Stored dialogue for guild {} user {} (respond_to={})", guildId, userId, respondTo);
         } catch (Exception e) {
             logger.error("Error storing dialogue for guild {}: {}", guildId, e.getMessage());
         }

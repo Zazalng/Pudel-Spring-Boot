@@ -57,7 +57,6 @@ import java.util.concurrent.TimeUnit;
     description = "Built-in Pudel text commands"
 )
 public class BuiltinTextCommands {
-
     private static final Color ACCENT = new Color(0x5865F2);
     private static final String BTN_PREFIX = "help:";
     private static final int ITEMS_PER_PAGE = 8;
@@ -401,4 +400,3 @@ public class BuiltinTextCommands {
         }
     }
 }
-

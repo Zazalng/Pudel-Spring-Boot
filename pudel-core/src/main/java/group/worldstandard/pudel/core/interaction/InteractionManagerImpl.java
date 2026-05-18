@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class InteractionManagerImpl implements InteractionManager {
-
     private static final Logger logger = LoggerFactory.getLogger(InteractionManagerImpl.class);
 
     private final JDA jda;

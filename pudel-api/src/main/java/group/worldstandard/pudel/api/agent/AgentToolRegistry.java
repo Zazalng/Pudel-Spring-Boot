@@ -29,10 +29,10 @@ import java.util.Optional;
  * <p>
  * Example usage in a plugin:
  * <pre>
- * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")}
+ * {@code @Plugin(name = "MyPlugin", version = "1.0.0", author = "Author")
  * public class MyPlugin {
  *
- *     {@code @OnEnable}
+ *     @OnEnable
  *     public void onEnable(PluginContext context) {
  *         AgentToolRegistry registry = context.getAgentToolRegistry();
  *
@@ -47,16 +47,16 @@ import java.util.Optional;
  *             .build());
  *     }
  *
- *     {@code @OnDisable}
+ *     @OnDisable
  *     public void onDisable(PluginContext context) {
  *         // Unregister all tools for this plugin
  *         context.getAgentToolRegistry().unregisterAll("my-plugin");
  *     }
  * }
+ * }
  * </pre>
  */
 public interface AgentToolRegistry {
-
     /**
      * Register a tool provider with annotated @AgentTool methods.
      * The registry will scan the provider for @AgentTool annotations

@@ -148,8 +148,8 @@ public class PudelModelService {
 
         // Base personality with nickname
         String name = personality != null && personality.nickname() != null ? personality.nickname() : "Pudel";
-        prompt.append("You are ").append(name).append(", a helpful and friendly Discord assistant bot.\n");
-        prompt.append("You are designed to be a personal maid/secretary for Discord servers.\n\n");
+        prompt.append("You are `").append(name).append("`, a helpful and friendly Discord assistant bot.\n");
+        prompt.append("You are designed to be a personal butler/maid/secretary for Discord servers.\n\n");
 
         // Add custom personality traits
         if (personality != null) {

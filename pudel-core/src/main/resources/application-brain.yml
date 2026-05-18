@@ -1,0 +1,56 @@
+# ============================================
+# PudelBrain v2 Configuration
+# ============================================
+# This file contains the default configuration for the reworked PudelBrain.
+# Copy relevant sections to your application.yml to customize.
+
+pudel:
+  brain:
+    # Set to true to use the deprecated pudel-model module instead of the new brain.
+    # @deprecated The pudel-model module is deprecated and will be removed.
+    use-legacy-model-module: false
+
+    # Ollama connection settings
+    # Uses the same env vars as the top-level pudel.ollama.* in application.yml
+    # OLLAMA_MODEL, OLLAMA_URL, OLLAMA_TOKEN — single source of truth from .env
+    ollama:
+      base-url: "${OLLAMA_URL:http://localhost:11434}"
+      model: "${OLLAMA_MODEL:qwen3:8b}"
+      timeout-seconds: 120
+      temperature: 0.7
+      max-tokens: 262143
+
+    # Completion behavior
+    completion:
+      max-context-messages: 20
+      system-prompt-max-length: 4000
+      enable-roleplay: true
+
+    # Passive context collection
+    passive-context:
+      enabled: true
+      max-queue-size: 200
+      max-age-ms: 120000          # 2 minutes
+      processing-interval-ms: 1000 # 1 second
+      batch-size: 5
+      extract-entities: true
+      track-attachments: true
+
+    # Dialogue history storage
+    dialogue-history:
+      enabled: true
+      max-history-per-user: 50
+      store-respond-to: true
+
+    # Discord interaction
+    discord:
+      send-typing: true
+      max-message-length: 2000
+      format-markdown: true
+      read-text-attachments: true
+
+    # MCP (Model Context Protocol) tools
+    mcp:
+      enabled: true
+      tool-timeout-seconds: 30
+

@@ -38,7 +38,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 public class PluginDatabaseService {
-
     private static final Logger logger = LoggerFactory.getLogger(PluginDatabaseService.class);
 
     private final PluginDatabaseRegistryRepository registryRepository;
@@ -107,8 +106,14 @@ public class PluginDatabaseService {
         PluginDatabaseRegistry registry = registryRepository.findByPluginId(normalizedId)
                 .orElseGet(() -> createRegistryEntry(normalizedId, pluginVersion));
 
-        // Log the prefix being used - helps debug issues
-        logger.info("Plugin {} using database prefix: {}", normalizedId, registry.getDbPrefix());
+        // Derive schema name from dbPrefix
+        String schemaName = registry.deriveSchemaName();
+
+        // Ensure plugin schema exists
+        ensurePluginSchema(schemaName);
+
+        // Log the schema being used - helps debug issues
+        logger.info("Plugin {} using database schema: {}", normalizedId, schemaName);
 
         // Update version if changed
         if (!Objects.equals(registry.getCurrentVersion(), pluginVersion)) {
@@ -117,17 +122,25 @@ public class PluginDatabaseService {
             logger.info("Updated plugin {} version to {}", normalizedId, pluginVersion);
         }
 
-        // Create manager instance
+        // Create manager instance with schema-based isolation
         PluginDatabaseManagerImpl manager = new PluginDatabaseManagerImpl(
                 normalizedId,
-                registry.getDbPrefix(),
+                schemaName,
                 registry,
                 registryRepository,
                 jdbcTemplate
         );
 
+        // Migrate any existing tables from public schema to plugin schema
+        // This handles the transition from prefix-based to schema-based isolation
+        int migratedTables = manager.migrateTablesFromPublicSchema();
+        if (migratedTables > 0) {
+            logger.info("Migrated {} existing tables for plugin {} to schema {}",
+                migratedTables, normalizedId, schemaName);
+        }
+
         managerCache.put(normalizedId, manager);
-        logger.debug("Created database manager for plugin {} with prefix {}", normalizedId, registry.getDbPrefix());
+        logger.debug("Created database manager for plugin {} with schema {}", normalizedId, schemaName);
 
         return manager;
     }
@@ -171,27 +184,71 @@ public class PluginDatabaseService {
      * Create a new registry entry for a plugin.
      */
     private PluginDatabaseRegistry createRegistryEntry(String pluginId, String pluginVersion) {
-        // Generate unique prefix
-        String prefix = generateUniquePrefix(pluginId);
-
         PluginDatabaseRegistry registry = new PluginDatabaseRegistry();
         registry.setPluginId(pluginId);
+
+        // Generate unique prefix (this is already a sanitized identifier)
+        String prefix = generateUniquePrefix(pluginId);
         registry.setDbPrefix(prefix);
+
+        // Schema name is derived from dbPrefix via deriveSchemaName()
+        // No need to store it separately
+
         registry.setInitialVersion(pluginVersion);
         registry.setCurrentVersion(pluginVersion);
         registry.setSchemaVersion(0);
         registry.setEnabled(true);
 
         registry = registryRepository.save(registry);
-        logger.info("Registered new plugin database: {} with prefix {}", pluginId, prefix);
+
+        // Create the schema in the database
+        String schemaName = registry.deriveSchemaName();
+        createSchemaIfNotExists(schemaName);
+
+        logger.info("Registered new plugin database: {} with schema {}", pluginId, schemaName);
 
         return registry;
     }
 
+
+    /**
+     * Ensure the plugin schema exists in the database.
+     *
+     * @param schemaName the schema name to ensure exists
+     */
+    private void ensurePluginSchema(String schemaName) {
+        createSchemaIfNotExists(schemaName);
+    }
+
+    /**
+     * Create a schema if it doesn't exist.
+     *
+     * @param schemaName the schema name to create
+     */
+    private void createSchemaIfNotExists(String schemaName) {
+        try {
+            // Check if schema exists
+            Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = ?",
+                Integer.class,
+                schemaName
+            );
+
+            if (exists != null && exists == 0) {
+                jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS " + schemaName);
+                logger.info("Created schema: {}", schemaName);
+            }
+        } catch (Exception e) {
+            logger.error("Error creating schema {}: {}", schemaName, e.getMessage(), e);
+        }
+    }
+
     /**
      * Generate a unique database prefix for a plugin.
-     * Format: "p_{shortId}_" where shortId is 8 chars
+     * Format: "p_{shortId}_"
+     * @deprecated Prefix is no longer used for table naming. Schemas are used instead.
      */
+    @Deprecated
     private String generateUniquePrefix(String pluginId) {
         // Generate a short unique ID
         String uuid = UUID.randomUUID().toString().replace("-", "");
@@ -307,6 +364,43 @@ public class PluginDatabaseService {
             logger.info("No plugin database migrations needed");
         } else {
             logger.info("Migrated {} plugin database registrations", toDelete.size());
+        }
+    }
+
+    /**
+     * Remove a plugin's database resources (schema and registry entry).
+     * <p>
+     * This removes the plugin's schema and registry entry from the database.
+     * The JAR file and plugin metadata are handled separately by the plugin service.
+     *
+     * @param pluginId the plugin identifier
+     */
+    @Transactional
+    public void removePluginResources(String pluginId) {
+        String normalizedId = normalizePluginId(pluginId);
+
+        // Remove from cache first
+        managerCache.remove(normalizedId);
+        logger.debug("Removed database manager from cache for plugin {}", normalizedId);
+
+        // Find and remove registry entry
+        Optional<PluginDatabaseRegistry> registryOpt = registryRepository.findByPluginId(normalizedId);
+        if (registryOpt.isPresent()) {
+            PluginDatabaseRegistry registry = registryOpt.get();
+            String schemaName = registry.deriveSchemaName();
+
+            // Drop the schema (careful with this - removes all data!)
+            try {
+                jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
+                logger.info("Dropped schema: {}", schemaName);
+            } catch (Exception e) {
+                logger.error("Error dropping schema {}: {}", schemaName, e.getMessage(), e);
+            }
+
+            // Remove registry entry
+            registryRepository.delete(registry);
+            logger.info("Removed plugin database registration: {} (prefix: {})",
+                    normalizedId, registry.getDbPrefix());
         }
     }
 

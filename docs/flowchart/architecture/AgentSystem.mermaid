@@ -1,5 +1,6 @@
-%% Pudel Agent System v2.1.1
-%% Unified Tool Pipeline — Built-in + Plugin tools use the same AgentToolRegistry
+%% Pudel Agent System v2.3.0
+%% Dual Tool Registry: MCP tools (McpToolRegistry) + Agent tools (AgentToolRegistry)
+%% Unified dispatch via PudelAgentService.processWithTools()
 
 flowchart TD
     subgraph Input["📨 User Request"]
@@ -12,14 +13,27 @@ flowchart TD
     end
 
     subgraph Agent["🤖 Agent Service"]
-        AGENT_SVC["PudelAgentService<br/>(LangChain4j AI Service)"]
+        AGENT_SVC["PudelAgentService<br/>(processWithTools)"]
         ADAPTER["PluginToolAdapter<br/>(per-request bridge)"]
     end
 
-    subgraph Registry["📋 AgentToolRegistry"]
-        REG["AgentToolRegistryImpl"]
-        REG_BUILTIN["pudel-core-tools<br/>(BuiltinAgentTools)"]
-        REG_PLUGIN["plugin tools<br/>(via registerProvider)"]
+    subgraph McpRegistry["📋 McpToolRegistry"]
+        MCP_REG["McpToolRegistryImpl"]
+        MCP_BUILTIN["builtin<br/>(BuiltinMcpToolRegistrar)"]
+    end
+
+    subgraph AgentRegistry["📋 AgentToolRegistry"]
+        AGENT_REG["AgentToolRegistryImpl"]
+        AGENT_BUILTIN["pudel-core-tools<br/>(BuiltinAgentTools)"]
+        AGENT_PLUGIN["plugin tools<br/>(via registerProvider)"]
+    end
+
+    subgraph McpTools["🔵 Built-in MCP Tools<br/>(BuiltinMcpTools.java)"]
+        GET_CTX["get_passive_context<br/>Get recent passive context"]
+        GET_HIST["get_dialogue_history<br/>Get conversation history"]
+        GET_MSG["get_message_by_id<br/>Fetch specific message"]
+        GET_FWD["get_forwarded_messages<br/>Get forwarded content"]
+        GET_STATUS["get_brain_status<br/>Ollama + queue status"]
     end
 
     subgraph BuiltinTools["🔧 Built-in Agent Tools<br/>(BuiltinAgentTools.java)"]
@@ -53,11 +67,14 @@ flowchart TD
     end
 
     %% Registration at startup
-    REGISTRAR -->|"registerProvider()"| REG
-    REG --> REG_BUILTIN
-    REG --> REG_PLUGIN
-    REG_BUILTIN -.-> BuiltinTools
-    REG_PLUGIN -.-> PluginTools
+    REGISTRAR -->|"registerProvider()"| AGENT_REG
+    REGISTRAR -->|"registerTool()"| MCP_REG
+    AGENT_REG --> AGENT_BUILTIN
+    AGENT_REG --> AGENT_PLUGIN
+    MCP_REG --> MCP_BUILTIN
+    MCP_BUILTIN -.-> McpTools
+    AGENT_BUILTIN -.-> BuiltinTools
+    AGENT_PLUGIN -.-> PluginTools
 
     %% Request flow
     MESSAGE --> INTENT
@@ -66,8 +83,12 @@ flowchart TD
     DETECT -->|"No"| RESULT
     DETECT -->|"Yes"| AGENT_SVC
 
+    AGENT_SVC -->|"buildMcpToolDescriptions()"| MCP_REG
+    AGENT_SVC -->|"buildMcpToolDescriptions()"| AGENT_REG
+    AGENT_SVC -->|"executeMcpTool()"| MCP_REG
+    AGENT_SVC -->|"executeMcpTool()"| AGENT_REG
     AGENT_SVC --> ADAPTER
-    ADAPTER -->|"executeTool()"| REG
+    ADAPTER -->|"executeTool()"| AGENT_REG
 
     CREATE --> EXECUTOR
     STORE --> EXECUTOR
@@ -93,7 +114,9 @@ flowchart TD
     classDef executor fill:#455a64,stroke:#263238,color:#fff
     classDef response fill:#c62828,stroke:#b71c1c,color:#fff
     classDef registry fill:#1a237e,stroke:#0d47a1,color:#fff
+    classDef mcpRegistry fill:#0d47a1,stroke:#002171,color:#fff
     classDef startup fill:#33691e,stroke:#1b5e20,color:#fff
+    classDef mcpTool fill:#1565c0,stroke:#0d47a1,color:#fff
 
     class MESSAGE input
     class INTENT,DETECT analysis
@@ -102,5 +125,7 @@ flowchart TD
     class PLUGIN_TOOL1,PLUGIN_TOOL2 plugin
     class EXECUTOR,SCHEMA,TABLES executor
     class RESULT response
-    class REG,REG_BUILTIN,REG_PLUGIN registry
+    class AGENT_REG,AGENT_BUILTIN,AGENT_PLUGIN registry
+    class MCP_REG,MCP_BUILTIN mcpRegistry
     class REGISTRAR startup
+    class GET_CTX,GET_HIST,GET_MSG,GET_FWD,GET_STATUS mcpTool

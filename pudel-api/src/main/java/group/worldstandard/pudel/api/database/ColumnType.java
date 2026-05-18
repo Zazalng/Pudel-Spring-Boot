@@ -109,6 +109,11 @@ public enum ColumnType {
      */
     UUID("UUID");
 
+    /**
+     * The SQL type name used in PostgreSQL for this column type.
+     * This string represents the exact PostgreSQL type that corresponds to the enum constant.
+     * For example, "BIGINT", "VARCHAR", "TIMESTAMPTZ", etc.
+     */
     private final String sqlType;
 
     ColumnType(String sqlType) {
@@ -116,7 +121,12 @@ public enum ColumnType {
     }
 
     /**
-     * Get the PostgreSQL SQL type name.
+     * Returns the SQL type name used in PostgreSQL for this column type.
+     * <p>
+     * This method provides the exact PostgreSQL type that corresponds to the enum constant,
+     * such as "BIGINT", "VARCHAR", "TIMESTAMPTZ", etc.
+     *
+     * @return the SQL type name as a string
      */
     public String getSqlType() {
         return sqlType;

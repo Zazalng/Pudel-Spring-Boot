@@ -25,7 +25,6 @@ import java.util.Optional;
  */
 @Repository
 public interface BotUserRepository extends JpaRepository<BotUser, Long> {
-
     /**
      * Find a bot user by user ID.
      * @param userId the Discord user ID
@@ -40,4 +39,3 @@ public interface BotUserRepository extends JpaRepository<BotUser, Long> {
      */
     boolean existsByUserId(long userId);
 }
-

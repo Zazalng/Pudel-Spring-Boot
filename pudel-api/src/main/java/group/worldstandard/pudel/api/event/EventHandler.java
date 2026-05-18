@@ -29,16 +29,17 @@ import java.lang.annotation.Target;
  * <p>
  * Example usage:
  * <pre>
- * &#64;EventHandler(priority = EventPriority.NORMAL)
+ * {@code
+ * @EventHandler(priority = EventPriority.NORMAL)
  * public void onMessageReceived(MessageReceivedEvent event) {
  *     // Handle the event
+ * }
  * }
  * </pre>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface EventHandler {
-
     /**
      * The priority of this event handler.
      * @return the event priority
@@ -51,4 +52,3 @@ public @interface EventHandler {
      */
     boolean ignoreCancelled() default false;
 }
-

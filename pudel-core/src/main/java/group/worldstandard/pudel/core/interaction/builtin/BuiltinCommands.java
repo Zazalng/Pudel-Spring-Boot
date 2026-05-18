@@ -60,12 +60,11 @@ import java.util.stream.Collectors;
 @Component
 @Plugin(
     name = "pudel-core",
-    version = "2.2.2",
+    version = "2.3.0",
     author = "World Standard Group",
     description = "Built-in Pudel commands"
 )
 public class BuiltinCommands {
-
     // ==================== CONSTANTS ====================
     private static final String BTN = "settings:";
     private static final String MODAL_PREFIX = "settings:modal:";
@@ -703,7 +702,10 @@ public class BuiltinCommands {
         List<ContainerChildComponent> c = new ArrayList<>();
 
         c.add(TextDisplay.of("# 🧩 Plugin Management"));
-        c.add(TextDisplay.of("-# Toggle plugins for this server. Disabled plugins' commands won't appear."));
+        c.add(TextDisplay.of("""
+                -# Toggle plugins for this server. Disabled plugins' commands won't appear.
+                > Global command is unable to disabled
+                """));
         c.add(Separator.create(false, Separator.Spacing.SMALL));
 
         List<PluginMetadata> plugins = pluginService.getEnabledPlugins();

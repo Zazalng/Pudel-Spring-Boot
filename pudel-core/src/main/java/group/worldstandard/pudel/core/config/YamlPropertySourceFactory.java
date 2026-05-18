@@ -28,7 +28,6 @@ import java.util.Properties;
  * Enables using YAML configuration files for subscription tiers and chatbot settings.
  */
 public class YamlPropertySourceFactory implements PropertySourceFactory {
-
     @Override
     public @NonNull PropertySource<?> createPropertySource(String name, EncodedResource encodedResource) {
         YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
@@ -44,4 +43,3 @@ public class YamlPropertySourceFactory implements PropertySourceFactory {
         return new PropertiesPropertySource(sourceName, properties != null ? properties : new Properties());
     }
 }
-

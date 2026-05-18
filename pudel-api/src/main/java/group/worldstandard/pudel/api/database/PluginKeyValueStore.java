@@ -32,6 +32,7 @@ import java.util.Set;
  * <p>
  * Example:
  * <pre>
+ * {@code
  * PluginKeyValueStore store = db.getKeyValueStore();
  *
  * // Store values
@@ -47,10 +48,10 @@ import java.util.Set;
  * // Guild/User scoped values
  * store.set("guild:123456:prefix", "!");
  * store.set("user:789:theme", "dark");
+ * }
  * </pre>
  */
 public interface PluginKeyValueStore {
-
     /**
      * Set a string value.
      *

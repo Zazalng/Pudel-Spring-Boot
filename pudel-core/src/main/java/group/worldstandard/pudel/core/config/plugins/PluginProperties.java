@@ -23,7 +23,6 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "pudel.plugin")
 public class PluginProperties {
-
     private String directory = "./plugins";
     private boolean enableAutoDiscovery = true;
     private boolean enableAutoLoad = true;
@@ -70,4 +69,3 @@ public class PluginProperties {
         this.maxRetryAttempts = maxRetryAttempts;
     }
 }
-

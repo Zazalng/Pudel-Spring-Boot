@@ -49,7 +49,6 @@ import java.util.concurrent.CompletableFuture;
  * }</pre>
  */
 public interface VoiceManager {
-
     /**
      * Connect to a voice channel.
      *
@@ -214,4 +213,3 @@ public interface VoiceManager {
      */
     boolean isSelfDeafened(long guildId);
 }
-

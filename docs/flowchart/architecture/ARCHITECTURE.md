@@ -1,4 +1,4 @@
-# Pudel Architecture v2.2.2
+# Pudel Architecture v2.3.0
 
 This document describes the complete architecture of Pudel Discord Bot — reflecting the current implementation with Components V2 interactive panels, two-tier plugin control (admin global + guild local), per-guild command sync, and the annotation-based plugin system.
 
@@ -29,7 +29,7 @@ This document describes the complete architecture of Pudel Discord Bot — refle
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│                             PUDEL DISCORD BOT v2.2.2                          │
+│                             PUDEL DISCORD BOT v2.3.0                          │
 ├───────────────────────────────────────────────────────────────────────────────┤
 │                                                                               │
 │  ┌────────────────────┐       ┌─────────────────────┐       ┌──────────────┐  │
@@ -76,6 +76,7 @@ pudel/
 │   │   ├── Plugin.java          # @Plugin - marks plugin class
 │   │   ├── SlashCommand.java    # @SlashCommand - slash command handler
 │   │   ├── TextCommand.java     # @TextCommand - text command handler
+│   │   ├── ContextMenu.java     # @ContextMenu - context menu command handler
 │   │   ├── ButtonHandler.java   # @ButtonHandler - button click handler
 │   │   ├── ModalHandler.java    # @ModalHandler - modal submission
 │   │   ├── SelectMenuHandler.java # @SelectMenuHandler - select menu
@@ -313,7 +314,7 @@ BuiltinCommands.handlePluginToggle()
 
 ## Command System
 
-### Built-in Commands (v2.2.2)
+### Built-in Commands (since v2.2.2)
 
 **Slash Commands** (`BuiltinCommands` — `pudel-core`):
 
@@ -411,30 +412,71 @@ The `/settings` command opens a single ephemeral message with a rich interactive
 
 ---
 
-## Brain Architecture
+## Brain Architecture (v2.3.0)
+
+PudelBrain v2 is Ollama completion-focused with async Discord handling, passive context collection, dialogue history tracking, and a dual MCP/Agent tool system.
 
 ```
-Input: User Message
+Input: User Message (@mention or trigger)
     │
     ▼
-TextAnalyzerService (LangChain4j + Ollama)
+DiscordEventListener → PudelBrain.processMessageAsync()
+    │
+    ├── sendTyping().queue()  [non-blocking]
+    │
+    ▼
+EntityExtractor → extractEntities()
     ├── Intent Detection
     ├── Sentiment Analysis
-    ├── Entity Extraction
+    ├── Entity Extraction (users, channels, roles, emojis, URLs, attachments)
     └── Language Detection
     │
-    ├── [Agent intent?] ──► PudelAgentService → PluginToolAdapter → AgentToolRegistry
-    │                                         (BuiltinAgentTools + Plugin Tools → Data Executor)
+    ├── [Agent intent?] ──► PudelAgentService.processWithTools()
+    │                         ├── McpToolRegistry (5 built-in MCP tools)
+    │                         │   ├── get_passive_context
+    │                         │   ├── get_dialogue_history
+    │                         │   ├── get_message_by_id
+    │                         │   ├── get_forwarded_messages
+    │                         │   └── get_brain_status
+    │                         └── AgentToolRegistry (14+ agent tools)
+    │                             ├── BuiltinAgentTools (create_table, store_data, etc.)
+    │                             └── Plugin Tools (via @AgentTool)
     │
     ▼
-MemoryManager → pgvector Semantic Search → Relevant Context
+Context Gathering
+    ├── PassiveContextProcessor → getRecentContext()
+    │   └── passive_context table (message_id, entities JSONB, attachment_urls)
+    ├── DialogueHistoryManager → getRecentHistory()
+    │   └── dialogue_history table (respond_to, attachment_urls)
+    └── SystemPromptBuilder → buildSystemPrompt()
+        └── biography, personality, preferences, dialogue_style, etc.
     │
     ▼
-PersonalityEngine (biography, personality, preferences, quirks from GuildSettings)
+OllamaClient.generateStreaming() → ensureDiscordMarkdown() → truncateForDiscord()
     │
     ▼
-ResponseGenerator → Ollama LLM → Bot Response
+sendMessage().queue() with setMessageReference()  [async, non-blocking]
+    │
+    ▼
+Storage
+    ├── DialogueHistoryManager.storeDialogue() [respond_to tracking]
+    └── PassiveContextProcessor.submit() [async batch, message_id + entities]
 ```
+
+### Key v2 Components
+
+| Component | Purpose |
+|-----------|---------|
+| **PudelBrain** | Main entry point, async Discord handling (typing + sendMessage) |
+| **PassiveContextProcessor** | Collects observed messages with entity extraction, message_id tracking |
+| **DialogueHistoryManager** | Stores conversation turns with respond_to message ID tracking |
+| **EntityExtractor** | Extracts users, channels, roles, emojis, URLs, attachments from messages |
+| **SystemPromptBuilder** | Builds system prompt from personality settings |
+| **OllamaClient** | Streaming completion with Discord Markdown formatting |
+| **PudelAgentService** | Unified tool-calling iteration (MCP + Agent tools) |
+| **BuiltinMcpTools** | 5 MCP tools for context/history/brain status access |
+| **BuiltinMcpToolRegistrar** | Registers MCP tools at startup |
+| **FileAttachment** | Image/video reply support with auto-detected MIME types |
 
 See: [PudelBrain.mermaid](./PudelBrain.mermaid), [AgentSystem.mermaid](./AgentSystem.mermaid), [PassiveContext.mermaid](./PassiveContext.mermaid)
 
@@ -676,4 +718,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2026-03-31 for Pudel v2.2.2*
+*Last updated: 2026-05-17 for Pudel v2.3.0*

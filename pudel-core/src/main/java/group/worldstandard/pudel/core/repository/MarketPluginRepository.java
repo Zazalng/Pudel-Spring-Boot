@@ -31,7 +31,6 @@ import java.util.Optional;
  */
 @Repository
 public interface MarketPluginRepository extends JpaRepository<MarketPlugin, String> {
-
     /**
      * Find all plugins by author.
      * @param authorId the author's Discord ID
@@ -100,4 +99,3 @@ public interface MarketPluginRepository extends JpaRepository<MarketPlugin, Stri
     @Query("SELECT p FROM MarketPlugin p ORDER BY p.createdAt DESC")
     Page<MarketPlugin> findAllOrderByCreatedAtDesc(Pageable pageable);
 }
-

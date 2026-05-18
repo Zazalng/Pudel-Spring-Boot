@@ -130,4 +130,3 @@ public class UserGuild {
         this.updatedAt = LocalDateTime.now();
     }
 }
-

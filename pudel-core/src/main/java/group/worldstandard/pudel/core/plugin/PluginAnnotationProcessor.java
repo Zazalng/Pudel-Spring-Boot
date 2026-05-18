@@ -21,14 +21,19 @@ import group.worldstandard.pudel.api.command.CommandContext;
 import group.worldstandard.pudel.api.command.TextCommandHandler;
 import group.worldstandard.pudel.api.interaction.InteractionManager;
 import group.worldstandard.pudel.api.interaction.SlashCommandHandler;
+import group.worldstandard.pudel.api.interaction.ContextMenuHandler;
 import group.worldstandard.pudel.core.command.CommandMetadataRegistry;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.events.interaction.command.MessageContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.command.UserContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
@@ -64,6 +69,7 @@ public class PluginAnnotationProcessor {
     private final Map<String, Set<String>> pluginButtonHandlers = new HashMap<>();
     private final Map<String, Set<String>> pluginModalHandlers = new HashMap<>();
     private final Map<String, Set<String>> pluginSelectMenuHandlers = new HashMap<>();
+    private final Map<String, Set<String>> pluginContextMenus = new HashMap<>();
 
     public PluginAnnotationProcessor(InteractionManager interactionManager,
                                      CommandMetadataRegistry commandMetadataRegistry) {
@@ -114,29 +120,32 @@ public class PluginAnnotationProcessor {
      * @return number of handlers registered
      */
     public int processAndRegister(String pluginId, Object pluginInstance, PluginContext context, String dbPrefix) {
-        Class<?> pluginClass = pluginInstance.getClass();
-        int registered = 0;
+         Class<?> pluginClass = pluginInstance.getClass();
+         int registered = 0;
 
-        // Process @SlashCommand methods
-        registered += processSlashCommands(pluginId, pluginInstance, pluginClass);
+         // Process @SlashCommand methods
+         registered += processSlashCommands(pluginId, pluginInstance, pluginClass);
 
-        // Process @TextCommand methods
-        registered += processTextCommands(pluginId, pluginInstance, pluginClass, context);
+         // Process @TextCommand methods
+         registered += processTextCommands(pluginId, pluginInstance, pluginClass, context);
 
-        // Process @ButtonHandler methods
-        registered += processButtonHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         // Process @ButtonHandler methods
+         registered += processButtonHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
-        // Process @ModalHandler methods
-        registered += processModalHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         // Process @ModalHandler methods
+         registered += processModalHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
-        // Process @SelectMenuHandler methods
-        registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
+         // Process @SelectMenuHandler methods
+         registered += processSelectMenuHandlers(pluginId, pluginInstance, pluginClass, dbPrefix);
 
-        // NOTE: @OnEnable is NOT called here.  Use invokeOnEnable() separately.
+         // Process @ContextMenu methods
+         registered += processContextMenus(pluginId, pluginInstance, pluginClass);
 
-        logger.info("[{}] Registered {} handlers via annotations", pluginId, registered);
-        return registered;
-    }
+         // NOTE: @OnEnable is NOT called here.  Use invokeOnEnable() separately.
+
+         logger.info("[{}] Registered {} handlers via annotations", pluginId, registered);
+         return registered;
+     }
 
     /**
      * Invoke {@code @OnEnable} lifecycle methods on a plugin instance.
@@ -162,56 +171,64 @@ public class PluginAnnotationProcessor {
      * @param context       the plugin context
      */
     public void unregisterAll(String pluginId, Object pluginInstance, PluginContext context) {
-        // Call @OnDisable methods first
-        if (pluginInstance != null) {
-            invokeLifecycleMethods(pluginInstance, pluginInstance.getClass(), OnDisable.class, context);
-        }
+         // Call @OnDisable methods first
+         if (pluginInstance != null) {
+             invokeLifecycleMethods(pluginInstance, pluginInstance.getClass(), OnDisable.class, context);
+         }
 
-        // Unregister slash commands
-        Set<String> slashCmds = pluginSlashCommands.remove(pluginId);
-        if (slashCmds != null) {
-            for (String cmd : slashCmds) {
-                interactionManager.unregisterSlashCommand(cmd);
-            }
-        }
+         // Unregister slash commands
+         Set<String> slashCmds = pluginSlashCommands.remove(pluginId);
+         if (slashCmds != null) {
+             for (String cmd : slashCmds) {
+                 interactionManager.unregisterSlashCommand(cmd);
+             }
+         }
 
-        // Unregister text commands
-        Set<String> textCmds = pluginTextCommands.remove(pluginId);
-        if (textCmds != null && context != null) {
-            for (String cmd : textCmds) {
-                context.unregisterCommand(cmd);
-            }
-        }
+         // Unregister text commands
+         Set<String> textCmds = pluginTextCommands.remove(pluginId);
+         if (textCmds != null && context != null) {
+             for (String cmd : textCmds) {
+                 context.unregisterCommand(cmd);
+             }
+         }
 
-        // Unregister button handlers
-        Set<String> buttons = pluginButtonHandlers.remove(pluginId);
-        if (buttons != null) {
-            for (String prefix : buttons) {
-                interactionManager.unregisterButtonHandler(prefix);
-            }
-        }
+         // Unregister button handlers
+         Set<String> buttons = pluginButtonHandlers.remove(pluginId);
+         if (buttons != null) {
+             for (String prefix : buttons) {
+                 interactionManager.unregisterButtonHandler(prefix);
+             }
+         }
 
-        // Unregister modal handlers
-        Set<String> modals = pluginModalHandlers.remove(pluginId);
-        if (modals != null) {
-            for (String prefix : modals) {
-                interactionManager.unregisterModalHandler(prefix);
-            }
-        }
+         // Unregister modal handlers
+         Set<String> modals = pluginModalHandlers.remove(pluginId);
+         if (modals != null) {
+             for (String prefix : modals) {
+                 interactionManager.unregisterModalHandler(prefix);
+             }
+         }
 
-        // Unregister select menu handlers
-        Set<String> selects = pluginSelectMenuHandlers.remove(pluginId);
-        if (selects != null) {
-            for (String prefix : selects) {
-                interactionManager.unregisterSelectMenuHandler(prefix);
-            }
-        }
+         // Unregister select menu handlers
+         Set<String> selects = pluginSelectMenuHandlers.remove(pluginId);
+         if (selects != null) {
+             for (String prefix : selects) {
+                 interactionManager.unregisterSelectMenuHandler(prefix);
+             }
+         }
 
-        // Clean up command metadata
-        commandMetadataRegistry.unregisterPluginCommands(pluginId);
+         // Unregister context menus
+         Set<String> contextMenus = pluginContextMenus.remove(pluginId);
+         if (contextMenus != null) {
+             for (String name : contextMenus) {
+                 interactionManager.unregisterContextMenu(name);
+             }
+         }
 
-        logger.info("[{}] Unregistered all annotation-based handlers", pluginId);
-    }
+         // Clean up command metadata
+         commandMetadataRegistry.unregisterPluginCommands(pluginId);
+
+         logger.info("[{}] Unregistered all annotation-based handlers", pluginId);
+     }
 
     /**
      * Sync all slash commands to Discord.
@@ -668,6 +685,111 @@ public class PluginAnnotationProcessor {
 
             if (interactionManager.registerSelectMenuHandler(pluginId, handler)) {
                 pluginSelectMenuHandlers.computeIfAbsent(pluginId, k -> new HashSet<>()).add(prefix);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // =====================================================
+    // Context Menu Handler Processing
+    // =====================================================
+
+    private int processContextMenus(String pluginId, Object instance, Class<?> pluginClass) {
+        int count = 0;
+
+        for (Method method : pluginClass.getDeclaredMethods()) {
+            ContextMenu annotation = method.getAnnotation(ContextMenu.class);
+            if (annotation == null) continue;
+
+            // Validate method signature - must accept either UserContextInteractionEvent or MessageContextInteractionEvent
+            Class<?>[] params = method.getParameterTypes();
+            if (params.length != 1) {
+                logger.warn("[{}] @ContextMenu method {} must accept exactly one parameter",
+                        pluginId, method.getName());
+                continue;
+            }
+
+            // Determine the type based on method parameter
+            Command.Type expectedType = annotation.type();
+            Class<?> paramType = params[0];
+
+            if (expectedType == Command.Type.USER && !UserContextInteractionEvent.class.isAssignableFrom(paramType)) {
+                logger.warn("[{}] @ContextMenu method {} with type USER must accept UserContextInteractionEvent",
+                        pluginId, method.getName());
+                continue;
+            }
+
+            if (expectedType == Command.Type.MESSAGE && !MessageContextInteractionEvent.class.isAssignableFrom(paramType)) {
+                logger.warn("[{}] @ContextMenu method {} with type MESSAGE must accept MessageContextInteractionEvent",
+                        pluginId, method.getName());
+                continue;
+            }
+
+            method.setAccessible(true);
+            Method finalMethod = method;
+
+            // Create handler
+            ContextMenuHandler handler = new ContextMenuHandler() {
+                @Override
+                public CommandData getCommandData() {
+                    if (expectedType == Command.Type.USER) {
+                        return Commands.user(annotation.name());
+                    } else {
+                        return Commands.message(annotation.name());
+                    }
+                }
+
+                @Override
+                public void handleUserContext(UserContextInteractionEvent event) {
+                    if (expectedType != Command.Type.USER) {
+                        event.reply("This context menu is not implemented for users.").setEphemeral(true).queue();
+                        return;
+                    }
+                    try {
+                        finalMethod.invoke(instance, event);
+                    } catch (Exception e) {
+                        Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                        logger.error("[{}] Error in user context menu handler: {}", pluginId, cause.getMessage(), cause);
+                        if (!event.isAcknowledged()) {
+                            event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                        }
+                    }
+                }
+
+                @Override
+                public void handleMessageContext(MessageContextInteractionEvent event) {
+                    if (expectedType != Command.Type.MESSAGE) {
+                        event.reply("This context menu is not implemented for messages.").setEphemeral(true).queue();
+                        return;
+                    }
+                    try {
+                        finalMethod.invoke(instance, event);
+                    } catch (Exception e) {
+                        Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                        logger.error("[{}] Error in message context menu handler: {}", pluginId, cause.getMessage(), cause);
+                        if (!event.isAcknowledged()) {
+                            event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                        }
+                    }
+                }
+
+                @Override
+                public boolean isGlobal() {
+                    return annotation.global();
+                }
+
+                @Override
+                public long[] getGuildIds() {
+                    return annotation.guildIds().length > 0 ? annotation.guildIds() : null;
+                }
+            };
+
+            // Register
+            if (interactionManager.registerContextMenu(pluginId, handler)) {
+                pluginContextMenus.computeIfAbsent(pluginId, k -> new HashSet<>())
+                        .add(annotation.name());
                 count++;
             }
         }

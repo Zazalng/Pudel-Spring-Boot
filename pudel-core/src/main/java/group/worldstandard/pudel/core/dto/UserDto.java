@@ -82,4 +82,3 @@ public class UserDto {
         this.verified = verified;
     }
 }
-

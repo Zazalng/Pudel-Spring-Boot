@@ -33,7 +33,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
  * <p>
  * Received as a parameter in {@code @TextCommand} annotated methods:
  * <pre>
- * {@code @TextCommand(name = "greet", description = "Greet someone")}
+ * {@code @TextCommand(name = "greet", description = "Greet someone")
  * public void greet(CommandContext context) {
  *     if (context.hasArgs()) {
  *         context.reply("Hello, " + context.getArg(0) + "!");
@@ -41,10 +41,10 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
  *         context.reply("Hello, " + context.getUser().getName() + "!");
  *     }
  * }
+ * }
  * </pre>
  */
 public interface CommandContext {
-
     /**
      * Gets the original message event.
      * @return the message event
@@ -161,4 +161,3 @@ public interface CommandContext {
         return getArgs().length;
     }
 }
-

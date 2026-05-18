@@ -25,10 +25,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class BotService extends BaseService {
-
     private static final Logger logger = LoggerFactory.getLogger(BotService.class);
 
-    private long startTime;
+    private final long startTime;
 
     public BotService(@Lazy JDA jda) {
         super(jda);
@@ -92,4 +91,3 @@ public class BotService extends BaseService {
         return jda != null ? jda.getGatewayPing() : -1;
     }
 }
-

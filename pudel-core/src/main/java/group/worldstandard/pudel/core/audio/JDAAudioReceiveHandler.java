@@ -25,7 +25,6 @@ import org.jspecify.annotations.NonNull;
  * Adapter that wraps a plugin's AudioReceiver for JDA's AudioReceiveHandler interface.
  */
 public class JDAAudioReceiveHandler implements AudioReceiveHandler {
-
     private final AudioReceiver receiver;
 
     public JDAAudioReceiveHandler(AudioReceiver receiver) {
@@ -62,4 +61,3 @@ public class JDAAudioReceiveHandler implements AudioReceiveHandler {
         return true;
     }
 }
-

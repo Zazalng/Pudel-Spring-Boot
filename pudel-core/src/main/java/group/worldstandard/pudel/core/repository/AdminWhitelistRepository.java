@@ -28,7 +28,6 @@ import java.util.Optional;
  */
 @Repository
 public interface AdminWhitelistRepository extends JpaRepository<AdminWhitelist, Long> {
-
     /**
      * Find admin by Discord user ID.
      */

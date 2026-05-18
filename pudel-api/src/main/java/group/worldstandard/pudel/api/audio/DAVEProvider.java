@@ -27,7 +27,7 @@ package group.worldstandard.pudel.api.audio;
  *
  * <p>Available implementations include:</p>
  * <ul>
- *   <li><a href="https://github.com/discord/jdave">JDAVE</a> - Requires Java 25+</li>
+ *   <li><a href="https://github.com/MinnDevelopment/jdave">JDAVE</a> - Requires Java 25+</li>
  *   <li><a href="https://github.com/KyokoBot/libdave-jvm">libdave-jvm</a> - Requires Java 8+</li>
  * </ul>
  *
@@ -36,7 +36,6 @@ package group.worldstandard.pudel.api.audio;
  * @see <a href="https://discord.com/developers/docs/topics/voice-connections#dave-protocol">Discord DAVE Protocol Documentation</a>
  */
 public interface DAVEProvider {
-
     /**
      * Get the name of this DAVE implementation.
      *
@@ -99,4 +98,3 @@ public interface DAVEProvider {
         }
     }
 }
-

@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "subscriptions")
 public class Subscription {
-
     /**
      * Legacy enum for backward compatibility.
      * New code should use tierName string field.
@@ -285,4 +284,3 @@ public class Subscription {
         updatedAt = LocalDateTime.now();
     }
 }
-

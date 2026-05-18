@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class SchemaManagementService {
-
     private static final Logger logger = LoggerFactory.getLogger(SchemaManagementService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -77,6 +76,7 @@ public class SchemaManagementService {
     private void createGuildTables(String schemaName) {
         try {
             // Dialogue history - stores conversation history for chatbot functionality
+            // Now includes respond_to (message ID the bot responded to) and attachment_urls
             String dialogueHistoryTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".dialogue_history (\n" +
                     "    id BIGSERIAL PRIMARY KEY,\n" +
                     "    user_id BIGINT NOT NULL,\n" +
@@ -84,9 +84,38 @@ public class SchemaManagementService {
                     "    user_message TEXT NOT NULL,\n" +
                     "    bot_response TEXT,\n" +
                     "    intent VARCHAR(100),\n" +
+                    "    respond_to BIGINT,\n" +
+                    "    attachment_urls TEXT[],\n" +
                     "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n" +
                     ")";
             jdbcTemplate.execute(dialogueHistoryTable);
+
+            // Passive context - stores observed messages for context understanding
+            // Now includes message_id, entities, attachment_urls, forwarded_content
+            String passiveContextTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".passive_context (\n" +
+                    "    id BIGSERIAL PRIMARY KEY,\n" +
+                    "    message_id BIGINT NOT NULL,\n" +
+                    "    user_id BIGINT NOT NULL,\n" +
+                    "    channel_id BIGINT NOT NULL,\n" +
+                    "    content TEXT NOT NULL,\n" +
+                    "    entities JSONB,\n" +
+                    "    attachment_urls TEXT[],\n" +
+                    "    forwarded_content JSONB,\n" +
+                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n" +
+                    ")";
+            jdbcTemplate.execute(passiveContextTable);
+
+            // Forwarded messages - stores forwarded message data linked to passive context
+            String forwardedMessagesTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".forwarded_messages (\n" +
+                    "    id BIGSERIAL PRIMARY KEY,\n" +
+                    "    passive_context_id BIGINT REFERENCES " + schemaName + ".passive_context(id) ON DELETE CASCADE,\n" +
+                    "    message_id BIGINT NOT NULL,\n" +
+                    "    author_id BIGINT,\n" +
+                    "    author_name VARCHAR(255),\n" +
+                    "    content TEXT,\n" +
+                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n" +
+                    ")";
+            jdbcTemplate.execute(forwardedMessagesTable);
 
             // User preferences within guild - stores per-user customizations in this guild
             String userPreferencesTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".user_preferences (\n" +
@@ -115,6 +144,12 @@ public class SchemaManagementService {
             // Indexes
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dialogue_user ON " + schemaName + ".dialogue_history(user_id)");
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dialogue_created ON " + schemaName + ".dialogue_history(created_at)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_dialogue_respond_to ON " + schemaName + ".dialogue_history(respond_to)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_passive_ctx_message_id ON " + schemaName + ".passive_context(message_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_passive_ctx_user ON " + schemaName + ".passive_context(user_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_passive_ctx_channel ON " + schemaName + ".passive_context(channel_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_fwd_msgs_passive_ctx ON " + schemaName + ".forwarded_messages(passive_context_id)");
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_fwd_msgs_message_id ON " + schemaName + ".forwarded_messages(message_id)");
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_memory_key ON " + schemaName + ".memory(key)");
             jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_memory_category ON " + schemaName + ".memory(category)");
 
@@ -234,11 +269,14 @@ public class SchemaManagementService {
                     "VALUES ('', '', '', '') ON CONFLICT DO NOTHING");
 
             // Dialogue history for DM conversations
+            // Now includes respond_to and attachment_urls
             String dialogueHistoryTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".dialogue_history (\n" +
                     "    id BIGSERIAL PRIMARY KEY,\n" +
                     "    user_message TEXT NOT NULL,\n" +
                     "    bot_response TEXT,\n" +
                     "    intent VARCHAR(100),\n" +
+                    "    respond_to BIGINT,\n" +
+                    "    attachment_urls TEXT[],\n" +
                     "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n" +
                     ")";
             jdbcTemplate.execute(dialogueHistoryTable);

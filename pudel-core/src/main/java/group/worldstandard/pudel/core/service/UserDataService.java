@@ -34,7 +34,6 @@ import java.util.Optional;
 @Service
 @Transactional
 public class UserDataService {
-
     private static final Logger logger = LoggerFactory.getLogger(UserDataService.class);
 
     private final JdbcTemplate jdbcTemplate;
@@ -128,16 +127,26 @@ public class UserDataService {
      * Store a dialogue entry for DM conversation.
      */
     public void storeDialogue(long userId, String userMessage, String botResponse, String intent) {
+        storeDialogue(userId, userMessage, botResponse, intent, null, null);
+    }
+
+    /**
+     * Store a dialogue entry for DM conversation with respond_to and attachment_urls.
+     */
+    public void storeDialogue(long userId, String userMessage, String botResponse, String intent,
+                               Long respondTo, List<String> attachmentUrls) {
         ensureUserSchema(userId);
         String schemaName = schemaManagementService.getUserSchemaName(userId);
 
         try {
             String sql = "INSERT INTO " + schemaName + ".dialogue_history " +
-                    "(user_message, bot_response, intent, created_at) " +
-                    "VALUES (?, ?, ?, ?)";
-            jdbcTemplate.update(sql, userMessage, botResponse, intent,
+                    "(user_message, bot_response, intent, respond_to, attachment_urls, created_at) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)";
+            jdbcTemplate.update(sql, userMessage, botResponse, intent, respondTo,
+                    attachmentUrls != null && !attachmentUrls.isEmpty()
+                            ? attachmentUrls.toArray(new String[0]) : null,
                     Timestamp.valueOf(LocalDateTime.now()));
-            logger.debug("Stored DM dialogue for user {}", userId);
+            logger.debug("Stored DM dialogue for user {} (respond_to={})", userId, respondTo);
         } catch (Exception e) {
             logger.error("Error storing DM dialogue for user {}: {}", userId, e.getMessage());
         }
@@ -147,6 +156,8 @@ public class UserDataService {
      * Get recent DM dialogue history.
      */
     public List<Map<String, Object>> getRecentDialogue(long userId, int limit) {
+        // Ensure schema exists before querying
+        ensureUserSchema(userId);
         String schemaName = schemaManagementService.getUserSchemaName(userId);
 
         try {
@@ -229,4 +240,3 @@ public class UserDataService {
         }
     }
 }
-

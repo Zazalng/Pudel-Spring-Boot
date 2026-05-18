@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "plugin_metadata", schema = "public")
 public class PluginMetadata {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -170,4 +169,3 @@ public class PluginMetadata {
         return updatedAt;
     }
 }
-

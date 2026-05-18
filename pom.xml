@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>group.worldstandard</groupId>
     <artifactId>pudel</artifactId>
-    <version>2.2.2</version>
+    <version>2.3.0</version>
     <packaging>pom</packaging>
 
     <name>Pudel</name>
@@ -55,24 +55,118 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
-        <spring.boot.version>4.1.0-M4</spring.boot.version>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <pudel.version>2.3.0</pudel.version>
+
+        <!--JDA Version Control-->
         <jda.version>6.4.1</jda.version>
-        <pudel.version>2.2.2</pudel.version>
-        <tool.jackson.version>3.1.1</tool.jackson.version>
+
+        <!--Spring Version Control-->
+        <spring.boot.version>4.1.0-RC1</spring.boot.version>
+        <spring.boot.web.version>7.0.7</spring.boot.web.version>
+
+        <!--netty-->
+        <netty.codec.http>4.2.13.Final</netty.codec.http>
+
+        <!--Tool Version Control-->
+        <tool.jackson.version>3.1.3</tool.jackson.version>
         <log.version>2.0.17</log.version>
+
+        <!--Maven Plugin Version Control-->
         <mvn.compiler.version>3.15.0</mvn.compiler.version>
         <mvn.jar.version>3.5.0</mvn.jar.version>
-        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>group.worldstandard</groupId>
+                <artifactId>pudel-api</artifactId>
+                <version>${pudel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>group.worldstandard</groupId>
+                <artifactId>pudel-core</artifactId>
+                <version>${pudel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>group.worldstandard</groupId>
+                <artifactId>pudel-model</artifactId>
+                <version>${pudel.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.dv8tion</groupId>
+                <artifactId>JDA</artifactId>
+                <version>${jda.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring.boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-web</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webflux</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-webmvc</artifactId>
+                <version>${spring.boot.web.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${tool.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${tool.jackson.version}</version>
+            </dependency>
+
+            <!--Indirect Dependency-->
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>11.0.21</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http</artifactId>
+                <version>${netty.codec.http}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http2</artifactId>
+                <version>${netty.codec.http}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-http3</artifactId>
+                <version>${netty.codec.http}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-codec-dns</artifactId>
+                <version>${netty.codec.http}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-epoll</artifactId>
+                <version>${netty.codec.http}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-handler-proxy</artifactId>
+                <version>${netty.codec.http}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

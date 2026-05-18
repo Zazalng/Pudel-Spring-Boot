@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
  * Adapter that wraps a plugin's AudioProvider for JDA's AudioSendHandler interface.
  */
 public class JDAAudioSendHandler implements AudioSendHandler {
-
     private final AudioProvider provider;
     private ByteBuffer lastFrame;
 

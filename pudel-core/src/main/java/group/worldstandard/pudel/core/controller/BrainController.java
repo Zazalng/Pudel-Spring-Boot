@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
 import group.worldstandard.pudel.core.brain.PudelBrain;
 import group.worldstandard.pudel.core.brain.memory.MemoryManager;
 import group.worldstandard.pudel.core.service.SubscriptionService;
-import group.worldstandard.pudel.model.PudelModelService;
 import group.worldstandard.pudel.model.analyzer.TextAnalysis;
 
 import java.util.HashMap;
@@ -34,17 +33,13 @@ import java.util.Map;
 @RequestMapping("/api/brain")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
 public class BrainController {
-
     private final PudelBrain pudelBrain;
     private final SubscriptionService subscriptionService;
-    private final PudelModelService modelService;
 
     public BrainController(PudelBrain pudelBrain,
-                           SubscriptionService subscriptionService,
-                           PudelModelService modelService) {
+                           SubscriptionService subscriptionService) {
         this.pudelBrain = pudelBrain;
         this.subscriptionService = subscriptionService;
-        this.modelService = modelService;
     }
 
     /**
@@ -54,18 +49,10 @@ public class BrainController {
     public ResponseEntity<Map<String, Object>> getBrainStatus() {
         Map<String, Object> status = new HashMap<>();
 
-        // LangChain4j text analyzer status
         status.put("textAnalyzerAvailable", pudelBrain.isLLMAnalyzerAvailable());
         status.put("brainActive", true);
-
-        // Model service status
-        PudelModelService.ModelHealth modelHealth = modelService.getHealth();
-        status.put("ollamaAvailable", modelHealth.ollamaAvailable());
-        status.put("ollamaVersion", modelHealth.ollamaVersion());
-        status.put("loadedModels", modelHealth.loadedModels());
-        status.put("embeddingAvailable", modelHealth.embeddingAvailable());
-        status.put("embeddingDimension", modelHealth.embeddingDimension());
-        status.put("embeddingCacheStats", modelHealth.embeddingCacheStats());
+        status.put("ollamaAvailable", pudelBrain.isOllamaAvailable());
+        status.put("modelAvailable", pudelBrain.isModelAvailable());
 
         return ResponseEntity.ok(status);
     }
@@ -74,8 +61,11 @@ public class BrainController {
      * Get detailed model health information.
      */
     @GetMapping("/model/health")
-    public ResponseEntity<PudelModelService.ModelHealth> getModelHealth() {
-        return ResponseEntity.ok(modelService.getHealth());
+    public ResponseEntity<Map<String, Object>> getModelHealth() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("ollamaAvailable", pudelBrain.isOllamaAvailable());
+        health.put("modelAvailable", pudelBrain.isModelAvailable());
+        return ResponseEntity.ok(health);
     }
 
     /**
@@ -170,4 +160,3 @@ public class BrainController {
         return ResponseEntity.ok(subscriptionService.getAllTiers());
     }
 }
-

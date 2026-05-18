@@ -29,7 +29,6 @@ package group.worldstandard.pudel.api.command;
  * that need dynamic command registration at runtime.
  */
 public interface CommandRegister {
-
     /**
      * Registers a text command handler.
      *
@@ -45,5 +44,3 @@ public interface CommandRegister {
      */
     void unregister(String commandName);
 }
-
-

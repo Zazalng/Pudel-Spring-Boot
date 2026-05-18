@@ -25,7 +25,6 @@ import java.util.Map;
  * Implementation of AgentToolContext.
  */
 public class AgentToolContextImpl implements AgentToolContext {
-
     private final long targetId;
     private final boolean isGuild;
     private final long requestingUserId;
