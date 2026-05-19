@@ -362,6 +362,56 @@ public class PudelBrain {
             sb.append(cleaned);
         }
 
+        // Include referenced message content (replies, forwarded messages)
+        Message referencedMessage = message.getReferencedMessage();
+        if (referencedMessage != null) {
+            logger.debug("buildUserMessage: processing referenced message id={}", referencedMessage.getId());
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append("[Referenced message");
+            if (referencedMessage.getAuthor() != null) {
+                sb.append(" from ").append(referencedMessage.getAuthor().getName());
+            }
+            sb.append("]");
+
+            String refContent = referencedMessage.getContentDisplay();
+            if (refContent != null && !refContent.isBlank()) {
+                sb.append("\n").append(refContent);
+            }
+
+            // Include embeds from referenced message
+            if (!referencedMessage.getEmbeds().isEmpty()) {
+                for (var embed : referencedMessage.getEmbeds()) {
+                    sb.append("\n[Forwarded content");
+                    if (embed.getAuthor() != null && embed.getAuthor().getName() != null) {
+                        sb.append(" from ").append(embed.getAuthor().getName());
+                    }
+                    sb.append("]");
+                    if (embed.getTitle() != null && !embed.getTitle().isBlank()) {
+                        sb.append("\n**").append(embed.getTitle()).append("**");
+                    }
+                    if (embed.getDescription() != null && !embed.getDescription().isBlank()) {
+                        sb.append("\n").append(embed.getDescription());
+                    }
+                    for (var field : embed.getFields()) {
+                        sb.append("\n").append(field.getName()).append(": ").append(field.getValue());
+                    }
+                }
+            }
+
+            // Include attachments from referenced message
+            for (Attachment refAttachment : referencedMessage.getAttachments()) {
+                if (refAttachment.isImage()) {
+                    sb.append("\n[Image: ").append(refAttachment.getFileName()).append("]");
+                } else if (refAttachment.isVideo()) {
+                    sb.append("\n[Video: ").append(refAttachment.getFileName()).append("]");
+                } else {
+                    sb.append("\n[Attachment: ").append(refAttachment.getFileName()).append("]");
+                }
+            }
+        }
+
         // Include embed content (forwarded messages, link previews, etc.)
         if (!message.getEmbeds().isEmpty()) {
             logger.debug("buildUserMessage: processing {} embeds", message.getEmbeds().size());

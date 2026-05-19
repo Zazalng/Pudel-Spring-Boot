@@ -553,7 +553,7 @@ public class PluginAnnotationProcessor {
             Method finalMethod = method;
             // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = dbPrefix + ":" + rawPrefix;
+            String prefix = dbPrefix + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ButtonHandler handler =
                     new group.worldstandard.pudel.api.interaction.ButtonHandler() {
@@ -609,10 +609,10 @@ public class PluginAnnotationProcessor {
             method.setAccessible(true);
             Method finalMethod = method;
             // Prefix with the plugin's unique database prefix to prevent collision between plugins
-            String rawPrefix = annotation.value();
-            String prefix = dbPrefix + ":" + rawPrefix;
+             String rawPrefix = annotation.value();
+             String prefix = dbPrefix + rawPrefix;
 
-            group.worldstandard.pudel.api.interaction.ModalHandler handler =
+             group.worldstandard.pudel.api.interaction.ModalHandler handler =
                     new group.worldstandard.pudel.api.interaction.ModalHandler() {
                         @Override
                         public String getModalIdPrefix() {
@@ -648,27 +648,26 @@ public class PluginAnnotationProcessor {
     // Select Menu Handler Processing
     // =====================================================
 
-    private int processSelectMenuHandlers(String pluginId, Object instance, Class<?> pluginClass, String dbPrefix) {
-        int count = 0;
+     private int processSelectMenuHandlers(String pluginId, Object instance, Class<?> pluginClass, String dbPrefix) {
+         int count = 0;
 
-        for (Method method : pluginClass.getDeclaredMethods()) {
-            SelectMenuHandler annotation = method.getAnnotation(SelectMenuHandler.class);
-            if (annotation == null) continue;
+         for (Method method : pluginClass.getDeclaredMethods()) {
+             SelectMenuHandler annotation = method.getAnnotation(SelectMenuHandler.class);
+             if (annotation == null) continue;
 
-            Class<?>[] params = method.getParameterTypes();
-            // Accept various select menu event types
-            if (params.length != 1) {
-                logger.warn("[{}] @SelectMenuHandler method {} must accept a select interaction event",
-                        pluginId, method.getName());
-                continue;
-            }
+             Class<?>[] params = method.getParameterTypes();
+             // Accept various select menu event types
+             if (params.length != 1) {
+                 logger.warn("[{}] @SelectMenuHandler method {} must accept a select interaction event",
+                         pluginId, method.getName());
+                 continue;
+             }
 
-            method.setAccessible(true);
-            Method finalMethod = method;
-            // Prefix with the plugin's unique database prefix to prevent collision between plugins
-            String rawPrefix = annotation.value();
-            String prefix = dbPrefix + ":" + rawPrefix;
-
+             method.setAccessible(true);
+             Method finalMethod = method;
+             // Prefix with the plugin's unique database prefix to prevent collision between plugins
+             String rawPrefix = annotation.value();
+             String prefix = dbPrefix + rawPrefix;
             group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
                     new group.worldstandard.pudel.api.interaction.SelectMenuHandler() {
                         @Override
