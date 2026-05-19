@@ -553,7 +553,7 @@ public class PluginAnnotationProcessor {
             Method finalMethod = method;
             // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = dbPrefix + rawPrefix;
+            String prefix = dbPrefix + ":" + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ButtonHandler handler =
                     new group.worldstandard.pudel.api.interaction.ButtonHandler() {
@@ -610,7 +610,7 @@ public class PluginAnnotationProcessor {
             Method finalMethod = method;
             // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = dbPrefix + rawPrefix;
+            String prefix = dbPrefix + ":" + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.ModalHandler handler =
                     new group.worldstandard.pudel.api.interaction.ModalHandler() {
@@ -667,7 +667,7 @@ public class PluginAnnotationProcessor {
             Method finalMethod = method;
             // Prefix with the plugin's unique database prefix to prevent collision between plugins
             String rawPrefix = annotation.value();
-            String prefix = dbPrefix + rawPrefix;
+            String prefix = dbPrefix + ":" + rawPrefix;
 
             group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
                     new group.worldstandard.pudel.api.interaction.SelectMenuHandler() {

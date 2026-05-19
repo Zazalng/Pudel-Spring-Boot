@@ -137,6 +137,8 @@ public class PudelBrain {
 
         // Step 2: Build the user message (including attachment content)
         String userMessage = buildUserMessage(event);
+        logger.debug("Built user message: length={}, content='{}'", userMessage.length(),
+                userMessage.length() > 100 ? userMessage.substring(0, 100) + "..." : userMessage);
 
         // Step 3: Build system prompt from personality
         String systemPrompt = systemPromptBuilder.buildSystemPrompt(
@@ -349,6 +351,11 @@ public class PudelBrain {
         StringBuilder sb = new StringBuilder();
 
         String content = message.getContentDisplay();
+        logger.debug("buildUserMessage: contentDisplay='{}', embeds={}, attachments={}",
+                content != null && content.length() > 50 ? content.substring(0, 50) + "..." : content,
+                message.getEmbeds().size(),
+                message.getAttachments().size());
+
         if (content != null && !content.isBlank()) {
             // Strip bot name/nickname from the beginning of the message
             String cleaned = stripBotName(content, event);
@@ -357,6 +364,7 @@ public class PudelBrain {
 
         // Include embed content (forwarded messages, link previews, etc.)
         if (!message.getEmbeds().isEmpty()) {
+            logger.debug("buildUserMessage: processing {} embeds", message.getEmbeds().size());
             for (var embed : message.getEmbeds()) {
                 if (!sb.isEmpty()) {
                     sb.append("\n\n");

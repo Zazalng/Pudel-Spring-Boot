@@ -517,16 +517,28 @@ public class PassiveContextProcessor {
                 Map<String, List<String>> entities = parseEntitiesJson(entitiesJson);
                 List<String> attachmentUrls = parseTextArray(attachmentUrlsStr);
 
+                // Handle null values that may exist in old data
+                Number messageIdNum = (Number) row.get("message_id");
+                Number userIdNum = (Number) row.get("user_id");
+                Number channelIdNum = (Number) row.get("channel_id");
+                Timestamp createdAt = (Timestamp) row.get("created_at");
+
+                if (messageIdNum == null || userIdNum == null || channelIdNum == null || createdAt == null) {
+                    logger.debug("Skipping passive context entry with null values: msgId={}, userId={}, channelId={}",
+                            messageIdNum, userIdNum, channelIdNum);
+                    continue;
+                }
+
                 entries.add(new PassiveContextEntry(
-                        ((Number) row.get("message_id")).longValue(),
-                        ((Number) row.get("user_id")).longValue(),
-                        ((Number) row.get("channel_id")).longValue(),
+                        messageIdNum.longValue(),
+                        userIdNum.longValue(),
+                        channelIdNum.longValue(),
                         (String) row.get("content"),
                         entities,
                         attachmentUrls,
                         null, // replyToMessageId not stored directly in passive_context
                         List.of(), // forwarded messages loaded separately if needed
-                        ((Timestamp) row.get("created_at")).toLocalDateTime()
+                        createdAt.toLocalDateTime()
                 ));
             }
             return entries;
