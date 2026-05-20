@@ -122,6 +122,18 @@ public class PudelBrain {
                                      PudelPersonality personality,
                                      boolean isGuild,
                                      long targetId) {
+        processMessageAsync(event, personality, isGuild, targetId, null);
+    }
+
+    /**
+     * Process a message and generate a response asynchronously.
+     * Includes optional recent context (e.g., forwarded messages sent just before the mention).
+     */
+    public void processMessageAsync(MessageReceivedEvent event,
+                                     PudelPersonality personality,
+                                     boolean isGuild,
+                                     long targetId,
+                                     String recentContext) {
         long userId = event.getAuthor().getIdLong();
         long channelId = event.getChannel().getIdLong();
         long messageId = event.getMessage().getIdLong();
@@ -151,8 +163,8 @@ public class PudelBrain {
         // Step 5: Get passive context via MCP tool simulation
         String passiveContext = gatherPassiveContext(channelId, isGuild, targetId);
 
-        // Step 6: Enrich the user message with context
-        String enrichedMessage = enrichMessageWithContext(userMessage, passiveContext);
+        // Step 6: Enrich the user message with context (passive context + recent forwarded content)
+        String enrichedMessage = enrichMessageWithContext(userMessage, passiveContext, recentContext);
 
         // Step 7: Call Ollama asynchronously
         CompletableFuture<String> responseFuture = ollamaClient.generateStreaming(
@@ -506,14 +518,32 @@ public class PudelBrain {
     }
 
     /**
-     * Enrich the user message with passive context.
+     * Enrich the user message with passive context and optional recent forwarded content.
      */
-    private String enrichMessageWithContext(String userMessage, String passiveContext) {
+    private String enrichMessageWithContext(String userMessage, String passiveContext, String recentContext) {
+        StringBuilder sb = new StringBuilder();
+
+        // Add passive context (from database)
         if (passiveContext != null && !passiveContext.isBlank()
                 && !passiveContext.equals("No recent context available.")) {
-            return passiveContext + "\n\n---\n\nCurrent message: " + userMessage;
+            sb.append(passiveContext);
         }
-        return userMessage;
+
+        // Add recent forwarded content (from same channel, just before the mention)
+        if (recentContext != null && !recentContext.isBlank()) {
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append("Recent messages in channel:\n").append(recentContext);
+        }
+
+        // Add the current user message
+        if (!sb.isEmpty()) {
+            sb.append("\n\n---\n\nCurrent message: ");
+        }
+        sb.append(userMessage);
+
+        return sb.toString();
     }
 
     /**

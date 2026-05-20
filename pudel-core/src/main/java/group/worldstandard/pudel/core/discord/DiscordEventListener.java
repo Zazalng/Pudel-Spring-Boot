@@ -158,7 +158,10 @@ public class DiscordEventListener extends ListenerAdapter {
 
         if (isMentioned) {
             // Bot is mentioned (by ID, name, nickname, or reply) - process with PudelBrain
-            pudelBrain.processMessageAsync(event, null, isGuild, targetId);
+            // Also include any recent passive context from the same channel (may be forwarded content)
+            String recentContext = passiveContextProcessor.getRecentContextForChannel(
+                    event.getChannel().getIdLong(), isGuild, targetId, 5);
+            pudelBrain.processMessageAsync(event, null, isGuild, targetId, recentContext);
         } else {
             // Not a command and not a mention - passively track context
             passiveContextProcessor.submit(event, targetId, isGuild);

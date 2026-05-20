@@ -484,6 +484,34 @@ public class PassiveContextProcessor {
     }
 
     /**
+     * Get recent passive context as a formatted string for inclusion in the user message.
+     * This is used when the bot is mentioned and needs to see recent forwarded content.
+     */
+    public String getRecentContextForChannel(long channelId, boolean isGuild, long targetId, int limit) {
+        List<PassiveContextEntry> entries = getRecentContext(channelId, isGuild, targetId, limit);
+        if (entries.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (PassiveContextEntry entry : entries) {
+            if (!sb.isEmpty()) {
+                sb.append("\n");
+            }
+            sb.append("[Message ").append(entry.messageId()).append("] ");
+            sb.append("<@").append(entry.userId()).append(">: ");
+            sb.append(entry.content());
+            if (!entry.forwardedMessages().isEmpty()) {
+                for (var fwd : entry.forwardedMessages()) {
+                    sb.append("\n  [Forwarded from ").append(fwd.authorName()).append("]: ");
+                    sb.append(fwd.content());
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
      * Retrieve recent passive context for a channel.
      * Queries the database for the most recent passive context entries.
      */
