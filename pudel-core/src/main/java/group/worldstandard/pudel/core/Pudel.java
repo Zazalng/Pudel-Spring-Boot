@@ -28,27 +28,20 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @ComponentScan(basePackages = {
-        "group.worldstandard.pudel.core",
-        "group.worldstandard.pudel.model"
+        "group.worldstandard.pudel.core"
 })
 public class Pudel {
     private static final Logger log = LoggerFactory.getLogger(Pudel.class);
 
     public static void main(String[] args) {
-        log.info("""
-                ==================================
-                Pudel Discord Bot is starting
-                ==================================
-                """
-            );
+        log.info("==================================");
+        log.info("Pudel Discord Bot is starting");
+        log.info("==================================");
 
         SpringApplication.run(Pudel.class, args);
 
-        log.info("""
-                ==================================
-                Pudel Discord Bot started
-                ==================================
-                """
-            );
+        log.info("==================================");
+        log.info("Pudel Discord Bot has started");
+        log.info("==================================");
     }
 }

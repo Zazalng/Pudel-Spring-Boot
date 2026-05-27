@@ -29,6 +29,7 @@ import group.worldstandard.pudel.core.brain.analyzer.TextAnalysis;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
+import net.dv8tion.jda.api.entities.messages.MessageSnapshot;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.slf4j.Logger;
@@ -374,7 +375,7 @@ public class PudelBrain {
             sb.append(cleaned);
         }
 
-        // Include referenced message content (replies, forwarded messages)
+        // Include referenced message content (replies)
         Message referencedMessage = message.getReferencedMessage();
         if (referencedMessage != null) {
             logger.debug("buildUserMessage: processing referenced message id={}", referencedMessage.getId());
@@ -392,10 +393,39 @@ public class PudelBrain {
                 sb.append("\n").append(refContent);
             }
 
-            // Include embeds from referenced message
-            if (!referencedMessage.getEmbeds().isEmpty()) {
-                for (var embed : referencedMessage.getEmbeds()) {
-                    sb.append("\n[Forwarded content");
+            // Include attachments from referenced message
+            for (Attachment refAttachment : referencedMessage.getAttachments()) {
+                if (refAttachment.isImage()) {
+                    sb.append("\n[Image: ").append(refAttachment.getFileName()).append("]");
+                } else if (refAttachment.isVideo()) {
+                    sb.append("\n[Video: ").append(refAttachment.getFileName()).append("]");
+                } else {
+                    sb.append("\n[Attachment: ").append(refAttachment.getFileName()).append("]");
+                }
+            }
+        }
+
+        // Include forwarded message content using MessageSnapshot (Discord's forward feature)
+        // This is the proper way to access forwarded message content in JDA 6.x
+        List<MessageSnapshot> snapshots = message.getMessageSnapshots();
+        if (snapshots != null && !snapshots.isEmpty()) {
+            logger.debug("buildUserMessage: processing {} forwarded message snapshots", snapshots.size());
+            MessageSnapshot snapshot = snapshots.getFirst(); // Get the first (most recent) snapshot
+            if (!sb.isEmpty()) {
+                sb.append("\n\n");
+            }
+            sb.append("[Forwarded message]");
+
+            // Add the forwarded message content
+            String snapshotContent = snapshot.getContentRaw();
+            if (!snapshotContent.isBlank()) {
+                sb.append("\n").append(snapshotContent);
+            }
+
+            // Include embeds from the snapshot
+            if (!snapshot.getEmbeds().isEmpty()) {
+                for (var embed : snapshot.getEmbeds()) {
+                    sb.append("\n[Embed");
                     if (embed.getAuthor() != null && embed.getAuthor().getName() != null) {
                         sb.append(" from ").append(embed.getAuthor().getName());
                     }
@@ -412,15 +442,22 @@ public class PudelBrain {
                 }
             }
 
-            // Include attachments from referenced message
-            for (Attachment refAttachment : referencedMessage.getAttachments()) {
-                if (refAttachment.isImage()) {
-                    sb.append("\n[Image: ").append(refAttachment.getFileName()).append("]");
-                } else if (refAttachment.isVideo()) {
-                    sb.append("\n[Video: ").append(refAttachment.getFileName()).append("]");
-                } else {
-                    sb.append("\n[Attachment: ").append(refAttachment.getFileName()).append("]");
+            // Include attachments from the snapshot
+            if (!snapshot.getAttachments().isEmpty()) {
+                for (Attachment snapshotAttachment : snapshot.getAttachments()) {
+                    if (snapshotAttachment.isImage()) {
+                        sb.append("\n[Image: ").append(snapshotAttachment.getFileName()).append("]");
+                    } else if (snapshotAttachment.isVideo()) {
+                        sb.append("\n[Video: ").append(snapshotAttachment.getFileName()).append("]");
+                    } else {
+                        sb.append("\n[Attachment: ").append(snapshotAttachment.getFileName()).append("]");
+                    }
                 }
+            }
+
+            // Include stickers from the snapshot
+            if (!snapshot.getStickers().isEmpty()) {
+                sb.append("\n[Stickers: ").append(snapshot.getStickers().size()).append("]");
             }
         }
 
@@ -595,10 +632,7 @@ public class PudelBrain {
         // Check for nickname in guild
         String nickname = null;
         if (event.isFromGuild()) {
-            var selfMember = event.getGuild().getSelfMember();
-            if (selfMember != null) {
-                nickname = selfMember.getNickname();
-            }
+            nickname = event.getGuild().getSelfMember().getNickname();
         }
 
         String lowerNick = nickname != null ? nickname.toLowerCase() : null;

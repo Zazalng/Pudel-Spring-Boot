@@ -24,9 +24,10 @@
 docs
 *.md
 !README.md
+*.mermaid
 
 # Vue frontend (built separately)
-vue
+Pudel-Vue
 
 # Environment files (use docker-compose env)
 .env

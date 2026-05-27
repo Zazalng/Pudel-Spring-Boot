@@ -21,9 +21,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import jakarta.servlet.http.HttpSession;
-import java.util.*;
+
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.Date;
+import java.util.Map;
 
 /**
  * Service for validating DPoP proofs in BFF-style architecture.
@@ -84,7 +91,7 @@ public class DPoPService {
             }
 
             // Get the keypair from session for signature verification
-            java.security.KeyPair keyPair = (java.security.KeyPair) session.getAttribute(SESSION_KEY_PAIR);
+            KeyPair keyPair = (KeyPair) session.getAttribute(SESSION_KEY_PAIR);
             if (keyPair == null) {
                 return DPoPValidationResult.invalid("No DPoP key pair in session");
             }
@@ -157,10 +164,10 @@ public class DPoPService {
      */
     private String calculateAccessTokenHash(String accessToken) {
         try {
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(accessToken.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (java.security.NoSuchAlgorithmException e) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(accessToken.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 not available", e);
         }
     }
@@ -170,7 +177,7 @@ public class DPoPService {
      */
     private String normalizeUri(String uri) {
         try {
-            java.net.URI parsed = new java.net.URI(uri);
+            URI parsed = new URI(uri);
             return parsed.getScheme() + "://" + parsed.getHost() + parsed.getPath();
         } catch (Exception e) {
             return uri;
@@ -200,9 +207,9 @@ public class DPoPService {
 
             // Convert to JSON string with sorted keys for canonical form
             String jsonString = objectMapper.writeValueAsString(json);
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(jsonString.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(jsonString.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate JWK thumbprint", e);

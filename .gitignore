@@ -64,7 +64,9 @@ plan/
 .settings/
 *.orig
 
-/pudel-core/src/main/resources/nlp/*
+.ignore/
+.agent-work/
+.agentbridge/
 
 # JWT RSA Keys (SECURITY: Never commit private keys!)
 keys/*.key
