@@ -179,7 +179,7 @@ public class BuiltinMcpTools {
             }
 
             if (!entry.entities().isEmpty()) {
-                sb.append("Entities: ").append(entry.entities().toString()).append("\n");
+                sb.append("Entities: ").append(entry.entities()).append("\n");
             }
 
             return sb.toString();
@@ -225,9 +225,7 @@ public class BuiltinMcpTools {
 
             StringBuilder sb = new StringBuilder("Forwarded messages:\n");
             for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
-                sb.append("- From ").append(fwd.authorName())
-                  .append(": ")
-                  .append(fwd.content()).append("\n");
+                sb.append("- ").append(fwd.content()).append("\n");
             }
             return sb.toString();
 

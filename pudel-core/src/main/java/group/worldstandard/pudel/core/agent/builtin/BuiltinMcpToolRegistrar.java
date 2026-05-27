@@ -332,7 +332,7 @@ public class BuiltinMcpToolRegistrar {
                 sb.append("Attachments: ").append(String.join(", ", entry.attachmentUrls())).append("\n");
             }
             if (!entry.entities().isEmpty()) {
-                sb.append("Entities: ").append(entry.entities().toString()).append("\n");
+                sb.append("Entities: ").append(entry.entities()).append("\n");
             }
             return sb.toString();
         } catch (Exception e) {
@@ -360,9 +360,7 @@ public class BuiltinMcpToolRegistrar {
 
             StringBuilder sb = new StringBuilder("Forwarded messages:\n");
             for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
-                sb.append("- From ").append(fwd.authorName())
-                        .append(": ")
-                        .append(fwd.content()).append("\n");
+                sb.append("- ").append(fwd.content()).append("\n");
             }
             return sb.toString();
         } catch (Exception e) {

@@ -64,12 +64,11 @@ public record PassiveContextEntry(
 
     /**
      * Reference to a forwarded message.
+     * Note: MessageSnapshot doesn't contain author info, only the forwarded content.
      *
-     * @param authorName the forwarded message's author name
-     * @param content    the forwarded message's content
+     * @param content the forwarded message's content
      */
     public record ForwardedMessageRef(
-            String authorName,
             String content
     ) {}
 }

@@ -105,17 +105,7 @@ public class SchemaManagementService {
                     ")";
             jdbcTemplate.execute(passiveContextTable);
 
-            // Forwarded messages - stores forwarded message data linked to passive context
-            String forwardedMessagesTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".forwarded_messages (\n" +
-                    "    id BIGSERIAL PRIMARY KEY,\n" +
-                    "    passive_context_id BIGINT REFERENCES " + schemaName + ".passive_context(id) ON DELETE CASCADE,\n" +
-                    "    message_id BIGINT NOT NULL,\n" +
-                    "    author_id BIGINT,\n" +
-                    "    author_name VARCHAR(255),\n" +
-                    "    content TEXT,\n" +
-                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n" +
-                    ")";
-            jdbcTemplate.execute(forwardedMessagesTable);
+
 
             // User preferences within guild - stores per-user customizations in this guild
             String userPreferencesTable = "CREATE TABLE IF NOT EXISTS " + schemaName + ".user_preferences (\n" +

@@ -316,8 +316,7 @@ public class PassiveContextProcessor {
 
                 // Only add if we have meaningful content
                 if (!fullContent.isEmpty()) {
-                    refs.add(new PassiveContextEntry.ForwardedMessageRef(
-                            "", fullContent.toString()));
+                    refs.add(new PassiveContextEntry.ForwardedMessageRef(fullContent.toString()));
                 }
             }
         }
@@ -325,20 +324,16 @@ public class PassiveContextProcessor {
         // Fallback: Also check message embeds directly for backward compatibility
         if (refs.isEmpty() && !message.getEmbeds().isEmpty()) {
             for (var embed : message.getEmbeds()) {
-                if (embed.getAuthor() != null) {
-                    String authorName = embed.getAuthor() != null ? embed.getAuthor().getName() : "";
-                    String content = embed.getDescription() != null ? embed.getDescription() : "";
-                    // Only add if we have meaningful content
-                    if (!content.isBlank() || !embed.getFields().isEmpty()) {
-                        // Build content from embed fields
-                        StringBuilder fullContent = new StringBuilder(content);
-                        for (var field : embed.getFields()) {
-                            if (!fullContent.isEmpty()) fullContent.append("\n");
-                            fullContent.append(field.getName()).append(": ").append(field.getValue());
-                        }
-                        refs.add(new PassiveContextEntry.ForwardedMessageRef(
-                                authorName, fullContent.toString()));
+                String content = embed.getDescription() != null ? embed.getDescription() : "";
+                // Only add if we have meaningful content
+                if (!content.isBlank() || !embed.getFields().isEmpty()) {
+                    // Build content from embed fields
+                    StringBuilder fullContent = new StringBuilder(content);
+                    for (var field : embed.getFields()) {
+                        if (!fullContent.isEmpty()) fullContent.append("\n");
+                        fullContent.append(field.getName()).append(": ").append(field.getValue());
                     }
+                    refs.add(new PassiveContextEntry.ForwardedMessageRef(fullContent.toString()));
                 }
             }
         }
@@ -396,11 +391,6 @@ public class PassiveContextProcessor {
                     Timestamp.valueOf(entry.timestamp())
             );
 
-            // Store forwarded messages in separate table if any
-            if (!entry.forwardedMessages().isEmpty()) {
-                storeForwardedMessages(schemaName, entry.messageId(), entry.forwardedMessages());
-            }
-
             logger.debug("Stored passive context: msg={} user={} channel={} schema={}",
                     entry.messageId(), entry.userId(), entry.channelId(), schemaName);
 
@@ -443,44 +433,6 @@ public class PassiveContextProcessor {
     }
 
     /**
-     * Store forwarded messages in the forwarded_messages table.
-     */
-    private void storeForwardedMessages(String schemaName, long passiveContextMessageId,
-                                         List<PassiveContextEntry.ForwardedMessageRef> forwarded) {
-        try {
-            // Ensure forwarded_messages table exists with proper schema
-            jdbcTemplate.execute(
-                    "CREATE TABLE IF NOT EXISTS " + schemaName + ".forwarded_messages (" +
-                    "    id BIGSERIAL PRIMARY KEY," +
-                    "    passive_context_id BIGINT REFERENCES " + schemaName + ".passive_context(id) ON DELETE CASCADE," +
-                    "    passive_context_message_id BIGINT NOT NULL," +
-                    "    author_name VARCHAR(255)," +
-                    "    content TEXT," +
-                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                    ")"
-            );
-
-            // Create index for faster lookups
-            jdbcTemplate.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_fwd_msgs_passive_ctx ON " + schemaName + ".forwarded_messages(passive_context_id)"
-            );
-
-            // Store each forwarded message
-            for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
-                jdbcTemplate.update(
-                        "INSERT INTO " + schemaName + ".forwarded_messages " +
-                        "(passive_context_id, passive_context_message_id, author_name, content) " +
-                        "VALUES ((SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?), ?, ?, ?)",
-                        passiveContextMessageId, passiveContextMessageId, fwd.authorName(), fwd.content()
-                );
-            }
-            logger.debug("Stored {} forwarded messages for message {}", forwarded.size(), passiveContextMessageId);
-        } catch (Exception e) {
-            logger.debug("Error storing forwarded messages: {}", e.getMessage());
-        }
-    }
-
-    /**
      * Convert entities map to JSON string.
      */
     private String entitiesToJson(Map<String, List<String>> entities) {
@@ -516,8 +468,7 @@ public class PassiveContextProcessor {
         boolean first = true;
         for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
             if (!first) json.append(",");
-            json.append("{\"author_name\":\"").append(escapeJson(fwd.authorName()))
-                .append("\",\"content\":\"").append(escapeJson(fwd.content())).append("\"}");
+            json.append("{\"content\":\"").append(escapeJson(fwd.content())).append("\"}");
             first = false;
         }
         json.append("]");
@@ -558,7 +509,7 @@ public class PassiveContextProcessor {
             sb.append(entry.content());
             if (!entry.forwardedMessages().isEmpty()) {
                 for (var fwd : entry.forwardedMessages()) {
-                    sb.append("\n  [Forwarded from ").append(fwd.authorName()).append("]: ");
+                    sb.append("\n  [Forwarded]: ");
                     sb.append(fwd.content());
                 }
             }
@@ -620,7 +571,7 @@ public class PassiveContextProcessor {
                         entities,
                         attachmentUrls,
                         null, // replyToMessageId not stored directly in passive_context
-                        List.of(), // forwarded messages loaded separately if needed
+                        parseForwardedJson(extractStringValue(row.get("forwarded_content"))),
                         createdAt.toLocalDateTime()
                 ));
             }
@@ -667,6 +618,10 @@ public class PassiveContextProcessor {
             Map<String, List<String>> entities = parseEntitiesJson(entitiesJson);
             List<String> attachmentUrls = parseTextArray(attachmentUrlsStr);
 
+            // Parse forwarded_content JSON if present
+            String forwardedContentJson = extractStringValue(row.get("forwarded_content"));
+            List<PassiveContextEntry.ForwardedMessageRef> forwardedRefs = parseForwardedJson(forwardedContentJson);
+
             return new PassiveContextEntry(
                     ((Number) row.get("message_id")).longValue(),
                     ((Number) row.get("user_id")).longValue(),
@@ -674,8 +629,8 @@ public class PassiveContextProcessor {
                     (String) row.get("content"),
                     entities,
                     attachmentUrls,
-                    null,
-                    loadForwardedMessages(schemaName, messageId),
+                    null, // replyToMessageId not stored in passive_context
+                    forwardedRefs,
                     ((Timestamp) row.get("created_at")).toLocalDateTime()
             );
 
@@ -686,24 +641,45 @@ public class PassiveContextProcessor {
     }
 
     /**
-     * Load forwarded messages for a given passive context message.
+     * Parse forwarded_content JSON string to a list of ForwardedMessageRef.
+     * Expected format: [{"content":"..."},{"content":"..."}]
      */
-    private List<PassiveContextEntry.ForwardedMessageRef> loadForwardedMessages(String schemaName, long messageId) {
+    private List<PassiveContextEntry.ForwardedMessageRef> parseForwardedJson(String json) {
+        if (json == null || json.isBlank() || json.equals("[]")) {
+            return List.of();
+        }
         try {
-            String sql = "SELECT message_id, author_id, author_name, content FROM " + schemaName +
-                    ".forwarded_messages WHERE passive_context_message_id = " +
-                    "(SELECT id FROM " + schemaName + ".passive_context WHERE message_id = ?)";
-
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, messageId);
             List<PassiveContextEntry.ForwardedMessageRef> refs = new ArrayList<>();
-            for (Map<String, Object> row : rows) {
-                refs.add(new PassiveContextEntry.ForwardedMessageRef(
-                        (String) row.getOrDefault("author_name", ""),
-                        (String) row.getOrDefault("content", "")
-                ));
+            // Simple JSON parsing - extract content values from array of objects
+            // Format: [{"content":"..."},{"content":"..."}]
+            String trimmed = json.trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                trimmed = trimmed.substring(1, trimmed.length() - 1);
+                // Split by },{ to get individual objects
+                String[] objects = trimmed.split("\\},\\s*\\{");
+                for (String obj : objects) {
+                    obj = obj.replace("{", "").replace("}", "");
+                    // Find content field
+                    int contentIdx = obj.indexOf("\"content\":\"");
+                    if (contentIdx >= 0) {
+                        int start = contentIdx + "\"content\":\"".length();
+                        int end = obj.indexOf("\"", start);
+                        if (end < 0) end = obj.length();
+                        String content = obj.substring(start, end)
+                                .replace("\\\"", "\"")
+                                .replace("\\n", "\n")
+                                .replace("\\r", "\r")
+                                .replace("\\t", "\t")
+                                .replace("\\\\", "\\");
+                        if (!content.isBlank()) {
+                            refs.add(new PassiveContextEntry.ForwardedMessageRef(content));
+                        }
+                    }
+                }
             }
             return refs;
         } catch (Exception e) {
+            logger.debug("Error parsing forwarded JSON: {}", e.getMessage());
             return List.of();
         }
     }

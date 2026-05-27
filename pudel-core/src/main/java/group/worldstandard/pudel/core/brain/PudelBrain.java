@@ -272,11 +272,7 @@ public class PudelBrain {
             // Include forwarded message content
             if (entry.forwardedMessages() != null && !entry.forwardedMessages().isEmpty()) {
                 for (var forwarded : entry.forwardedMessages()) {
-                    sb.append("\n  [Forwarded");
-                    if (forwarded.authorName() != null && !forwarded.authorName().isBlank()) {
-                        sb.append(" from ").append(forwarded.authorName());
-                    }
-                    sb.append("]: ");
+                    sb.append("\n  [Forwarded]: ");
                     // Truncate long forwarded content for context
                     String fwdContent = forwarded.content();
                     if (fwdContent != null && fwdContent.length() > 200) {
