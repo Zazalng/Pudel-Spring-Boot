@@ -115,10 +115,15 @@ public class DPoPService {
             }
 
             // Validate htu (HTTP URI) - normalize both for comparison
+            // Note: We compare host+path only, ignoring scheme, because the backend may be behind
+            // a reverse proxy that terminates SSL (frontend uses https, backend receives http)
             String htu = claims.get("htu", String.class);
-            String normalizedHtu = normalizeUri(htu);
-            String normalizedHttpUri = normalizeUri(httpUri);
-            if (htu == null || !normalizedHtu.equals(normalizedHttpUri)) {
+            if (htu == null) {
+                return DPoPValidationResult.invalid("Missing htu claim");
+            }
+            String normalizedHtu = normalizeUriForComparison(htu);
+            String normalizedHttpUri = normalizeUriForComparison(httpUri);
+            if (!normalizedHtu.equals(normalizedHttpUri)) {
                 log.debug("DPoP htu validation failed: htu='{}' (normalized='{}'), httpUri='{}' (normalized='{}')",
                         htu, normalizedHtu, httpUri, normalizedHttpUri);
                 return DPoPValidationResult.invalid("Invalid htu claim");
@@ -177,9 +182,11 @@ public class DPoPService {
     }
 
     /**
-     * Normalize URI for comparison (remove query string, fragment, and standard ports).
+     * Normalize URI for comparison, stripping scheme to handle reverse proxy scenarios.
+     * The frontend uses https but the backend may receive http from a reverse proxy.
+     * We compare only host + path to avoid scheme mismatches.
      */
-    private String normalizeUri(String uri) {
+    private String normalizeUriForComparison(String uri) {
         try {
             URI parsed = new URI(uri);
             String host = parsed.getHost();
@@ -192,7 +199,8 @@ public class DPoPService {
                     ("http".equalsIgnoreCase(scheme) && port == 80);
 
             String hostPart = isStandardPort ? host : host + ":" + port;
-            return scheme + "://" + hostPart + parsed.getPath();
+            // Return host + path only (no scheme) to handle reverse proxy scenarios
+            return hostPart + parsed.getPath();
         } catch (Exception e) {
             return uri;
         }
