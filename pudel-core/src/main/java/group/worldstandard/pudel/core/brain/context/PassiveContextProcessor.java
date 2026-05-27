@@ -516,12 +516,26 @@ public class PassiveContextProcessor {
         boolean first = true;
         for (PassiveContextEntry.ForwardedMessageRef fwd : forwarded) {
             if (!first) json.append(",");
-            json.append(",\"author_name\":\"").append(fwd.authorName().replace("\"", "\\\""))
-                .append("\",\"content\":\"").append(fwd.content().replace("\"", "\\\"")).append("\"}");
+            json.append("{\"author_name\":\"").append(escapeJson(fwd.authorName()))
+                .append("\",\"content\":\"").append(escapeJson(fwd.content())).append("\"}");
             first = false;
         }
         json.append("]");
         return json.toString();
+    }
+
+    /**
+     * Escape special characters in a string for JSON.
+     */
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+                    .replace("\r", "\\r")
+                    .replace("\t", "\\t");
     }
 
     /**

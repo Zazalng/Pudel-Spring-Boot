@@ -14,6 +14,8 @@
  */
 package group.worldstandard.pudel.core.discord;
 
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.messages.MessageSnapshot;
 import net.dv8tion.jda.api.events.GenericEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -36,6 +38,11 @@ import group.worldstandard.pudel.core.service.GuildSettingsService;
 import group.worldstandard.pudel.core.util.DiscordMessageParser;
 import group.worldstandard.pudel.core.util.DiscordMessageParser.ParseResult;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Listens to Discord events and dispatches commands.
  * Also dispatches events to plugin event handlers.
@@ -43,6 +50,11 @@ import group.worldstandard.pudel.core.util.DiscordMessageParser.ParseResult;
 @Component
 public class DiscordEventListener extends ListenerAdapter {
      private static final Logger logger = LoggerFactory.getLogger(DiscordEventListener.class);
+
+     // Forward context cache - stores forwarded message content temporarily
+     // Key: "userId:channelId", Value: ForwardContext with content and timestamp
+     private static final long FORWARD_CONTEXT_TIMEOUT_MS = 30_000; // 30 seconds
+     private final Map<String, ForwardContext> forwardContextCache = new ConcurrentHashMap<>();
 
      private final CommandRegistry commandRegistry;
      private final GuildInitializationService guildInitializationService;
@@ -161,10 +173,34 @@ public class DiscordEventListener extends ListenerAdapter {
             // Also include any recent passive context from the same channel (may be forwarded content)
             String recentContext = passiveContextProcessor.getRecentContextForChannel(
                     event.getChannel().getIdLong(), isGuild, targetId, 5);
+
+            // Check for cached forward context from a previous forward message (avoids race condition)
+            String cacheKey = event.getAuthor().getId() + ":" + event.getChannel().getId();
+            String cachedForwardContext = getCachedForwardContext(cacheKey);
+
+            // Prepend cached forward context to recent context if available
+            if (cachedForwardContext != null && !cachedForwardContext.isEmpty()) {
+                if (recentContext != null && !recentContext.isEmpty() && !recentContext.equals("No recent context available.")) {
+                    recentContext = "[Forwarded message context: \"" + cachedForwardContext + "\"]\n\n" + recentContext;
+                } else {
+                    recentContext = "[Forwarded message context: \"" + cachedForwardContext + "\"]";
+                }
+                logger.debug("Included cached forward context for mention message");
+            }
+
             pudelBrain.processMessageAsync(event, null, isGuild, targetId, recentContext);
         } else {
             // Not a command and not a mention - passively track context
             passiveContextProcessor.submit(event, targetId, isGuild);
+
+            // Check if this message has forwarded content and cache it for follow-up mentions
+            String forwardContent = extractForwardContent(event);
+            if (forwardContent != null && !forwardContent.isEmpty()) {
+                String cacheKey = event.getAuthor().getId() + ":" + event.getChannel().getId();
+                forwardContextCache.put(cacheKey, new ForwardContext(forwardContent, Instant.now()));
+                logger.debug("Cached forward content for user {} in channel {} (waiting for follow-up mention)",
+                        event.getAuthor().getId(), event.getChannel().getId());
+            }
         }
     }
 
@@ -306,5 +342,82 @@ public class DiscordEventListener extends ListenerAdapter {
         }
         return false;
     }
+
+    /**
+     * Extract forwarded message content from a message event.
+     * Uses MessageSnapshot API (JDA 6.x) to access forwarded content.
+     *
+     * @param event The message event
+     * @return The forwarded message content, or null if not a forward
+     */
+    private String extractForwardContent(MessageReceivedEvent event) {
+        Message message = event.getMessage();
+        StringBuilder forwardContent = new StringBuilder();
+
+        // Check for message snapshots (Discord's native forward feature)
+        try {
+            List<MessageSnapshot> snapshots = message.getMessageSnapshots();
+            if (snapshots != null && !snapshots.isEmpty()) {
+                for (MessageSnapshot snapshot : snapshots) {
+                    String content = snapshot.getContentRaw();
+                    if (content != null && !content.isEmpty()) {
+                        // Truncate very long messages to avoid token bloat
+                        if (content.length() > 500) {
+                            content = content.substring(0, 500) + "...";
+                        }
+                        if (!forwardContent.isEmpty()) {
+                            forwardContent.append("\n---\n");
+                        }
+                        forwardContent.append(content);
+                    }
+                }
+                if (!forwardContent.isEmpty()) {
+                    logger.debug("Extracted {} forwarded message snapshot(s)", snapshots.size());
+                    return forwardContent.toString();
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error extracting message snapshots: {}", e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Get cached forward context for a user+channel, if not expired.
+     * This avoids the race condition where the mention message is processed
+     * before the forwarded message's passive context is stored in the database.
+     *
+     * @param cacheKey The cache key (userId:channelId)
+     * @return The cached forward content, or null if not found or expired
+     */
+    private String getCachedForwardContext(String cacheKey) {
+        ForwardContext cached = forwardContextCache.get(cacheKey);
+        if (cached == null) {
+            return null;
+        }
+
+        // Check if expired
+        if (Instant.now().toEpochMilli() - cached.timestamp().toEpochMilli() > FORWARD_CONTEXT_TIMEOUT_MS) {
+            forwardContextCache.remove(cacheKey);
+            logger.debug("Forward context expired for {}", cacheKey);
+            return null;
+        }
+
+        // Remove after use (one-time context)
+        forwardContextCache.remove(cacheKey);
+        logger.debug("Retrieved and consumed cached forward context for {}", cacheKey);
+        return cached.content();
+    }
+
+    /**
+     * Forward context cache entry.
+     * Stores the content of a forwarded message along with its timestamp.
+     * Used to associate forward content with follow-up questions from the same user.
+     */
+    private record ForwardContext(
+            String content,
+            Instant timestamp
+    ) {}
 }
 
