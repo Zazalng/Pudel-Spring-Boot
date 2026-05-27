@@ -116,7 +116,11 @@ public class DPoPService {
 
             // Validate htu (HTTP URI) - normalize both for comparison
             String htu = claims.get("htu", String.class);
-            if (htu == null || !normalizeUri(htu).equals(normalizeUri(httpUri))) {
+            String normalizedHtu = normalizeUri(htu);
+            String normalizedHttpUri = normalizeUri(httpUri);
+            if (htu == null || !normalizedHtu.equals(normalizedHttpUri)) {
+                log.debug("DPoP htu validation failed: htu='{}' (normalized='{}'), httpUri='{}' (normalized='{}')",
+                        htu, normalizedHtu, httpUri, normalizedHttpUri);
                 return DPoPValidationResult.invalid("Invalid htu claim");
             }
 
@@ -173,12 +177,22 @@ public class DPoPService {
     }
 
     /**
-     * Normalize URI for comparison (remove query string and fragment).
+     * Normalize URI for comparison (remove query string, fragment, and standard ports).
      */
     private String normalizeUri(String uri) {
         try {
             URI parsed = new URI(uri);
-            return parsed.getScheme() + "://" + parsed.getHost() + parsed.getPath();
+            String host = parsed.getHost();
+            int port = parsed.getPort();
+            String scheme = parsed.getScheme();
+
+            // Strip standard ports (80 for HTTP, 443 for HTTPS)
+            boolean isStandardPort = (port == -1) ||
+                    ("https".equalsIgnoreCase(scheme) && port == 443) ||
+                    ("http".equalsIgnoreCase(scheme) && port == 80);
+
+            String hostPart = isStandardPort ? host : host + ":" + port;
+            return scheme + "://" + hostPart + parsed.getPath();
         } catch (Exception e) {
             return uri;
         }
