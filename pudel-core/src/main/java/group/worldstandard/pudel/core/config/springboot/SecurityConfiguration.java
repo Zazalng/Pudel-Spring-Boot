@@ -82,6 +82,7 @@ public class SecurityConfiguration {
                                 // DPoP public endpoints (needed before auth for DPoP initialization)
                                 "/api/dpop/public-key",
                                 "/api/dpop/thumbprint",
+                                "/api/dpop/sign",
                                 // Admin public endpoints (for challenge/key fetching)
                                 "/api/admin/challenge",
                                 "/api/admin/public-key",
