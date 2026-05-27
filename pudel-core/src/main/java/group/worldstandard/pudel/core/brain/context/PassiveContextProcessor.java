@@ -20,6 +20,7 @@ import group.worldstandard.pudel.core.service.SchemaManagementService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.messages.MessageSnapshot;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -252,7 +253,7 @@ public class PassiveContextProcessor {
         List<PassiveContextEntry.ForwardedMessageRef> forwardedMessages = buildForwardedRefs(message, entities);
 
         // If content is empty but we have forwarded messages, use the first forwarded content as the main content
-        if ((content == null || content.isBlank()) && !forwardedMessages.isEmpty()) {
+        if (content.isBlank() && !forwardedMessages.isEmpty()) {
             content = forwardedMessages.getFirst().content();
             if (content == null || content.isBlank()) {
                 content = "[Forwarded message]";
@@ -267,23 +268,62 @@ public class PassiveContextProcessor {
     }
 
     /**
-     * Build forwarded message references from message embeds.
-     * Extracts author info and content from forwarded message embeds.
+     * Build forwarded message references from MessageSnapshot API.
+     * Uses message.getMessageSnapshots() to properly access forwarded message content.
+     * <p>
+     * In JDA 6.x, forwarded messages are stored as MessageSnapshot objects, not embeds.
+     * The MessageSnapshot contains the original message content, attachments, embeds, etc.
      */
     private List<PassiveContextEntry.ForwardedMessageRef> buildForwardedRefs(Message message,
             Map<String, List<String>> entities) {
         List<PassiveContextEntry.ForwardedMessageRef> refs = new ArrayList<>();
-        List<String> forwarded = entities.get("forwarded");
-        if (forwarded != null) {
-            for (String fwd : forwarded) {
-                // fwd format: "embed:authorName"
-                String authorName = fwd.replace("embed:", "");
-                refs.add(new PassiveContextEntry.ForwardedMessageRef(
-                        authorName, ""));
+
+        // Use MessageSnapshot API to get forwarded message content (JDA 6.x)
+        List<MessageSnapshot> snapshots = message.getMessageSnapshots();
+        if (!snapshots.isEmpty()) {
+            for (MessageSnapshot snapshot : snapshots) {
+                String content = snapshot.getContentRaw();
+
+                // Build full content from snapshot
+                StringBuilder fullContent = new StringBuilder();
+                if (!content.isBlank()) {
+                    fullContent.append(content);
+                }
+
+                // Include embed content from snapshot
+                if (!snapshot.getEmbeds().isEmpty()) {
+                    for (var embed : snapshot.getEmbeds()) {
+                        if (embed.getTitle() != null && !embed.getTitle().isBlank()) {
+                            if (!fullContent.isEmpty()) fullContent.append("\n");
+                            fullContent.append("**").append(embed.getTitle()).append("**");
+                        }
+                        if (embed.getDescription() != null && !embed.getDescription().isBlank()) {
+                            if (!fullContent.isEmpty()) fullContent.append("\n");
+                            fullContent.append(embed.getDescription());
+                        }
+                        for (var field : embed.getFields()) {
+                            if (!fullContent.isEmpty()) fullContent.append("\n");
+                            fullContent.append(field.getName()).append(": ").append(field.getValue());
+                        }
+                    }
+                }
+
+                // Include attachment info from snapshot
+                if (!snapshot.getAttachments().isEmpty()) {
+                    if (!fullContent.isEmpty()) fullContent.append("\n");
+                    fullContent.append("[Attachments: ").append(snapshot.getAttachments().size()).append("]");
+                }
+
+                // Only add if we have meaningful content
+                if (!fullContent.isEmpty()) {
+                    refs.add(new PassiveContextEntry.ForwardedMessageRef(
+                            "", fullContent.toString()));
+                }
             }
         }
-        // Also check message embeds directly for richer forwarded data
-        if (!message.getEmbeds().isEmpty()) {
+
+        // Fallback: Also check message embeds directly for backward compatibility
+        if (refs.isEmpty() && !message.getEmbeds().isEmpty()) {
             for (var embed : message.getEmbeds()) {
                 if (embed.getAuthor() != null) {
                     String authorName = embed.getAuthor() != null ? embed.getAuthor().getName() : "";
@@ -302,6 +342,7 @@ public class PassiveContextProcessor {
                 }
             }
         }
+
         return refs;
     }
 

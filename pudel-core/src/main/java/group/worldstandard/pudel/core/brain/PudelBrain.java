@@ -269,6 +269,23 @@ public class PudelBrain {
             if (!entry.attachmentUrls().isEmpty()) {
                 sb.append(" [attachments: ").append(entry.attachmentUrls().size()).append("]");
             }
+            // Include forwarded message content
+            if (entry.forwardedMessages() != null && !entry.forwardedMessages().isEmpty()) {
+                for (var forwarded : entry.forwardedMessages()) {
+                    sb.append("\n  [Forwarded");
+                    if (forwarded.authorName() != null && !forwarded.authorName().isBlank()) {
+                        sb.append(" from ").append(forwarded.authorName());
+                    }
+                    sb.append("]: ");
+                    // Truncate long forwarded content for context
+                    String fwdContent = forwarded.content();
+                    if (fwdContent != null && fwdContent.length() > 200) {
+                        sb.append(fwdContent, 0, 200).append("...");
+                    } else {
+                        sb.append(fwdContent);
+                    }
+                }
+            }
             sb.append("\n");
         }
         return sb.toString();
@@ -365,11 +382,11 @@ public class PudelBrain {
 
         String content = message.getContentDisplay();
         logger.debug("buildUserMessage: contentDisplay='{}', embeds={}, attachments={}",
-                content != null && content.length() > 50 ? content.substring(0, 50) + "..." : content,
+                content.length() > 50 ? content.substring(0, 50) + "..." : content,
                 message.getEmbeds().size(),
                 message.getAttachments().size());
 
-        if (content != null && !content.isBlank()) {
+        if (!content.isBlank()) {
             // Strip bot name/nickname from the beginning of the message
             String cleaned = stripBotName(content, event);
             sb.append(cleaned);
@@ -382,14 +399,12 @@ public class PudelBrain {
             if (!sb.isEmpty()) {
                 sb.append("\n\n");
             }
-            sb.append("[Referenced message");
-            if (referencedMessage.getAuthor() != null) {
-                sb.append(" from ").append(referencedMessage.getAuthor().getName());
-            }
+            sb.append("[Referenced message from ");
+            sb.append(referencedMessage.getAuthor().getName());
             sb.append("]");
 
             String refContent = referencedMessage.getContentDisplay();
-            if (refContent != null && !refContent.isBlank()) {
+            if (!refContent.isBlank()) {
                 sb.append("\n").append(refContent);
             }
 
@@ -408,7 +423,7 @@ public class PudelBrain {
         // Include forwarded message content using MessageSnapshot (Discord's forward feature)
         // This is the proper way to access forwarded message content in JDA 6.x
         List<MessageSnapshot> snapshots = message.getMessageSnapshots();
-        if (snapshots != null && !snapshots.isEmpty()) {
+        if (!snapshots.isEmpty()) {
             logger.debug("buildUserMessage: processing {} forwarded message snapshots", snapshots.size());
             MessageSnapshot snapshot = snapshots.getFirst(); // Get the first (most recent) snapshot
             if (!sb.isEmpty()) {
