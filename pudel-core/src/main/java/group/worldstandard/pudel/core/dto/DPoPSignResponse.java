@@ -19,10 +19,20 @@ package group.worldstandard.pudel.core.dto;
  */
 public class DPoPSignResponse {
     private String signedProof;
+    private String error;
 
     public DPoPSignResponse() {
     }
 
+    public DPoPSignResponse(String signedProof, String error) {
+        this.signedProof = signedProof;
+        this.error = error;
+    }
+
+    /**
+     * @deprecated Use {@link #DPoPSignResponse(String, String)} instead
+     */
+    @Deprecated
     public DPoPSignResponse(String signedProof) {
         this.signedProof = signedProof;
     }
@@ -33,5 +43,13 @@ public class DPoPSignResponse {
 
     public void setSignedProof(String signedProof) {
         this.signedProof = signedProof;
+    }
+
+    public String getError() {
+        return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
     }
 }

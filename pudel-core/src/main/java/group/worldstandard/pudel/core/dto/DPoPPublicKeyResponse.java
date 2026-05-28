@@ -18,15 +18,34 @@ import java.util.Map;
 
 /**
  * Response DTO for DPoP public key endpoint.
+ * Now includes keyId for database-backed key persistence.
  */
 public class DPoPPublicKeyResponse {
+    private String keyId;
     private Map<String, Object> jwk;
 
     public DPoPPublicKeyResponse() {
     }
 
+    public DPoPPublicKeyResponse(String keyId, Map<String, Object> jwk) {
+        this.keyId = keyId;
+        this.jwk = jwk;
+    }
+
+    /**
+     * @deprecated Use {@link #DPoPPublicKeyResponse(String, Map)} instead
+     */
+    @Deprecated
     public DPoPPublicKeyResponse(Map<String, Object> jwk) {
         this.jwk = jwk;
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+
+    public void setKeyId(String keyId) {
+        this.keyId = keyId;
     }
 
     public Map<String, Object> getJwk() {

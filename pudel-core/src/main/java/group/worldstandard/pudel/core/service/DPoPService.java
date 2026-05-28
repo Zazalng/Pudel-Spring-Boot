@@ -14,45 +14,51 @@
  */
 package group.worldstandard.pudel.core.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import jakarta.servlet.http.HttpSession;
 
+import java.math.BigInteger;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
+import java.security.interfaces.ECPublicKey;
+import java.security.spec.*;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
 
 /**
- * Service for validating DPoP proofs in BFF-style architecture.
+ * Service for validating DPoP proofs in BFF-style architecture with database-backed keys.
  * <p>
  * In BFF style, the backend holds the private key and signs DPoP proofs for the frontend.
- * This service validates that the DPoP proof was signed by the backend's session key.
+ * This service validates that the DPoP proof was signed by the correct session key.
+ * <p>
+ * Key changes from previous implementation:
+ * - Keys are retrieved from database by keyId (from X-DPoP-Key-Id header)
+ * - No dependency on HttpSession for key storage
+ * - Works correctly in stateless architectures
  * <p>
  * Validation steps:
  * 1. Parse the DPoP proof JWT
  * 2. Extract the JWK from the header
- * 3. Verify the signature using the public key from the session
+ * 3. Verify the signature using the public key from the database
  * 4. Validate claims (htm, htu, iat, jti, ath)
  */
 @Service
 public class DPoPService {
     private static final Logger log = LoggerFactory.getLogger(DPoPService.class);
 
-    // Session attribute name for storing the keypair (must match DPoPKeyManager)
-    private static final String SESSION_KEY_PAIR = "DPoPKeyManager.KeyPair";
-    private static final String SESSION_PUBLIC_KEY_JWK = "DPoPKeyManager.PublicKeyJwk";
+    private final DPoPKeyManager dpopKeyManager;
+    private final ObjectMapper objectMapper;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    public DPoPService(DPoPKeyManager dpopKeyManager, ObjectMapper objectMapper) {
+        this.dpopKeyManager = dpopKeyManager;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Result of DPoP proof validation.
@@ -68,43 +74,41 @@ public class DPoPService {
     }
 
     /**
-     * Validate a DPoP proof for a resource request (BFF-style).
+     * Validate a DPoP proof for a resource request (BFF-style with database-backed keys).
      *
-     * @param dpopProof The DPoP proof JWT from the DPoP header
-     * @param httpMethod The HTTP method of the request
-     * @param httpUri The full URI of the request
+     * @param dpopProof   The DPoP proof JWT from the DPoP header
+     * @param httpMethod  The HTTP method of the request
+     * @param httpUri     The full URI of the request
      * @param accessToken The access token (for ath validation)
-     * @param session The HTTP session (contains the public key for verification)
+     * @param keyId       The DPoP key identifier (from X-DPoP-Key-Id header)
      * @return Validation result
      */
     public DPoPValidationResult validateProofForResource(String dpopProof,
                                                          String httpMethod,
                                                          String httpUri,
                                                          String accessToken,
-                                                         HttpSession session) {
+                                                         String keyId) {
         try {
-            // Get the public key from session
-            @SuppressWarnings("unchecked")
-            Map<String, Object> sessionJwk = (Map<String, Object>) session.getAttribute(SESSION_PUBLIC_KEY_JWK);
-            if (sessionJwk == null) {
-                return DPoPValidationResult.invalid("No DPoP key found in session");
+            if (keyId == null || keyId.isEmpty()) {
+                return DPoPValidationResult.invalid("Missing DPoP key ID");
             }
 
-            // Get the keypair from session for signature verification
-            KeyPair keyPair = (KeyPair) session.getAttribute(SESSION_KEY_PAIR);
-            if (keyPair == null) {
-                return DPoPValidationResult.invalid("No DPoP key pair in session");
-            }
+            // Get the public key from database by keyId
+            Map<String, Object> publicKeyJwk = dpopKeyManager.getPublicKeyJwk(keyId);
+
+            // Reconstruct public key from JWK for signature verification
+            ECPublicKey publicKey = reconstructPublicKeyFromJwk(publicKeyJwk);
 
             // Verify the JWT signature and parse claims
             Claims claims;
             try {
                 claims = Jwts.parser()
-                        .verifyWith(keyPair.getPublic())
+                        .verifyWith(publicKey)
                         .build()
                         .parseSignedClaims(dpopProof)
                         .getPayload();
             } catch (Exception e) {
+                log.debug("DPoP proof signature verification failed: {}", e.getMessage());
                 return DPoPValidationResult.invalid("Invalid DPoP proof signature");
             }
 
@@ -115,8 +119,6 @@ public class DPoPService {
             }
 
             // Validate htu (HTTP URI) - normalize both for comparison
-            // Note: We compare host+path only, ignoring scheme, because the backend may be behind
-            // a reverse proxy that terminates SSL (frontend uses https, backend receives http)
             String htu = claims.get("htu", String.class);
             if (htu == null) {
                 return DPoPValidationResult.invalid("Missing htu claim");
@@ -159,13 +161,31 @@ public class DPoPService {
             }
 
             // Return the thumbprint for binding verification
-            String sessionThumbprint = calculateJwkThumbprint(sessionJwk);
-            return DPoPValidationResult.valid(sessionThumbprint);
+            String thumbprint = dpopKeyManager.getPublicKeyThumbprint(keyId);
+            return DPoPValidationResult.valid(thumbprint);
 
         } catch (Exception e) {
             log.warn("DPoP proof validation error", e);
             return DPoPValidationResult.invalid("Invalid DPoP proof: " + e.getMessage());
         }
+    }
+
+    /**
+     * Reconstruct an ECPublicKey from a JWK map.
+     */
+    private ECPublicKey reconstructPublicKeyFromJwk(Map<String, Object> jwk) throws Exception {
+        byte[] xBytes = Base64.getUrlDecoder().decode((String) jwk.get("x"));
+        byte[] yBytes = Base64.getUrlDecoder().decode((String) jwk.get("y"));
+
+        // Create public key
+        ECPoint ecPoint = new ECPoint(new BigInteger(1, xBytes), new BigInteger(1, yBytes));
+        AlgorithmParameters parameters = AlgorithmParameters.getInstance("EC");
+        parameters.init(new ECGenParameterSpec("secp256r1"));
+        ECParameterSpec ecSpec = parameters.getParameterSpec(ECParameterSpec.class);
+        ECPublicKeySpec publicKeySpec = new ECPublicKeySpec(ecPoint, ecSpec);
+
+        KeyFactory keyFactory = KeyFactory.getInstance("EC");
+        return (ECPublicKey) keyFactory.generatePublic(publicKeySpec);
     }
 
     /**
@@ -203,38 +223,6 @@ public class DPoPService {
             return hostPart + parsed.getPath();
         } catch (Exception e) {
             return uri;
-        }
-    }
-
-    /**
-     * Calculate JWK thumbprint per RFC 7638 using Jackson ObjectMapper.
-     */
-    private String calculateJwkThumbprint(Map<String, Object> jwk) {
-        try {
-            String kty = (String) jwk.get("kty");
-            ObjectNode json = objectMapper.createObjectNode();
-
-            if ("RSA".equals(kty)) {
-                json.put("e", (String) jwk.get("e"));
-                json.put("kty", "RSA");
-                json.put("n", (String) jwk.get("n"));
-            } else if ("EC".equals(kty)) {
-                json.put("crv", (String) jwk.get("crv"));
-                json.put("kty", "EC");
-                json.put("x", (String) jwk.get("x"));
-                json.put("y", (String) jwk.get("y"));
-            } else {
-                throw new IllegalArgumentException("Unsupported key type: " + kty);
-            }
-
-            // Convert to JSON string with sorted keys for canonical form
-            String jsonString = objectMapper.writeValueAsString(json);
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(jsonString.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to calculate JWK thumbprint", e);
         }
     }
 }

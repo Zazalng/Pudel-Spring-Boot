@@ -18,23 +18,29 @@ import group.worldstandard.pudel.core.dto.DPoPPublicKeyResponse;
 import group.worldstandard.pudel.core.dto.DPoPSignRequest;
 import group.worldstandard.pudel.core.dto.DPoPSignResponse;
 import group.worldstandard.pudel.core.service.DPoPKeyManager;
+import group.worldstandard.pudel.core.service.DPoPKeyManager.DPoPKeyInfo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 
 /**
- * BFF-style DPoP controller.
+ * BFF-style DPoP controller with database-backed key persistence.
  * <p>
  * Endpoints for frontend to:
- * 1. Get the backend-managed public key for DPoP
+ * 1. Get or create a DPoP key (returns keyId and public key)
  * 2. Sign DPoP proof payloads with the backend-managed private key
+ * <p>
+ * Key changes from previous implementation:
+ * - Keys are stored in database, not HttpSession
+ * - Frontend must include keyId to identify which key to use
+ * - Keys persist across page refreshes and session timeouts
  * <p>
  * This enhances security by keeping the private key on the backend only,
  * protecting against XSS attacks that could steal client-side private keys.
@@ -53,72 +59,158 @@ public class DPoPController {
     }
 
     /**
-     * Get the backend-managed DPoP public key in JWK format.
-     * Frontend uses this to create DPoP proof payloads.
+     * Get or create a DPoP key for the authenticated user.
+     * <p>
+     * If a keyId is provided in the request header and it exists, that key is returned.
+     * Otherwise, a new keypair is generated and stored in the database.
+     * <p>
+     * The frontend should store the returned keyId in localStorage and include it
+     * in subsequent requests to use the same key.
      *
-     * @param session The HTTP session (injected by Spring)
+     * @param keyId Optional key ID from frontend (for key retrieval)
+     * @return DPoPKeyResponse containing keyId and public key JWK
+     */
+    @Operation(summary = "Get or create DPoP key", 
+               description = "Get existing DPoP key by keyId or create a new one. Returns keyId and public key JWK.")
+    @GetMapping("/key")
+    public ResponseEntity<DPoPPublicKeyResponse> getOrCreateKey(
+            @RequestHeader(value = "X-DPoP-Key-Id", required = false) String keyId) {
+        try {
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401).build();
+            }
+
+            DPoPKeyInfo keyInfo = dpopKeyManager.initializeKeyPair(userId, keyId);
+            
+            log.debug("DPoP key retrieved/created for user: {}, keyId: {}", userId, keyInfo.getKeyId());
+            
+            return ResponseEntity.ok(new DPoPPublicKeyResponse(
+                    keyInfo.getKeyId(),
+                    keyInfo.getPublicKeyJwk()
+            ));
+        } catch (Exception e) {
+            log.error("Failed to get/create DPoP key", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get the DPoP public key in JWK format by keyId.
+     * <p>
+     * This endpoint is provided for backward compatibility and debugging.
+     * The preferred way to get keys is GET /api/dpop/key.
+     *
+     * @param keyId The key identifier
      * @return Public key as JWK
      */
-    @Operation(summary = "Get DPoP public key", description = "Get the backend-managed public key for DPoP proof creation")
+    @Operation(summary = "Get DPoP public key by keyId", description = "Get the public key for a specific DPoP key")
     @GetMapping("/public-key")
-    public ResponseEntity<DPoPPublicKeyResponse> getPublicKey(HttpSession session) {
+    public ResponseEntity<DPoPPublicKeyResponse> getPublicKey(
+            @RequestHeader(value = "X-DPoP-Key-Id") String keyId) {
         try {
-            Map<String, Object> jwk = dpopKeyManager.getPublicKeyJwk(session);
-            return ResponseEntity.ok(new DPoPPublicKeyResponse(jwk));
+            Map<String, Object> jwk = dpopKeyManager.getPublicKeyJwk(keyId);
+            return ResponseEntity.ok(new DPoPPublicKeyResponse(keyId, jwk));
         } catch (Exception e) {
-            log.error("Failed to get DPoP public key", e);
+            log.error("Failed to get DPoP public key for keyId: {}", keyId, e);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     /**
      * Sign a DPoP proof payload with the backend-managed private key.
+     * <p>
      * Frontend creates the payload (jti, htm, htu, iat, ath) and sends it here for signing.
+     * The keyId header identifies which key to use for signing.
      *
      * @param signRequest Contains the payload JSON to sign
-     * @param session The HTTP session (injected by Spring)
+     * @param keyId       The key identifier (from X-DPoP-Key-Id header)
      * @return Signed DPoP proof JWT
      */
     @Operation(summary = "Sign DPoP proof", description = "Sign a DPoP proof payload with the backend-managed private key")
     @PostMapping("/sign")
-    public ResponseEntity<DPoPSignResponse> signProof(@RequestBody DPoPSignRequest signRequest, HttpSession session) {
+    public ResponseEntity<DPoPSignResponse> signProof(
+            @RequestBody DPoPSignRequest signRequest,
+            @RequestHeader(value = "X-DPoP-Key-Id") String keyId) {
         try {
-            String signedProof = dpopKeyManager.signDPoPProof(signRequest.getPayload(), session);
-            return ResponseEntity.ok(new DPoPSignResponse(signedProof));
+            if (keyId == null || keyId.isEmpty()) {
+                return ResponseEntity.badRequest().body(new DPoPSignResponse(null, "Missing X-DPoP-Key-Id header"));
+            }
+
+            String signedProof = dpopKeyManager.signDPoPProof(signRequest.getPayload(), keyId);
+            return ResponseEntity.ok(new DPoPSignResponse(signedProof, null));
         } catch (Exception e) {
-            log.error("Failed to sign DPoP proof", e);
-            return ResponseEntity.internalServerError().build();
+            log.error("Failed to sign DPoP proof for keyId: {}", keyId, e);
+            return ResponseEntity.internalServerError()
+                    .body(new DPoPSignResponse(null, "Failed to sign DPoP proof: " + e.getMessage()));
         }
     }
 
     /**
-     * Get the JWK thumbprint of the backend-managed public key.
+     * Get the JWK thumbprint of a DPoP public key.
      * Useful for debugging and frontend validation.
      *
-     * @param session The HTTP session (injected by Spring)
+     * @param keyId The key identifier
      * @return Base64url-encoded JWK thumbprint
      */
-    @Operation(summary = "Get DPoP public key thumbprint", description = "Get the JWK thumbprint of the backend-managed public key")
+    @Operation(summary = "Get DPoP public key thumbprint", description = "Get the JWK thumbprint of a DPoP public key")
     @GetMapping("/thumbprint")
-    public ResponseEntity<String> getThumbprint(HttpSession session) {
+    public ResponseEntity<String> getThumbprint(
+            @RequestHeader(value = "X-DPoP-Key-Id") String keyId) {
         try {
-            String thumbprint = dpopKeyManager.getPublicKeyThumbprint(session);
+            String thumbprint = dpopKeyManager.getPublicKeyThumbprint(keyId);
             return ResponseEntity.ok(thumbprint);
         } catch (Exception e) {
-            log.error("Failed to get DPoP thumbprint", e);
+            log.error("Failed to get DPoP thumbprint for keyId: {}", keyId, e);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     /**
-     * Clear the DPoP keypair from the session (for logout).
+     * Clear (deactivate) a DPoP key by keyId.
      *
-     * @param session The HTTP session (injected by Spring)
+     * @param keyId The key identifier
      */
-    @Operation(summary = "Clear DPoP keypair", description = "Clear the DPoP keypair from the session (logout)")
-    @DeleteMapping("/clear")
-    public ResponseEntity<Void> clearKeyPair(HttpSession session) {
-        dpopKeyManager.clearKeyPair(session);
-        return ResponseEntity.ok().build();
+    @Operation(summary = "Clear DPoP key", description = "Deactivate a DPoP key by keyId")
+    @DeleteMapping("/key")
+    public ResponseEntity<Void> clearKey(
+            @RequestHeader(value = "X-DPoP-Key-Id") String keyId) {
+        try {
+            dpopKeyManager.clearKeyPair(keyId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Failed to clear DPoP key: {}", keyId, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Clear all DPoP keys for the current user (for logout).
+     */
+    @Operation(summary = "Clear all DPoP keys", description = "Deactivate all DPoP keys for the current user (logout)")
+    @DeleteMapping("/keys")
+    public ResponseEntity<Void> clearAllKeys() {
+        try {
+            String userId = getCurrentUserId();
+            if (userId == null) {
+                return ResponseEntity.status(401).build();
+            }
+            dpopKeyManager.clearAllUserKeys(userId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Failed to clear all DPoP keys", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Get the current authenticated user's ID from the security context.
+     */
+    private String getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return null;
+        }
+        return (String) auth.getPrincipal();
     }
 }

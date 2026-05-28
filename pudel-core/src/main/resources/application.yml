@@ -77,6 +77,18 @@ pudel:
     private-key-path: ${JWT_PRIVATE_KEY_PATH:keys/pv.key}
     public-key-path: ${JWT_PUBLIC_KEY_PATH:keys/pb.key}
     expiration: ${JWT_EXPIRATION:604800000}
+
+  # ===========================================
+  # DPoP (Demonstrating Proof-of-Possession) Configuration
+  # Database-backed key persistence for stateless architectures
+  # ===========================================
+  dpop:
+    # DPoP key expiration in hours (default: 7 days)
+    # Keys should expire after the access token expires
+    key-expiration-hours: ${DPOP_KEY_EXPIRATION_HOURS:168}
+    # Maximum number of active DPoP keys per user (default: 10)
+    # Prevents key accumulation from multiple devices/browsers
+    max-keys-per-user: ${DPOP_MAX_KEYS_PER_USER:10}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost}
 
