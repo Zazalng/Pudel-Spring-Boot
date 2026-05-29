@@ -80,6 +80,7 @@ public class SecurityConfiguration {
                                 "/api/plugins/installed/*",
                                 "/api/plugins/enabled",
                                 // DPoP public endpoints (needed before auth for DPoP initialization)
+                                "/api/dpop/key",
                                 "/api/dpop/public-key",
                                 "/api/dpop/thumbprint",
                                 "/api/dpop/sign",
