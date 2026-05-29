@@ -14,9 +14,6 @@
  */
 package group.worldstandard.pudel.core.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import group.worldstandard.pudel.core.entity.DPoPKey;
 import group.worldstandard.pudel.core.repository.DPoPKeyRepository;
 import io.jsonwebtoken.Jwts;
@@ -24,6 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.exc.JacksonIOException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -368,7 +368,7 @@ public class DPoPKeyManager {
     private Map<String, Object> parseJwk(String jwkJson) {
         try {
             return objectMapper.readValue(jwkJson, Map.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonIOException e) {
             throw new RuntimeException("Failed to parse JWK", e);
         }
     }
