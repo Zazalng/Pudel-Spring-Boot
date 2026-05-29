@@ -14,7 +14,6 @@
  */
 package group.worldstandard.pudel.core.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.slf4j.Logger;
@@ -53,11 +52,9 @@ public class DPoPService {
     private static final Logger log = LoggerFactory.getLogger(DPoPService.class);
 
     private final DPoPKeyManager dpopKeyManager;
-    private final ObjectMapper objectMapper;
 
-    public DPoPService(DPoPKeyManager dpopKeyManager, ObjectMapper objectMapper) {
+    public DPoPService(DPoPKeyManager dpopKeyManager) {
         this.dpopKeyManager = dpopKeyManager;
-        this.objectMapper = objectMapper;
     }
 
     /**
