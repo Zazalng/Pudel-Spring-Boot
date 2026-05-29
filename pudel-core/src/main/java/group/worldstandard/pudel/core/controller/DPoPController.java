@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -49,6 +50,7 @@ import java.util.Map;
 @RequestMapping("/api/dpop")
 @Tag(name = "DPoP", description = "Backend-managed DPoP key operations for enhanced security")
 @CrossOrigin(origins = "*", maxAge = 3600)
+@Transactional
 public class DPoPController {
     private static final Logger log = LoggerFactory.getLogger(DPoPController.class);
 

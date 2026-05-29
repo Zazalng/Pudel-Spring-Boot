@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.exc.JacksonIOException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -90,6 +91,7 @@ public class DPoPKeyManager {
      * @param keyId   Optional key ID from frontend (for key retrieval)
      * @return DPoPKeyInfo containing the keyId and public key JWK
      */
+    @Transactional
     public DPoPKeyInfo initializeKeyPair(String userId, String keyId) {
         // If keyId provided, try to find existing key
         if (keyId != null && !keyId.isEmpty()) {
@@ -129,6 +131,7 @@ public class DPoPKeyManager {
      * @param tokenThumbprint Optional token thumbprint to bind this key to
      * @return DPoPKeyInfo containing the new keyId and public key JWK
      */
+    @Transactional
     public DPoPKeyInfo generateAndStoreKeyPair(String userId, String tokenThumbprint) {
         try {
             // Generate EC key pair for DPoP (P-256 curve)
@@ -259,6 +262,7 @@ public class DPoPKeyManager {
      *
      * @param keyId The key identifier
      */
+    @Transactional
     public void clearKeyPair(String keyId) {
         int updated = dpopKeyRepository.deactivateByKeyId(keyId);
         if (updated > 0) {
@@ -271,6 +275,7 @@ public class DPoPKeyManager {
      *
      * @param userId The user ID
      */
+    @Transactional
     public void clearAllUserKeys(String userId) {
         int updated = dpopKeyRepository.deactivateAllByUserId(userId);
         log.debug("Deactivated {} DPoP keys for user: {}", updated, userId);
