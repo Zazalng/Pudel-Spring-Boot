@@ -14,7 +14,6 @@
  */
 package group.worldstandard.pudel.core.service;
 
-import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -70,12 +69,13 @@ public class AuthService extends BaseService {
     }
 
     @Transactional
-    public OAuthCallbackResponse handleOAuthCallback(String code, String dpopProof, String httpMethod, String httpUri, HttpSession session) {
+    public OAuthCallbackResponse handleOAuthCallback(String code, String dpopProof, String httpMethod, String httpUri, String dpopKeyId) {
         try {
             String dpopThumbprint = null;
 
             if (dpopProof != null && !dpopProof.isBlank()) {
-                DPoPService.DPoPValidationResult proofResult = dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, null, session);
+                // Use database-backed key validation (keyId from header)
+                DPoPService.DPoPValidationResult proofResult = dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, null, dpopKeyId);
 
                 if (!proofResult.valid()) {
                     log.warn("DPoP proof validation failed during OAuth: {}", proofResult.error());

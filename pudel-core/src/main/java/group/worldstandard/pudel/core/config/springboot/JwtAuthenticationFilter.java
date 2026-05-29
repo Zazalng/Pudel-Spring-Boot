@@ -19,7 +19,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private static final String DPOP_HEADER = "DPoP";
+    private static final String DPOP_KEY_ID_HEADER = "X-DPoP-Key-Id";
     private static final String AUTH_SCHEME_DPOP = "DPoP";
     private static final String AUTH_SCHEME_BEARER = "Bearer";
 
@@ -117,11 +117,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Build the request URI
                     String httpUri = request.getRequestURL().toString();
                     String httpMethod = request.getMethod();
+                    
+                    // Get DPoP key ID from header (database-backed keys)
+                    String dpopKeyId = request.getHeader(DPOP_KEY_ID_HEADER);
 
-                    // Validate DPoP proof
-                    HttpSession session = request.getSession(false);
+                    // Validate DPoP proof using database-backed key
                     DPoPService.DPoPValidationResult proofResult =
-                            dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, token, session);
+                            dpopService.validateProofForResource(dpopProof, httpMethod, httpUri, token, dpopKeyId);
 
                     if (!proofResult.valid()) {
                         log.warn("DPoP proof validation failed: {}", proofResult.error());

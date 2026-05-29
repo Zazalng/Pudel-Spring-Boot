@@ -15,7 +15,6 @@
 package group.worldstandard.pudel.core.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
@@ -63,6 +62,7 @@ public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private static final String DPOP_HEADER = "DPoP";
+    private static final String DPOP_KEY_ID_HEADER = "X-DPoP-Key-Id";
 
     private final AuthService authService;
 
@@ -81,8 +81,8 @@ public class AuthController {
     @PostMapping("/discord/callback")
     public ResponseEntity<?> discordCallback(@RequestBody OAuthCallbackRequest request,
                                              @RequestHeader(value = DPOP_HEADER, required = false) String dpopProof,
-                                             HttpServletRequest httpRequest,
-                                             HttpSession session) {
+                                             @RequestHeader(value = DPOP_KEY_ID_HEADER, required = false) String dpopKeyId,
+                                             HttpServletRequest httpRequest) {
         log.info("Received OAuth callback request (DPoP: {})", dpopProof != null);
 
         if (request.getCode() == null || request.getCode().isEmpty()) {
@@ -94,12 +94,13 @@ public class AuthController {
         String httpUri = httpRequest.getRequestURL().toString();
         String httpMethod = httpRequest.getMethod();
 
+        // Use database-backed key validation (keyId from header)
         OAuthCallbackResponse response = authService.handleOAuthCallback(
                 request.getCode(),
                 dpopProof,
                 httpMethod,
                 httpUri,
-                session
+                dpopKeyId
         );
 
         if (response == null) {
