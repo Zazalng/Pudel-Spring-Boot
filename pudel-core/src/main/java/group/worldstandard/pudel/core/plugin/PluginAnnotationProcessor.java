@@ -29,6 +29,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.events.interaction.command.UserContextInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -42,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -350,7 +352,7 @@ public class PluginAnnotationProcessor {
 
             // Register
             if (interactionManager.registerSlashCommand(pluginId, handler)) {
-                pluginSlashCommands.computeIfAbsent(pluginId, k -> new HashSet<>())
+                pluginSlashCommands.computeIfAbsent(pluginId, _ -> new HashSet<>())
                         .add(annotation.name());
 
                 // Register metadata for help system
@@ -505,7 +507,7 @@ public class PluginAnnotationProcessor {
 
             // Register main command
             context.registerCommand(annotation.value(), handler);
-            pluginTextCommands.computeIfAbsent(pluginId, k -> new HashSet<>())
+            pluginTextCommands.computeIfAbsent(pluginId, _ -> new HashSet<>())
                     .add(annotation.value());
 
             // Register metadata for help system
@@ -579,7 +581,7 @@ public class PluginAnnotationProcessor {
                     };
 
             if (interactionManager.registerButtonHandler(pluginId, handler)) {
-                pluginButtonHandlers.computeIfAbsent(pluginId, k -> new HashSet<>()).add(prefix);
+                pluginButtonHandlers.computeIfAbsent(pluginId, _ -> new HashSet<>()).add(prefix);
                 count++;
             }
         }
@@ -636,7 +638,7 @@ public class PluginAnnotationProcessor {
                     };
 
             if (interactionManager.registerModalHandler(pluginId, handler)) {
-                pluginModalHandlers.computeIfAbsent(pluginId, k -> new HashSet<>()).add(prefix);
+                pluginModalHandlers.computeIfAbsent(pluginId, _ -> new HashSet<>()).add(prefix);
                 count++;
             }
         }
@@ -668,7 +670,7 @@ public class PluginAnnotationProcessor {
              // Prefix with the plugin's unique database prefix to prevent collision between plugins
              String rawPrefix = annotation.value();
              String prefix = dbPrefix + rawPrefix;
-            group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
+             group.worldstandard.pudel.api.interaction.SelectMenuHandler handler =
                     new group.worldstandard.pudel.api.interaction.SelectMenuHandler() {
                         @Override
                         public String getSelectMenuIdPrefix() {
@@ -680,8 +682,23 @@ public class PluginAnnotationProcessor {
                             try {
                                 finalMethod.invoke(instance, event);
                             } catch (Exception e) {
-                                Throwable cause = (e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
-                                logger.error("[{}] Error in select menu handler: {}", pluginId, cause.getMessage(), cause);
+                                Throwable cause = (e instanceof InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                                logger.error("[{}] Error in select string menu handler: {}", pluginId, cause.getMessage(), cause);
+                                if (event.isAcknowledged()) {
+                                    event.getHook().sendMessage("❌ An error occurred.").setEphemeral(true).queue();
+                                } else {
+                                    event.reply("❌ An error occurred.").setEphemeral(true).queue();
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void handleEntitySelect(EntitySelectInteractionEvent event) {
+                            try {
+                                finalMethod.invoke(instance, event);
+                            } catch (Exception e) {
+                                Throwable cause = (e instanceof InvocationTargetException && e.getCause() != null) ? e.getCause() : e;
+                                logger.error("[{}] Error in select entity menu handler: {}", pluginId, cause.getMessage(), cause);
                                 if (event.isAcknowledged()) {
                                     event.getHook().sendMessage("❌ An error occurred.").setEphemeral(true).queue();
                                 } else {
@@ -692,7 +709,7 @@ public class PluginAnnotationProcessor {
                     };
 
             if (interactionManager.registerSelectMenuHandler(pluginId, handler)) {
-                pluginSelectMenuHandlers.computeIfAbsent(pluginId, k -> new HashSet<>()).add(prefix);
+                pluginSelectMenuHandlers.computeIfAbsent(pluginId, _ -> new HashSet<>()).add(prefix);
                 count++;
             }
         }
@@ -796,7 +813,7 @@ public class PluginAnnotationProcessor {
 
             // Register
             if (interactionManager.registerContextMenu(pluginId, handler)) {
-                pluginContextMenus.computeIfAbsent(pluginId, k -> new HashSet<>())
+                pluginContextMenus.computeIfAbsent(pluginId, _ -> new HashSet<>())
                         .add(annotation.name());
                 count++;
             }
