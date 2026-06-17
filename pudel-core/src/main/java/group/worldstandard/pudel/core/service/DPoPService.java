@@ -163,7 +163,7 @@ public class DPoPService {
 
         } catch (Exception e) {
             log.warn("DPoP proof validation error", e);
-            return DPoPValidationResult.invalid("Invalid DPoP proof: " + e.getMessage());
+            return DPoPValidationResult.invalid("Invalid DPoP proof: Unexpected Exception.");
         }
     }
 

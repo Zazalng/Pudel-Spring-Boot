@@ -157,7 +157,11 @@ public class UserDataService {
      */
     public List<Map<String, Object>> getRecentDialogue(long userId, int limit) {
         // Ensure schema exists before querying
-        ensureUserSchema(userId);
+        if (!schemaManagementService.userSchemaExists(userId)) {
+            logger.warn("User '{}' schema not exist yet.", userId);
+            return List.of();
+        }
+
         String schemaName = schemaManagementService.getUserSchemaName(userId);
 
         try {

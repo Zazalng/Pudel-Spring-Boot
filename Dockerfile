@@ -117,7 +117,7 @@ EXPOSE ${SERVER_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD "curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1"
+    CMD curl -f http://localhost:${SERVER_PORT}/api/bot/status || exit 1
 
 # Start the application via entrypoint script (handles permissions)
 ENTRYPOINT ["/docker-entrypoint.sh"]
