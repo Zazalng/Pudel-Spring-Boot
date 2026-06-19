@@ -120,32 +120,4 @@ public class BotInstanceController {
         guildInitializationService.updateGuildSettings(guildId, existing);
         return ResponseEntity.ok(existing);
     }
-
-    /**
-     * Response for health check.
-     */
-    static class HealthResponse {
-        public String status;
-        public long timestamp;
-
-        public HealthResponse(String status, long timestamp) {
-            this.status = status;
-            this.timestamp = timestamp;
-        }
-    }
-
-    /**
-     * Response for status.
-     */
-    static class StatusResponse {
-        public String status;
-        public int activeGuilds;
-        public long timestamp;
-
-        public StatusResponse(String status, int activeGuilds, long timestamp) {
-            this.status = status;
-            this.activeGuilds = activeGuilds;
-            this.timestamp = timestamp;
-        }
-    }
 }
