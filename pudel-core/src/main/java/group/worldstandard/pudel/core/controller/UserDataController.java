@@ -33,7 +33,6 @@ import java.util.Map;
 @Tag(name = "User Data", description = "User-specific data management (DM conversations, settings)")
 @RestController
 @RequestMapping("/api/user/data")
-@CrossOrigin(origins = "*")
 public class UserDataController {
     private static final Logger logger = LoggerFactory.getLogger(UserDataController.class);
 

@@ -42,7 +42,6 @@ import java.util.Optional;
 @Tag(name = "Plugin Marketplace", description = "Community-driven plugin marketplace")
 @RestController
 @RequestMapping("/api/plugins")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class MarketPluginController {
     private static final Logger log = LoggerFactory.getLogger(MarketPluginController.class);
 

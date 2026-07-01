@@ -17,7 +17,7 @@ spring:
       hibernate:
         format_sql: true
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pudel}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:pudel}?sslmode=${POSTGRES_SSL_MODE:disable}&sslrootcert=${POSTGRES_SSL_CA_CERT:}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASS:}
     driver-class-name: org.postgresql.Driver
@@ -66,6 +66,10 @@ pudel:
       redirectUri: ${DISCORD_REDIRECT_URI:http://localhost/auth/callback}
   database:
     schema-name: public
+    ssl:
+      enabled: ${POSTGRES_SSL:false}
+      mode: ${POSTGRES_SSL_MODE:disable}
+      ca-cert-path: ${POSTGRES_SSL_CA_CERT:}
   plugin:
     directory: ${PUDEL_PLUGIN_DIRECTORY:plugins}
     enable-auto-discovery: ${PUDEL_PLUGIN_ENABLE_AUTO_DISCOVERY:true}

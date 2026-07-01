@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "pudel.database")
 public class DatabaseProperties {
     private String schemaName = "public";
+    private Ssl ssl = new Ssl();
 
     public String getSchemaName() {
         return schemaName;
@@ -31,5 +32,43 @@ public class DatabaseProperties {
 
     public void setSchemaName(String schemaName) {
         this.schemaName = schemaName;
+    }
+
+    public Ssl getSsl() {
+        return ssl;
+    }
+
+    public void setSsl(Ssl ssl) {
+        this.ssl = ssl;
+    }
+
+    public static class Ssl {
+        private boolean enabled = false;
+        private String mode = "disable";
+        private String caCertPath;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getMode() {
+            return mode;
+        }
+
+        public void setMode(String mode) {
+            this.mode = mode;
+        }
+
+        public String getCaCertPath() {
+            return caCertPath;
+        }
+
+        public void setCaCertPath(String caCertPath) {
+            this.caCertPath = caCertPath;
+        }
     }
 }

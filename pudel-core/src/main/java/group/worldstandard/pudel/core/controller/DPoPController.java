@@ -49,7 +49,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/dpop")
 @Tag(name = "DPoP", description = "Backend-managed DPoP key operations for enhanced security")
-@CrossOrigin(origins = "*", maxAge = 3600)
 @Transactional
 public class DPoPController {
     private static final Logger log = LoggerFactory.getLogger(DPoPController.class);

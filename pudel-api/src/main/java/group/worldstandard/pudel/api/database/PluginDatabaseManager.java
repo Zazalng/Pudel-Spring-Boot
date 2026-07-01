@@ -60,7 +60,7 @@ public interface PluginDatabaseManager {
      * Get the database schema name assigned to this plugin.
      * <p>
      * All tables created by this plugin will be created in this schema.
-     * Format: "plugin_{pluginId}" (e.g., "plugin_myplugin")
+     * Format: "plugin_{pluginId}" (e.g., "plugin_abcd1234")
      *
      * @return the plugin's database schema name
      */

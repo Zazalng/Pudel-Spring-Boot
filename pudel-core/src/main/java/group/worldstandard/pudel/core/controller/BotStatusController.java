@@ -35,7 +35,6 @@ import java.util.Map;
 @Tag(name = "Bot Status", description = "Bot health, version, and statistics")
 @RestController
 @RequestMapping("/api/bot")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class BotStatusController {
     private static final Logger log = LoggerFactory.getLogger(BotStatusController.class);
 
