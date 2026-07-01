@@ -79,3 +79,55 @@ services:
 
 The keys will be automatically mounted into the container at `/app/keys/`.
 
+---
+
+# PostgreSQL: Local vs External (verify-full mTLS)
+
+`scripts/start.sh` picks the database deployment from `POSTGRES_SSL`:
+
+- **`POSTGRES_SSL=false` → LOCAL.** The bundled `postgres` container starts
+  (compose `local` profile) with no TLS. No certificates needed. This is the
+  default, so a fresh clone works out of the box.
+- **`POSTGRES_SSL=true` → EXTERNAL.** No local container is started; the app
+  connects to a remote Postgres (`POSTGRES_HOST`) using `sslmode=verify-full`
+  with a client certificate (mTLS). You provide the client material below.
+
+## Required files in `keys/` (EXTERNAL mode only)
+
+- `ca.crt` — CA that signed the **remote server's** certificate (JDBC `sslrootcert`)
+- `client.crt` — your client certificate (JDBC `sslcert`)
+- `client.pk8` — your client private key in **PKCS#8 DER** format (JDBC `sslkey`)
+
+> The PostgreSQL JDBC driver cannot read a PEM private key directly — it must be
+> PKCS#8 DER. Convert your PEM client key:
+> ```bash
+> openssl pkcs8 -topk8 -inform PEM -outform DER \
+>   -in client.key -out client.pk8 -nocrypt
+> ```
+
+There are **no `server.crt` / `server.key`** here — the TLS server certificate
+lives on your external database, not in this project.
+
+## Permissions
+
+```bash
+chmod 600 keys/client.pk8
+chmod 644 keys/ca.crt keys/client.crt
+```
+
+## Enable via `.env`
+
+```bash
+POSTGRES_SSL=true
+POSTGRES_SSL_MODE=verify-full          # start.sh requires exactly this for external
+POSTGRES_HOST=db.example.com           # your external host (not localhost/postgres)
+POSTGRES_PORT=5432
+# Paths as seen inside the container (./keys is mounted at /app/keys):
+POSTGRES_SSL_CA_CERT=/app/keys/ca.crt
+POSTGRES_SSL_CLIENT_CERT=/app/keys/client.crt
+POSTGRES_SSL_CLIENT_KEY=/app/keys/client.pk8
+```
+
+For a local (non-Docker) run, use relative paths instead (e.g. `keys/ca.crt`).
+Set `POSTGRES_SSL=false` for the bundled local database (no certs required).
+

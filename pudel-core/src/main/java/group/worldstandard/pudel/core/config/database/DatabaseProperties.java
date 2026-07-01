@@ -46,6 +46,8 @@ public class DatabaseProperties {
         private boolean enabled = false;
         private String mode = "disable";
         private String caCertPath;
+        private String clientCertPath;
+        private String clientKeyPath;
 
         public boolean isEnabled() {
             return enabled;
@@ -69,6 +71,22 @@ public class DatabaseProperties {
 
         public void setCaCertPath(String caCertPath) {
             this.caCertPath = caCertPath;
+        }
+
+        public String getClientCertPath() {
+            return clientCertPath;
+        }
+
+        public void setClientCertPath(String clientCertPath) {
+            this.clientCertPath = clientCertPath;
+        }
+
+        public String getClientKeyPath() {
+            return clientKeyPath;
+        }
+
+        public void setClientKeyPath(String clientKeyPath) {
+            this.clientKeyPath = clientKeyPath;
         }
     }
 }

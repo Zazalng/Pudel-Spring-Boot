@@ -5,7 +5,11 @@
 
 services:
   # ===========================================
-  # PostgreSQL Database
+  # PostgreSQL Database (LOCAL mode only)
+  # Only starts under the 'local' profile, which scripts/start.sh enables
+  # when POSTGRES_SSL=false. When POSTGRES_SSL=true the app connects to an
+  # EXTERNAL Postgres over verify-full mTLS and this container is skipped.
+  #   Local:  docker compose --profile local up -d
   # ===========================================
   postgres:
     image: pgvector/pgvector:pg18
@@ -16,6 +20,8 @@ services:
         max-file: "3"
     container_name: pudel-postgres
     restart: unless-stopped
+    profiles:
+      - local
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASS:-pudelpassword}
@@ -23,7 +29,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./${}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -99,22 +104,30 @@ services:
         max-file: "3"
     container_name: pudel-bot
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      # Note: Ollama dependency is removed - Pudel handles connection gracefully
-      # If you need strict dependency, use: docker-compose --profile ollama up -d
+    # No depends_on: in LOCAL mode start.sh starts postgres first; in EXTERNAL
+    # mode postgres is remote. Pudel handles the DB connection/retry gracefully.
     environment:
       # Server
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       SWAGGER_ACCESS_PROTECTED: ${SWAGGER_ACCESS_PROTECTED:-true}
 
       # Database
-      POSTGRES_HOST: postgres
+      # LOCAL: defaults to the 'postgres' service. EXTERNAL: set POSTGRES_HOST
+      # in .env to your remote host (start.sh enforces SSL for external).
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASS: ${POSTGRES_PASS:-pudelpassword}
       POSTGRES_DB: ${POSTGRES_DB:-pudel}
+
+      # Database SSL / mTLS
+      # When POSTGRES_SSL=true, use POSTGRES_SSL_MODE=verify-full for mTLS.
+      # Client cert/key + CA live in the mounted /app/keys folder.
+      POSTGRES_SSL: ${POSTGRES_SSL:-false}
+      POSTGRES_SSL_MODE: ${POSTGRES_SSL_MODE:-disable}
+      POSTGRES_SSL_CA_CERT: ${POSTGRES_SSL_CA_CERT:-}
+      POSTGRES_SSL_CLIENT_CERT: ${POSTGRES_SSL_CLIENT_CERT:-}
+      POSTGRES_SSL_CLIENT_KEY: ${POSTGRES_SSL_CLIENT_KEY:-}
 
       # Discord Bot
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
@@ -167,8 +180,9 @@ services:
       # You can drop new .jar files into ./plugins and they will be auto-detected
       # IMPORTANT: Run 'chmod 777 ./plugins' on host or ensure UID 1000 has write access
       - ./plugins:/app/plugins:rw
-      # RSA keys for JWT - read-only mount
+      # RSA keys for JWT + Postgres SSL/mTLS material - read-only mount
       # Keys: keys/pv.key (private) and keys/pb.key (public)
+      # SSL:  keys/ca.crt, keys/client.crt, keys/client.pk8 (see keys/README.md)
       - ./keys:/app/keys:ro
       - pudel_logs:/app/logs
     ports:
