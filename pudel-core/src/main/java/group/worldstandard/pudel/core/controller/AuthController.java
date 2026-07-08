@@ -57,7 +57,6 @@ import group.worldstandard.pudel.core.service.AuthService;
 @Tag(name = "Authentication", description = "Discord OAuth2 authentication and DPoP token management")
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 

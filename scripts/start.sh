@@ -66,8 +66,63 @@ while IFS= read -r line || [ -n "$line" ]; do
     export "$key"="$value"
 done < .env
 
+# ===========================================
+# Determine DB deployment intent from POSTGRES_SSL:
+#   POSTGRES_SSL=false  -> LOCAL:    run the bundled postgres container.
+#   POSTGRES_SSL=true   -> EXTERNAL: connect to a remote Postgres over
+#                          verify-full mTLS; the container is NOT started
+#                          and the client cert/key/CA must exist in keys/.
+# ===========================================
+POSTGRES_SSL_LC=$(echo "${POSTGRES_SSL:-false}" | tr '[:upper:]' '[:lower:]')
+if [ "$POSTGRES_SSL_LC" = "true" ]; then
+    DB_MODE="external"
+else
+    DB_MODE="local"
+fi
+
+if [ "$DB_MODE" = "external" ]; then
+    echo -e "\n${BLUE}Database mode: EXTERNAL (verify-full mTLS to ${POSTGRES_HOST:-<POSTGRES_HOST unset>})${NC}"
+
+    # External connections must be verify-full.
+    MODE_LC=$(echo "${POSTGRES_SSL_MODE:-}" | tr '[:upper:]' '[:lower:]')
+    if [ "$MODE_LC" != "verify-full" ]; then
+        echo -e "${RED}Error: external Postgres requires POSTGRES_SSL_MODE=verify-full (got '${POSTGRES_SSL_MODE:-unset}').${NC}"
+        exit 1
+    fi
+    if [ -z "${POSTGRES_HOST}" ] || [ "${POSTGRES_HOST}" = "localhost" ] || [ "${POSTGRES_HOST}" = "postgres" ]; then
+        echo -e "${RED}Error: set POSTGRES_HOST to your external database host (not '${POSTGRES_HOST:-unset}').${NC}"
+        exit 1
+    fi
+
+    # Verify the client mTLS material referenced by .env exists on the host.
+    # Paths are user-defined; map the in-container /app/keys prefix back to keys/.
+    missing=""
+    for var in POSTGRES_SSL_CA_CERT POSTGRES_SSL_CLIENT_CERT POSTGRES_SSL_CLIENT_KEY; do
+        path="${!var}"
+        if [ -z "$path" ]; then
+            missing="${missing} ${var} (unset)"
+            continue
+        fi
+        host_path="${path/#\/app\/keys/keys}"
+        [ -f "$host_path" ] || missing="${missing} ${host_path} (${var})"
+    done
+    if [ -n "$missing" ]; then
+        echo -e "${RED}Error: verify-full requires the client CA/cert/key in keys/:${NC}"
+        for m in $missing; do echo -e "  ${RED}- ${m}${NC}"; done
+        echo -e "${YELLOW}See keys/README.md for how to generate/place them.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}External mTLS material present — postgres container will be skipped.${NC}"
+else
+    echo -e "\n${BLUE}Database mode: LOCAL (bundled postgres container, no SSL)${NC}"
+fi
+
 echo -e "\n${YELLOW}[1/4] Pulling required Docker images...${NC}"
-docker compose pull postgres
+if [ "$DB_MODE" = "local" ]; then
+    docker compose --profile local pull postgres
+else
+    echo -e "${BLUE}External DB mode — skipping local postgres image pull.${NC}"
+fi
 
 # Check if Ollama is enabled
 OLLAMA_ENABLED=$(grep "OLLAMA_ENABLED=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr '[:upper:]' '[:lower:]')
@@ -81,10 +136,13 @@ echo -e "\n${YELLOW}[2/4] Building Pudel Bot image...${NC}"
 docker compose build pudel
 
 echo -e "\n${YELLOW}[3/4] Starting services...${NC}"
-docker compose up -d postgres
-
-echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
-sleep 10
+if [ "$DB_MODE" = "local" ]; then
+    docker compose --profile local up -d postgres
+    echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
+    sleep 10
+else
+    echo -e "${BLUE}External DB mode — not starting a local postgres container.${NC}"
+fi
 
 # Start Ollama if enabled (using profile)
 if [ "$OLLAMA_ENABLED" = "true" ]; then
@@ -113,7 +171,11 @@ echo -e "${GREEN}   Setup completed successfully!         ${NC}"
 echo -e "${GREEN}=========================================${NC}"
 
 echo -e "\n${BLUE}Container Status:${NC}"
-docker compose ps
+if [ "$DB_MODE" = "local" ]; then
+    docker compose --profile local ps
+else
+    docker compose ps
+fi
 
 echo -e "\n${BLUE}Useful commands:${NC}"
 echo -e "  View logs:     ${YELLOW}docker compose logs -f pudel${NC}"

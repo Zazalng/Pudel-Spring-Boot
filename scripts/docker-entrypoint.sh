@@ -45,6 +45,10 @@ POSTGRES_PORT=$(echo "${POSTGRES_PORT}" | tr -d '\r')
 POSTGRES_USER=$(echo "${POSTGRES_USER}" | tr -d '\r')
 POSTGRES_PASS=$(echo "${POSTGRES_PASS}" | tr -d '\r')
 POSTGRES_DB=$(echo "${POSTGRES_DB}" | tr -d '\r')
+POSTGRES_SSL_MODE=$(echo "${POSTGRES_SSL_MODE}" | tr -d '\r')
+POSTGRES_SSL_CA_CERT=$(echo "${POSTGRES_SSL_CA_CERT}" | tr -d '\r')
+POSTGRES_SSL_CLIENT_CERT=$(echo "${POSTGRES_SSL_CLIENT_CERT}" | tr -d '\r')
+POSTGRES_SSL_CLIENT_KEY=$(echo "${POSTGRES_SSL_CLIENT_KEY}" | tr -d '\r')
 SERVER_PORT=$(echo "${SERVER_PORT}" | tr -d '\r')
 JAVA_OPTS=$(echo "${JAVA_OPTS}" | tr -d '\r' | tr -d '"')
 
@@ -58,7 +62,24 @@ echo "JAVA_OPTS: ${JAVA_OPTS}"
 SPRING_ARGS=""
 
 if [ -n "${POSTGRES_HOST}" ] && [ -n "${POSTGRES_PORT}" ] && [ -n "${POSTGRES_DB}" ]; then
-    SPRING_ARGS="${SPRING_ARGS} --spring.datasource.url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    DB_URL="jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+
+    # Append SSL/mTLS query params only for values that are set, so a plain
+    # (non-SSL) deploy keeps a clean URL. Users control these entirely via
+    # .env: POSTGRES_SSL_MODE (e.g. verify-full) and the CA / client cert /
+    # client key paths pointing at files in the mounted keys/ folder.
+    SSL_QUERY=""
+    [ -n "${POSTGRES_SSL_MODE}" ]        && SSL_QUERY="${SSL_QUERY}&sslmode=${POSTGRES_SSL_MODE}"
+    [ -n "${POSTGRES_SSL_CA_CERT}" ]     && SSL_QUERY="${SSL_QUERY}&sslrootcert=${POSTGRES_SSL_CA_CERT}"
+    [ -n "${POSTGRES_SSL_CLIENT_CERT}" ] && SSL_QUERY="${SSL_QUERY}&sslcert=${POSTGRES_SSL_CLIENT_CERT}"
+    [ -n "${POSTGRES_SSL_CLIENT_KEY}" ]  && SSL_QUERY="${SSL_QUERY}&sslkey=${POSTGRES_SSL_CLIENT_KEY}"
+
+    if [ -n "${SSL_QUERY}" ]; then
+        # Replace the leading '&' with '?' to start the query string.
+        DB_URL="${DB_URL}?${SSL_QUERY#&}"
+    fi
+
+    SPRING_ARGS="${SPRING_ARGS} --spring.datasource.url=${DB_URL}"
 fi
 
 if [ -n "${POSTGRES_USER}" ]; then

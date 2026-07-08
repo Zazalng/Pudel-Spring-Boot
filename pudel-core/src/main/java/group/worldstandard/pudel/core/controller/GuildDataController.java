@@ -31,7 +31,6 @@ import java.util.Map;
 @Tag(name = "Guild Data", description = "Guild-specific schema data management")
 @RestController
 @RequestMapping("/api/guilds/{guildId}/data")
-@CrossOrigin(origins = "*")
 public class GuildDataController {
     private static final Logger logger = LoggerFactory.getLogger(GuildDataController.class);
 

@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 @Tag(name = "Subscriptions", description = "Subscription tiers and usage management")
 @RestController
 @RequestMapping("/api/subscription")
-@CrossOrigin(origins = "*")
 public class SubscriptionController {
     private final SubscriptionService subscriptionService;
 

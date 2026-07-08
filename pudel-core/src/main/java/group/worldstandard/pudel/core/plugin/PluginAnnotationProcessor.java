@@ -50,8 +50,7 @@ import java.util.*;
 /**
  * Processes plugin annotations and handles automatic command registration.
  * <p>
- * This processor scans plugin classes for annotations like @SlashCommand, @TextCommand,
- * &#064;ButtonHandler,  etc., and automatically:
+ * This processor scans plugin classes for annotations like @SlashCommand, @TextCommand, @ButtonHandler,  etc., and automatically:
  * <ul>
  *   <li>Registers commands when plugin is enabled</li>
  *   <li>Unregisters commands when plugin is disabled</li>
@@ -375,22 +374,18 @@ public class PluginAnnotationProcessor {
 
         // Add permissions
         if (annotation.permissions().length > 0) {
-            List<Permission> perms = List.of(annotation.permissions());
-
-            if (!perms.isEmpty()) {
-                data.setDefaultPermissions(DefaultMemberPermissions.enabledFor(perms));
-            }
+            data.setDefaultPermissions(DefaultMemberPermissions.enabledFor(annotation.permissions()));
         }
 
         data.setNSFW(annotation.nsfw());
 
         // Add IntegrationType
-        if(annotation.integrationTo().length > 0){
+        if (annotation.integrationTo().length > 0) {
             data.setIntegrationTypes(annotation.integrationTo());
         }
 
         // Add InteractionContextType
-        if(annotation.integrationContext().length > 0){
+        if (annotation.integrationContext().length > 0) {
             data.setContexts(annotation.integrationContext());
         }
 

@@ -1,9 +1,9 @@
 # Pudel
 ![GitHub Release](https://img.shields.io/github/v/release/World-Standard-Group/Pudel-Spring-Boot?label=Release)
 ![Maven Central](https://img.shields.io/maven-central/v/group.worldstandard/pudel-api)
+[![Javadoc](https://img.shields.io/badge/javadoc-latest-blue.svg)](https://world-standard-group.github.io/Pudel-Spring-Boot/)\
 ![Java](https://img.shields.io/badge/JDK-25-green)
 ![License](https://img.shields.io/github/license/World-Standard-Group/Pudel-Spring-Boot)
-[![Javadoc](https://img.shields.io/badge/javadoc-latest-blue.svg)](https://world-standard-group.github.io/Pudel-Spring-Boot/)
 
 **Pudel** is a modular, AI-powered Discord bot framework built on **Java 25**, **Spring Boot 4**, and **JDA 6**, designed to operate as a long-running service (SaaS-style) with strong separation between core functionality and third-party plugins.
 

@@ -37,6 +37,9 @@ import java.util.*;
 @Service
 public class AuthService extends BaseService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
+    private static final long ADMINISTRATOR_PERMISSION = 0x8L;
+
     private final DiscordAPIService discordAPIService;
     private final UserRepository userRepository;
     private final GuildRepository guildRepository;
@@ -200,7 +203,6 @@ public class AuthService extends BaseService {
 
     public Map<String, Object> getUserGuilds(String userId) {
         try {
-            long ADMINISTRATOR_PERMISSION = 0x8L;
             List<UserGuild> userGuilds = userGuildRepository.findByUserId(userId);
             List<Map<String, Object>> managedGuilds = new ArrayList<>();
             List<Map<String, Object>> availableGuilds = new ArrayList<>();
@@ -244,8 +246,7 @@ public class AuthService extends BaseService {
                     filteredCount
             );
 
-            List<Map<String, Object>> allGuilds = new ArrayList<>();
-            allGuilds.addAll(managedGuilds);
+            List<Map<String, Object>> allGuilds = new ArrayList<>(managedGuilds);
             allGuilds.addAll(availableGuilds);
 
             return Map.of(

@@ -179,7 +179,7 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     /**
      * Returns the database schema name associated with this plugin.
      *
-     * @return the schema name (e.g., "plugin_myplugin")
+     * @return the schema name (e.g., "plugin_xxxxxxxx")
      */
     @Override
     public String getSchemaName() {

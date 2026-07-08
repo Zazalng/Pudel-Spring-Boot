@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 @Tag(name = "Guild Settings", description = "Guild configuration and settings management")
 @RestController
 @RequestMapping("/api/guilds")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class GuildSettingsController {
     private static final Logger log = LoggerFactory.getLogger(GuildSettingsController.class);
 
