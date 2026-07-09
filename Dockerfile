@@ -53,8 +53,13 @@ ARG PUDEL_CORE=pudel-core
 COPY --from=builder /app/${PUDEL_CORE}/target/*.jar app.jar
 
 # Create directories for plugins, data, logs, and keys
-RUN mkdir -p /app/plugins /app/data /app/logs /app/keys \
+RUN mkdir -p /app/plugins /app/data /app/logs /app/keys /app/database \
     && chown -R pudel:pudel /app
+
+# Ship the base schema so it can be applied on first boot in EXTERNAL database
+# mode (where the bundled Postgres and its auto-init are absent).
+COPY database/init.sql /app/database/init.sql
+RUN chown pudel:pudel /app/database/init.sql
 
 # Copy entrypoint script
 COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh

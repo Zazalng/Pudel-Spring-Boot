@@ -64,15 +64,26 @@ SPRING_ARGS=""
 if [ -n "${POSTGRES_HOST}" ] && [ -n "${POSTGRES_PORT}" ] && [ -n "${POSTGRES_DB}" ]; then
     DB_URL="jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
 
-    # Append SSL/mTLS query params only for values that are set, so a plain
-    # (non-SSL) deploy keeps a clean URL. Users control these entirely via
-    # .env: POSTGRES_SSL_MODE (e.g. verify-full) and the CA / client cert /
-    # client key paths pointing at files in the mounted keys/ folder.
+    # Append SSL/mTLS query params. When a full CA + client cert + client key
+    # trio is provided we hand TLS off to Pudel's own SSLSocketFactory
+    # (javax.net.ssl.SSLSocketFactory implementation, wired via sslfactory=).
+    # This bypasses PgJDBC's built-in PEM loader, which only accepts RSA client
+    # keys and enforces a 0600 file-permission check; our factory loads any key
+    # algorithm (RSA, Ed25519, EC) from read-only mounts. The three PEM paths
+    # are passed as JVM system properties (-Dpudel.ssl.*) since the factory is
+    # instantiated by PgJDBC with a no-arg constructor.
     SSL_QUERY=""
-    [ -n "${POSTGRES_SSL_MODE}" ]        && SSL_QUERY="${SSL_QUERY}&sslmode=${POSTGRES_SSL_MODE}"
-    [ -n "${POSTGRES_SSL_CA_CERT}" ]     && SSL_QUERY="${SSL_QUERY}&sslrootcert=${POSTGRES_SSL_CA_CERT}"
-    [ -n "${POSTGRES_SSL_CLIENT_CERT}" ] && SSL_QUERY="${SSL_QUERY}&sslcert=${POSTGRES_SSL_CLIENT_CERT}"
-    [ -n "${POSTGRES_SSL_CLIENT_KEY}" ]  && SSL_QUERY="${SSL_QUERY}&sslkey=${POSTGRES_SSL_CLIENT_KEY}"
+    [ -n "${POSTGRES_SSL_MODE}" ] && SSL_QUERY="${SSL_QUERY}&sslmode=${POSTGRES_SSL_MODE}"
+
+    if [ -n "${POSTGRES_SSL_CA_CERT}" ] && [ -n "${POSTGRES_SSL_CLIENT_CERT}" ] && [ -n "${POSTGRES_SSL_CLIENT_KEY}" ]; then
+        SSL_QUERY="${SSL_QUERY}&sslfactory=group.worldstandard.pudel.core.config.database.PudelPgSSLFactory"
+        # Inject the PEM paths as JVM system properties for the no-arg factory.
+        JAVA_OPTS="${JAVA_OPTS} -Dpudel.ssl.ca=${POSTGRES_SSL_CA_CERT} -Dpudel.ssl.cert=${POSTGRES_SSL_CLIENT_CERT} -Dpudel.ssl.key=${POSTGRES_SSL_CLIENT_KEY}"
+    else
+        [ -n "${POSTGRES_SSL_CA_CERT}" ]     && SSL_QUERY="${SSL_QUERY}&sslrootcert=${POSTGRES_SSL_CA_CERT}"
+        [ -n "${POSTGRES_SSL_CLIENT_CERT}" ] && SSL_QUERY="${SSL_QUERY}&sslcert=${POSTGRES_SSL_CLIENT_CERT}"
+        [ -n "${POSTGRES_SSL_CLIENT_KEY}" ]  && SSL_QUERY="${SSL_QUERY}&sslkey=${POSTGRES_SSL_CLIENT_KEY}"
+    fi
 
     if [ -n "${SSL_QUERY}" ]; then
         # Replace the leading '&' with '?' to start the query string.

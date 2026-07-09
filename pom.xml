@@ -69,6 +69,7 @@
 
         <!--Tool Version Control-->
         <tool.jackson.version>3.2.0</tool.jackson.version>
+        <com.jackson.version>2.22.1</com.jackson.version>
         <log.version>2.0.18</log.version>
 
         <!--Maven Plugin Version Control-->
@@ -115,6 +116,8 @@
                 <artifactId>spring-webmvc</artifactId>
                 <version>${spring.boot.web.version}</version>
             </dependency>
+
+            <!--Jackson-->
             <dependency>
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-core</artifactId>
@@ -124,6 +127,16 @@
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${tool.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${com.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${com.jackson.version}</version>
             </dependency>
 
             <!--Indirect Dependency-->
