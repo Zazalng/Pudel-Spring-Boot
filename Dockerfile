@@ -89,7 +89,7 @@ ENV DISCORD_REDIRECT_URI=http://localhost/auth/callback
 # Pudel Configuration
 ENV PUDEL_BRANDING_NAME=Pudel
 ENV PUDEL_BRANDING_CODENAME="Canis Lupus Familiaris"
-ENV PUDEL_BRANDING_VERSION=2.3.1
+ENV PUDEL_BRANDING_VERSION=2.3.2
 ENV PUDEL_ADMIN_INITIAL_OWNER=
 
 # JWT Configuration (keys mounted via volume)
