@@ -109,6 +109,8 @@
                 <type>pom</type>
                 <scope>provided</scope>
             </dependency>
+
+            <!--Jackson-->
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>

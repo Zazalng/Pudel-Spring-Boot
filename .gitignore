@@ -69,7 +69,7 @@ plan/
 .agentbridge/
 
 # JWT RSA Keys (SECURITY: Never commit private keys!)
-keys/*.key
-keys/*.pem
-*.key
+keys/*
 !keys/README.md
+
+# Cert Extension
