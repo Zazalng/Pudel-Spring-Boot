@@ -60,16 +60,9 @@
         <!--JDA Version Control-->
         <jda.version>6.5.0</jda.version>
 
-        <!--Spring Version Control-->
-        <spring.boot.version>4.1.0</spring.boot.version>
-        <spring.boot.web.version>7.0.8</spring.boot.web.version>
-
-        <!--netty-->
-        <netty.codec.http>4.2.15.Final</netty.codec.http>
-
-        <!--Tool Version Control-->
-        <tool.jackson.version>3.2.0</tool.jackson.version>
-        <log.version>2.0.18</log.version>
+        <!--Indirect Version Control-->
+        <tomcat.version>11.0.23</tomcat.version>
+        <logback.version>1.5.37</logback.version>
 
         <!--Maven Plugin Version Control-->
         <mvn.compiler.version>3.15.0</mvn.compiler.version>
@@ -93,79 +86,90 @@
                 <artifactId>JDA</artifactId>
                 <version>${jda.version}</version>
             </dependency>
+
+            <!-- BOM Dependency -->
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>3.2.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>2.22.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat</groupId>
+                <artifactId>tomcat</artifactId>
+                <version>11.0.23</version>
+                <type>pom</type>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>4.2.16.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>6.1.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-bom</artifactId>
+                <version>7.1.0</version> <!-- ปรับเปลี่ยนเลขเวอร์ชันตามที่คุณใช้งาน -->
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring.boot.version}</version>
+                <version>4.1.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.springframework</groupId>
-                <artifactId>spring-web</artifactId>
-                <version>${spring.boot.web.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-webflux</artifactId>
-                <version>${spring.boot.web.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-webmvc</artifactId>
-                <version>${spring.boot.web.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tools.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-                <version>${tool.jackson.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>tools.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>${tool.jackson.version}</version>
+                <artifactId>spring-framework-bom</artifactId>
+                <version>7.0.8</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
-            <!--Indirect Dependency-->
+            <!-- Indirect / non-BOM provide -->
             <dependency>
                 <groupId>org.apache.tomcat.embed</groupId>
                 <artifactId>tomcat-embed-core</artifactId>
-                <version>11.0.23</version>
+                <version>${tomcat.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec-compression</artifactId>
-                <version>${netty.codec.http}</version>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-websocket</artifactId>
+                <version>${tomcat.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec-http</artifactId>
-                <version>${netty.codec.http}</version>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-el</artifactId>
+                <version>${tomcat.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec-http2</artifactId>
-                <version>${netty.codec.http}</version>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec-http3</artifactId>
-                <version>${netty.codec.http}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-codec-dns</artifactId>
-                <version>${netty.codec.http}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-transport-native-epoll</artifactId>
-                <version>${netty.codec.http}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-handler-proxy</artifactId>
-                <version>${netty.codec.http}</version>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
