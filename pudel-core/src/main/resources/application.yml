@@ -216,7 +216,8 @@ pudel:
       llmTimeoutSeconds: 30
     embedding:
       enabled: true
-      dimension: 384
+      # Must equal the embedding model's real vector dimension (qwen3-embedding:8b = 1024).
+      dimension: 1024
       ivfProbes: 10
       ivfLists: 100
 

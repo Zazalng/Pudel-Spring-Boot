@@ -29,7 +29,7 @@ Pudel acts as a **personal maid/secretary** for Discord guilds — capable of na
 ## Features
 
 ### 🤖 AI-Powered Conversations
-- **Local LLM Integration** via Ollama (phi-3, gemma-2b, or any compatible model)
+- **Local LLM Integration** via Ollama (qwen3, phi-3, gemma-2b, or any compatible model)
 - **LangChain4j** for text analysis, intent detection, and sentiment analysis
 - **Per-guild personality customization** — biography, preferences, dialogue style
 - **Memory system** with vector embeddings (pgvector + IVFFlat)
@@ -61,8 +61,8 @@ pudel/
 ├── pudel-core/     # Bot core (AGPLv3 + Plugin Exception)
 ├── pudel-model/    # AI/ML components (AGPLv3)
 ├── plugins/        # Plugin JARs (hot-loadable)
-├── keys/           # RSA keys for JWT
-└── database/       # SQL migrations
+├── keys/           # RSA keys for JWT + mTLS client certs
+└── database/       # SQL migration history (reference only; schema is defined in Java)
 ```
 
 See [ARCHITECTURE.md](docs/flowchart/architecture/ARCHITECTURE.md) for detailed system design.
@@ -96,9 +96,16 @@ CREATE DATABASE pudel;
 \c pudel
 CREATE EXTENSION IF NOT EXISTS vector;
 \q
-
-psql -U postgres -d pudel -f database/init.sql
 ```
+
+> **No schema file to run.** Pudel defines its entire database layout in Java
+> (`SchemaManagementService`). On startup the bot reconciles the live database
+> against that declaration — creating any missing tables/columns/indexes and
+> repairing existing schemas automatically. You do **not** need to run
+> `database/init.sql` (that file was removed) or any manual migration step.
+> Global `public` tables are managed by Hibernate (`spring.jpa.hibernate.ddl-auto: update`);
+> per-guild/per-user schemas are managed by the reconciler. Just make sure the
+> `vector` extension exists for pgvector-backed embeddings.
 
 ### 3. Configure
 
@@ -117,7 +124,7 @@ POSTGRES_PASSWORD=your_password
 
 # AI (Optional)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi3:mini
+OLLAMA_MODEL=qwen3:8b
 OLLAMA_ENABLED=true
 
 # JWT Keys
@@ -129,7 +136,7 @@ JWT_PUBLIC_KEY_PATH=./keys/pb.key
 
 ```bash
 # Start Ollama (for AI features)
-ollama run phi3:mini
+ollama run qwen3:8b
 
 # Start Pudel
 java -jar pudel-core/target/pudel-core-2.3.2.jar
@@ -145,7 +152,7 @@ All built-in commands follow the same `@Plugin` annotation pattern as plugins.
 
 | Command | Description |
 |---------|-------------|
-| `/settings` | Components V2 interactive panel — General, AI, Channels, Commands, Plugins views |
+| `/settings` | Components V2 interactive panel — General, AI, AI Advanced, Channels, Commands, Plugins views | Global |
 
 > `/ai`, `/channel`, `/command` were merged into the `/settings` panel.
 
@@ -308,7 +315,7 @@ Mount the plugins directory as a volume. When you copy a new JAR to `./plugins/`
 ### Recommended (with AI)
 - **Memory**: 4GB+ RAM
 - **GPU**: Optional, for faster Ollama inference
-- **Ollama Model**: phi3:mini (2.3GB) or gemma:2b (1.4GB)
+- **Ollama Model**: qwen3:8b (default) — lighter alternatives: phi3:mini, gemma:2b
 
 ---
 

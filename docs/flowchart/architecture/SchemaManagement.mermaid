@@ -1,0 +1,53 @@
+%% Pudel Schema Management — schema-as-code (self-reconciling)
+%% Replaces the old init.sql + scattered CREATE TABLE IF NOT EXISTS calls.
+
+flowchart TD
+    subgraph Trigger["Trigger Points"]
+        BOOT["SchemaBootstrapRunner<br/>@CommandLineRunner (after JDA ready)"]
+        JOIN["GuildInitializationService<br/>guild join / user DM"]
+        EMB["MemoryEmbeddingService<br/>ensureGuild/UserEmbeddingTables"]
+    end
+
+    subgraph Svc["SchemaManagementService (single source of truth)"]
+        DEF["Declarative TableDefinition<br/>buildGuildTables() / buildUserTables()<br/>buildEmbeddingTables()"]
+        REC["reconcileSchema(schema, tables, embeddingsOnly)"]
+        CT["CREATE TABLE IF NOT EXISTS<br/>(no-op if present)"]
+        AC["ALTER TABLE ADD COLUMN IF NOT EXISTS<br/>(guarded by column-existence check)"]
+        CI["CREATE INDEX IF NOT EXISTS<br/>(no-op if present)"]
+        UC["CREATE UNIQUE INDEX IF NOT EXISTS<br/>uq_&lt;table&gt;_&lt;col&gt;<br/>e.g. uq_passive_context_message_id"]
+        PG["isPgvectorAvailable()<br/>dimension from config"]
+    end
+
+    subgraph DB["PostgreSQL"]
+        PUB["public schema<br/>(Hibernate ddl-auto: update)"]
+        GUILD["guild_{id} schema<br/>dialogue_history, passive_context,<br/>forwarded_messages, user_preferences,<br/>memory, memory_embeddings,<br/>dialogue_embeddings"]
+        USER["user_{id} schema<br/>pudel_settings, dialogue_history,<br/>memory, memory_embeddings,<br/>dialogue_embeddings"]
+    end
+
+    BOOT --> REC
+    JOIN --> REC
+    EMB --> REC
+    DEF --> REC
+
+    REC --> CT
+    CT --> AC
+    AC --> CI
+    CI --> UC
+    UC --> PG
+
+    REC -->|"per-guild tables"| GUILD
+    REC -->|"per-user tables"| USER
+    PUB -.->|"managed separately by Hibernate"| DB
+
+    %% Safety properties
+    SAFE["Never DESTRUCTIVE:<br/>no DROP / RENAME / ALTER TYPE<br/>idempotent — safe to re-run<br/>auto-repairs existing schemas"]
+
+    classDef trigger fill:#1565c0,stroke:#0d47a1,color:#fff
+    classDef svc fill:#00796b,stroke:#004d40,color:#fff
+    classDef db fill:#f57c00,stroke:#e65100,color:#fff
+    classDef safe fill:#2e7d32,stroke:#1b5e20,color:#fff
+
+    class BOOT,JOIN,EMB trigger
+    class DEF,REC,CT,AC,CI,UC,PG svc
+    class PUB,GUILD,USER db
+    class SAFE safe

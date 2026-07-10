@@ -31,6 +31,7 @@ Opens a **Components V2 interactive panel** — a single ephemeral message with 
 | **⚙️ Main** | Overview of all settings | Navigation buttons to all views |
 | **⚙️ General** | Prefix, verbosity, cooldown | Modal inputs, toggle buttons |
 | **🤖 AI** | AI toggle, nickname, language, personality, biography, response length, formality, emote usage | Modals + toggle buttons |
+| **🔧 AI Advanced** | Preferences, dialogue style, quirks, system-prompt prefix, topics of interest/avoid | Modals |
 | **📢 Channels** | Log/bot channel, ignored channels | EntitySelectMenu channel picker |
 | **📝 Commands** | Enable/disable text commands | Paginated toggle buttons |
 | **🧩 Plugins** | Enable/disable plugins per guild | Paginated toggle buttons + syncGuildCommands() |
@@ -46,7 +47,11 @@ Opens a **Components V2 interactive panel** — a single ephemeral message with 
 | Biography | Modal (long) | Bot backstory text                                                           |
 | Response Length | Buttons | Short / Medium / Long                                                        |
 | Formality | Buttons | Casual / Balanced / Formal                                                   |
-| Emote Usage | Buttons | None / Minimal / Moderate / Frequent                                         |
+| Emote Usage | Buttons | None / Minimal / Moderate / Frequent |
+
+> **🔧 AI Advanced** (reachable from the AI view) holds the deeper behavior
+> knobs: preferences, dialogue style, quirks, the system-prompt prefix, and
+> topics of interest / topics to avoid.
 
 **Removed commands** (merged into `/settings` panel):
 - ~~`/ai`~~ → Settings Panel > AI view

@@ -1,5 +1,7 @@
-%% Pudel Passive Context Processor v2.3.1
+%% Pudel Passive Context Processor
 %% Collects messages Pudel observes but doesn't respond to
+%% Schema (passive_context + forwarded_messages) is reconciled from Java
+%% (SchemaManagementService); message_id is UNIQUE to back ON CONFLICT upserts.
 
 flowchart TD
     subgraph Input["📨 Message Stream"]

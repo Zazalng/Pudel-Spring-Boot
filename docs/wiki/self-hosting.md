@@ -63,11 +63,14 @@ CREATE EXTENSION IF NOT EXISTS vector;
 \q
 ```
 
-### 4. Run Database Migrations
+### 4. Database Schema (no manual step)
 
-```bash
-psql -U postgres -d pudel -f database/init.sql
-```
+Pudel defines its entire schema in Java. On startup `SchemaManagementService`
+reconciles the live database — creating any missing tables/columns/indexes and
+repairing existing schemas automatically. **You do not run `database/init.sql`
+(removed) or any manual migration.** Just ensure the `vector` extension exists
+(see Step 3) for pgvector-backed embeddings. Global `public` tables are managed
+by Hibernate; per-guild/per-user schemas are managed by the reconciler.
 
 ### 5. Clone and Build
 
@@ -100,7 +103,7 @@ pudel:
   ollama:
     enabled: true
     base-url: http://localhost:11434
-    model: phi3:mini
+    model: qwen3:8b
 ```
 
 ### 7. Generate JWT Keys
@@ -118,7 +121,7 @@ openssl rsa -in keys/jwt_private.key -pubout -out keys/jwt_public.key
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # Pull model
-ollama pull phi3:mini
+ollama pull qwen3:8b
 
 # Start Ollama
 ollama serve
@@ -127,7 +130,7 @@ ollama serve
 ### 9. Run Pudel
 
 ```bash
-java -jar pudel-core/target/pudel-core-1.0.0.jar \
+java -jar pudel-core/target/pudel-core-2.3.2.jar \
   --spring.profiles.active=local
 ```
 
@@ -217,7 +220,7 @@ After=network.target postgresql.service
 Type=simple
 User=pudel
 WorkingDirectory=/opt/pudel
-ExecStart=/usr/bin/java -Xmx2g -jar pudel-core-1.0.0.jar --spring.profiles.active=production
+ExecStart=/usr/bin/java -Xmx2g -jar pudel-core-2.3.2.jar --spring.profiles.active=production
 Restart=always
 RestartSec=10
 

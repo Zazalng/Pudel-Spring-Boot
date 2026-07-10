@@ -182,7 +182,7 @@ pudel:
   ollama:
     enabled: true
     base-url: http://localhost:11434
-    model: phi3:mini
+    model: qwen3:8b
     timeout-seconds: 60
 ```
 

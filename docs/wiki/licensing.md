@@ -10,7 +10,6 @@ Pudel uses a **dual-license model with a Plugin Exception**:
 |--------|---------|---------|
 | `pudel-api` | **MIT** | Plugin Development Kit |
 | `pudel-core` | AGPL v3 + Plugin Exception | Bot core |
-| `pudel-model` | AGPL v3 | AI/ML components |
 
 ---
 

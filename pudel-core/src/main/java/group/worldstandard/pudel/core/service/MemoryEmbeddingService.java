@@ -30,9 +30,12 @@ import java.util.Map;
 /**
  * Service for managing vector embeddings and semantic memory search.
  * Uses PostgreSQL with pgvector extension for IVFFlat indexing.
- * <p>
- * This service manages the embedding tables in guild/user schemas
- * for semantic similarity search of memories and dialogue history.
+ *
+ * <p>The actual embedding table DDL (memory_embeddings, dialogue_embeddings) and
+ * the IVFFlat index creation live in {@link SchemaManagementService}, which
+ * reconciles them from a single Java declaration on startup. This service only
+ * owns the read/write/search/cleanup of embeddings and delegates schema
+ * provisioning to {@code SchemaManagementService}.
  */
 @Service
 @Transactional
@@ -44,9 +47,6 @@ public class MemoryEmbeddingService {
     private final MemoryConfig memoryConfig;
     private final SchemaManagementService schemaManagementService;
 
-    // Flag to track if pgvector is available
-    private Boolean pgvectorAvailable = null;
-
     public MemoryEmbeddingService(JdbcTemplate jdbcTemplate,
                                    ChatbotConfig chatbotConfig,
                                    MemoryConfig memoryConfig,
@@ -55,153 +55,35 @@ public class MemoryEmbeddingService {
         this.chatbotConfig = chatbotConfig;
         this.memoryConfig = memoryConfig;
         this.schemaManagementService = schemaManagementService;
+
+        // Hand the embedding dimension/lists to the schema service so the
+        // declarative table definition matches the configured model exactly.
+        schemaManagementService.setEmbeddingConfig(
+                chatbotConfig.getEmbedding().getDimension(),
+                chatbotConfig.getEmbedding().getIvfLists());
+    }
+
+    /**
+     * Ensure the embedding tables exist for a guild schema (delegates to the
+     * schema service, which creates them only if pgvector is available).
+     */
+    public void ensureGuildEmbeddingTables(long guildId) {
+        schemaManagementService.ensureGuildEmbeddingTables(guildId);
+    }
+
+    /**
+     * Ensure the embedding tables exist for a user schema (delegates to the
+     * schema service, which creates them only if pgvector is available).
+     */
+    public void ensureUserEmbeddingTables(long userId) {
+        schemaManagementService.ensureUserEmbeddingTables(userId);
     }
 
     /**
      * Check if pgvector extension is available.
      */
     public boolean isPgvectorAvailable() {
-        if (pgvectorAvailable == null) {
-            try {
-                Integer count = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'",
-                        Integer.class
-                );
-                pgvectorAvailable = count != null && count > 0;
-
-                if (!pgvectorAvailable) {
-                    logger.warn("pgvector extension not found. Semantic search will be disabled. " +
-                            "Run 'CREATE EXTENSION vector;' to enable it.");
-                } else {
-                    logger.info("pgvector extension is available");
-                }
-            } catch (Exception e) {
-                logger.warn("Error checking for pgvector: {}. Semantic search will be disabled.", e.getMessage());
-                pgvectorAvailable = false;
-            }
-        }
-        return pgvectorAvailable;
-    }
-
-    /**
-     * Create embedding tables in a guild schema.
-     */
-    public void createGuildEmbeddingTables(long guildId) {
-        if (!chatbotConfig.getEmbedding().isEnabled() || !isPgvectorAvailable()) {
-            return;
-        }
-
-        String schemaName = schemaManagementService.getGuildSchemaName(guildId);
-        int dimension = chatbotConfig.getEmbedding().getDimension();
-
-        try {
-            // Create memory embeddings table
-            String memoryEmbeddingsTable = String.format("""
-                CREATE TABLE IF NOT EXISTS %s.memory_embeddings (
-                    id BIGSERIAL PRIMARY KEY,
-                    memory_id BIGINT REFERENCES %s.memory(id) ON DELETE CASCADE,
-                    embedding vector(%d) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """, schemaName, schemaName, dimension);
-            jdbcTemplate.execute(memoryEmbeddingsTable);
-
-            // Create dialogue embeddings table
-            String dialogueEmbeddingsTable = String.format("""
-                CREATE TABLE IF NOT EXISTS %s.dialogue_embeddings (
-                    id BIGSERIAL PRIMARY KEY,
-                    dialogue_id BIGINT REFERENCES %s.dialogue_history(id) ON DELETE CASCADE,
-                    embedding vector(%d) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """, schemaName, schemaName, dimension);
-            jdbcTemplate.execute(dialogueEmbeddingsTable);
-
-            // Create IVFFlat indexes
-            createIvfFlatIndex(schemaName, "memory_embeddings", "embedding", dimension);
-            createIvfFlatIndex(schemaName, "dialogue_embeddings", "embedding", dimension);
-
-            logger.info("Created embedding tables for guild schema: {}", schemaName);
-        } catch (Exception e) {
-            logger.error("Error creating embedding tables for guild {}: {}", guildId, e.getMessage());
-        }
-    }
-
-    /**
-     * Create embedding tables in a user schema.
-     */
-    public void createUserEmbeddingTables(long userId) {
-        if (!chatbotConfig.getEmbedding().isEnabled() || !isPgvectorAvailable()) {
-            return;
-        }
-
-        String schemaName = schemaManagementService.getUserSchemaName(userId);
-        int dimension = chatbotConfig.getEmbedding().getDimension();
-
-        try {
-            // Create memory embeddings table
-            String memoryEmbeddingsTable = String.format("""
-                CREATE TABLE IF NOT EXISTS %s.memory_embeddings (
-                    id BIGSERIAL PRIMARY KEY,
-                    memory_id BIGINT REFERENCES %s.memory(id) ON DELETE CASCADE,
-                    embedding vector(%d) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """, schemaName, schemaName, dimension);
-            jdbcTemplate.execute(memoryEmbeddingsTable);
-
-            // Create dialogue embeddings table
-            String dialogueEmbeddingsTable = String.format("""
-                CREATE TABLE IF NOT EXISTS %s.dialogue_embeddings (
-                    id BIGSERIAL PRIMARY KEY,
-                    dialogue_id BIGINT REFERENCES %s.dialogue_history(id) ON DELETE CASCADE,
-                    embedding vector(%d) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """, schemaName, schemaName, dimension);
-            jdbcTemplate.execute(dialogueEmbeddingsTable);
-
-            // Create IVFFlat indexes
-            createIvfFlatIndex(schemaName, "memory_embeddings", "embedding", dimension);
-            createIvfFlatIndex(schemaName, "dialogue_embeddings", "embedding", dimension);
-
-            logger.info("Created embedding tables for user schema: {}", schemaName);
-        } catch (Exception e) {
-            logger.error("Error creating embedding tables for user {}: {}", userId, e.getMessage());
-        }
-    }
-
-    /**
-     * Create IVFFlat index on an embedding column.
-     */
-    private void createIvfFlatIndex(String schemaName, String tableName, String columnName, int dimension) {
-        int lists = chatbotConfig.getEmbedding().getIvfLists();
-        String indexName = String.format("idx_%s_%s_ivfflat", tableName, columnName);
-
-        try {
-            // Check if index already exists
-            Integer exists = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = ? AND indexname = ?",
-                    Integer.class,
-                    schemaName, indexName
-            );
-
-            if (exists != null && exists > 0) {
-                logger.debug("IVFFlat index {} already exists", indexName);
-                return;
-            }
-
-            // Create IVFFlat index for cosine similarity
-            String createIndex = String.format(
-                    "CREATE INDEX %s ON %s.%s USING ivfflat (%s vector_cosine_ops) WITH (lists = %d)",
-                    indexName, schemaName, tableName, columnName, lists
-            );
-            jdbcTemplate.execute(createIndex);
-
-            logger.info("Created IVFFlat index: {}.{}", schemaName, indexName);
-        } catch (Exception e) {
-            logger.warn("Could not create IVFFlat index {} (may need more data): {}", indexName, e.getMessage());
-        }
+        return schemaManagementService.isPgvectorAvailable();
     }
 
     /**

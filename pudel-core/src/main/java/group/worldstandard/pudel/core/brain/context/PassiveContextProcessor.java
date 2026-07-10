@@ -364,9 +364,6 @@ public class PassiveContextProcessor {
                 return;
             }
 
-            // Ensure passive_context table exists
-            ensurePassiveContextTable(schemaName);
-
             // Convert entities to JSON
             String entitiesJson = entitiesToJson(entry.entities());
             String attachmentUrlsArray = entry.attachmentUrls().isEmpty() ? "{}"
@@ -397,38 +394,6 @@ public class PassiveContextProcessor {
         } catch (Exception e) {
             logger.debug("Error storing passive context for message {}: {}",
                     entry.messageId(), e.getMessage());
-        }
-    }
-
-    /**
-     * Ensure the passive_context table exists in the schema.
-     */
-    private void ensurePassiveContextTable(String schemaName) {
-        try {
-            jdbcTemplate.execute(
-                    "CREATE TABLE IF NOT EXISTS " + schemaName + ".passive_context (" +
-                    "    id BIGSERIAL PRIMARY KEY," +
-                    "    message_id BIGINT NOT NULL UNIQUE," +
-                    "    user_id BIGINT NOT NULL," +
-                    "    channel_id BIGINT NOT NULL," +
-                    "    content TEXT NOT NULL," +
-                    "    entities JSONB," +
-                    "    attachment_urls TEXT[]," +
-                    "    forwarded_content JSONB," +
-                    "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                    ")"
-            );
-            jdbcTemplate.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_pc_msg_id ON " + schemaName + ".passive_context(message_id)"
-            );
-            jdbcTemplate.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_pc_channel ON " + schemaName + ".passive_context(channel_id)"
-            );
-            jdbcTemplate.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_pc_user ON " + schemaName + ".passive_context(user_id)"
-            );
-        } catch (Exception e) {
-            logger.debug("Error ensuring passive_context table in {}: {}", schemaName, e.getMessage());
         }
     }
 

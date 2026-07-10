@@ -96,14 +96,7 @@ The keys will be automatically mounted into the container at `/app/keys/`.
 
 - `ca.crt` — CA that signed the **remote server's** certificate (JDBC `sslrootcert`)
 - `client.crt` — your client certificate (JDBC `sslcert`)
-- `client.pk8` — your client private key in **PKCS#8 DER** format (JDBC `sslkey`)
-
-> The PostgreSQL JDBC driver cannot read a PEM private key directly — it must be
-> PKCS#8 DER. Convert your PEM client key:
-> ```bash
-> openssl pkcs8 -topk8 -inform PEM -outform DER \
->   -in client.key -out client.pk8 -nocrypt
-> ```
+- `client.pk8` — your client private key in **PKCS#8** format (JDBC `sslkey`)
 
 There are **no `server.crt` / `server.key`** here — the TLS server certificate
 lives on your external database, not in this project.

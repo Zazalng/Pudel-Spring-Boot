@@ -183,7 +183,7 @@ POSTGRES_PASSWORD=password
 
 # Optional
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi3:mini
+OLLAMA_MODEL=qwen3:8b
 JWT_PRIVATE_KEY_PATH=./keys/pv.key
 JWT_PUBLIC_KEY_PATH=./keys/pb.key
 ```

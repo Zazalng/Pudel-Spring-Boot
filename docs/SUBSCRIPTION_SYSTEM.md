@@ -153,7 +153,7 @@ pudel:
   chatbot:
     embedding:
       enabled: true
-      dimension: 384      # Vector dimension
+      dimension: 1024      # Vector dimension (qwen3-embedding:8b)
       ivfProbes: 10       # Higher = more accurate, slower
       ivfLists: 100       # Number of IVF lists
 ```

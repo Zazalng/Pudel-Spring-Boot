@@ -23,6 +23,8 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -127,25 +129,26 @@ public class PudelPgSSLFactory extends SSLSocketFactory {
         }
     }
 
-    /**
-     * Load a private key supporting PKCS#8 PEM, PKCS#1 ("RSA") PEM, and raw
-     * PKCS#8 DER. The key algorithm (RSA, Ed25519, EC, ...) is discovered by
-     * trying each JCA algorithm the JVM ships, so no algorithm is hardcoded and
-     * PgJDBC's RSA-only restriction is bypassed.
-     */
     private static PrivateKey readPrivateKey(String path) throws Exception {
         final byte[] raw = Files.readAllBytes(Paths.get(path));
         final byte[] der = stripPem(raw, "PRIVATE KEY", "RSA PRIVATE KEY");
         final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(der);
-        for (String alg : new String[]{"RSA", "EdDSA", "EC"}) {
+
+        // Ordered roughly by most common usage to optimize the loop
+        String[] algorithms = {
+                "RSA", "EC", "EdDSA", "RSASSA-PSS", "XDH", "DiffieHellman", "DSA"
+        };
+
+        for (String alg : algorithms) {
             try {
                 return KeyFactory.getInstance(alg).generatePrivate(spec);
             } catch (Exception ignored) {
                 // try the next algorithm
             }
         }
+
         throw new IllegalArgumentException("Unsupported private key algorithm in " + path
-                + " (tried RSA, EdDSA, EC)");
+                + " (tried RSA, EC, EdDSA, RSASSA-PSS, XDH, DiffieHellman, DSA, and variants)");
     }
 
     /** Strip optional PEM armour, returning the raw DER bytes. */
@@ -181,29 +184,29 @@ public class PudelPgSSLFactory extends SSLSocketFactory {
     }
 
     @Override
-    public java.net.Socket createSocket(java.net.Socket s, String host, int port, boolean autoClose) throws IOException {
+    public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
         return delegate.createSocket(s, host, port, autoClose);
     }
 
     @Override
-    public java.net.Socket createSocket(String host, int port) throws IOException {
+    public Socket createSocket(String host, int port) throws IOException {
         return delegate.createSocket(host, port);
     }
 
     @Override
-    public java.net.Socket createSocket(String host, int port, java.net.InetAddress localHost, int localPort)
+    public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
             throws IOException {
         return delegate.createSocket(host, port, localHost, localPort);
     }
 
     @Override
-    public java.net.Socket createSocket(java.net.InetAddress host, int port) throws IOException {
+    public Socket createSocket(InetAddress host, int port) throws IOException {
         return delegate.createSocket(host, port);
     }
 
     @Override
-    public java.net.Socket createSocket(java.net.InetAddress address, int port,
-            java.net.InetAddress localAddress, int localPort) throws IOException {
+    public Socket createSocket(InetAddress address, int port,
+            InetAddress localAddress, int localPort) throws IOException {
         return delegate.createSocket(address, port, localAddress, localPort);
     }
 }

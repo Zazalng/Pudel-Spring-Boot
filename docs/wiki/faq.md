@@ -88,7 +88,8 @@ Use the `/settings` command and navigate to the **AI view**:
 ### What models does Pudel support?
 
 Any Ollama-compatible model:
-- **phi3:mini** - Recommended (balanced)
+- **qwen3:8b** - Default (recommended)
+- **phi3:mini** - Balanced
 - **gemma:2b** - Lightweight
 - **llama3.2:1b** - Minimal
 - **mistral** - Higher quality

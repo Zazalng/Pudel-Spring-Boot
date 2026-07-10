@@ -106,7 +106,8 @@ Pudel uses **Ollama** for local inference - your conversations stay private:
 
 | Model | Size | RAM Required | Best For |
 |-------|------|--------------|----------|
-| phi3:mini | 3.8B | ~4GB | Recommended balance |
+| qwen3:8b | 8B | ~8GB | Default (recommended) |
+| phi3:mini | 3.8B | ~4GB | Balanced |
 | gemma:2b | 2B | ~3GB | Lightweight |
 | llama3.2:1b | 1B | ~2GB | Minimal resources |
 
@@ -178,7 +179,6 @@ See [Commands](./commands) for full reference.
 |--------|---------|---------|
 | **pudel-api** | MIT | Plugin Development Kit |
 | **pudel-core** | AGPL + Exception | Main bot & REST API |
-| **pudel-model** | AGPL | AI/ML components |
 
 ---
 

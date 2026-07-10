@@ -2,7 +2,18 @@
 
 Welcome to the official Pudel documentation! Pudel is an AI-powered Discord bot framework with an annotation-based plugin system.
 
-**Current Version: 2.3.1**
+**Current Version: 2.3.2**
+
+---
+
+## What's New in v2.3.2
+
+### 🗄️ Schema defined in Java (schema-as-code)
+- **No `init.sql` / manual migration step.** The entire per-guild / per-user schema is declared in `SchemaManagementService` and reconciled against the live database on every boot (creates missing tables/columns/indexes, repairs existing schemas). See [Schema Management](./../SCHEMA_MANAGEMENT).
+- **Single source of truth.** Removed the scattered `CREATE TABLE IF NOT EXISTS` calls (`PassiveContextProcessor.ensurePassiveContextTable`, `MemoryEmbeddingService.createGuildEmbeddingTables`) which previously caused divergent/missing schemas.
+- **`passive_context.message_id` is now `UNIQUE`** (auto-reconciled), which fixes the `INSERT … ON CONFLICT (message_id)` upsert that was failing with `bad SQL grammar`.
+- **`forwarded_messages` table** is now created by the reconciler (previously only its indexes existed, causing `relation does not exist`).
+- **pgvector embedding tables** (`memory_embeddings`, `dialogue_embeddings`) are auto-created per guild/user when pgvector is available.
 
 ---
 
@@ -48,6 +59,7 @@ Welcome to the official Pudel documentation! Pudel is an AI-powered Discord bot 
 | [💳 Subscriptions](./subscription) | Tier system |
 | [⚖️ Licensing](./licensing) | License guide |
 | [🏠 Self-Hosting](./self-hosting) | Host your own |
+| [📐 Schema Management](../SCHEMA_MANAGEMENT.md) | Schema-as-code / self-reconciling |
 | [📋 Cheat Sheet](./cheatsheet) | Quick reference |
 | [❓ FAQ](./faq) | Common questions |
 
@@ -127,7 +139,6 @@ public class MyPlugin {
 |--------|---------|---------|
 | `pudel-api` | MIT | Plugin Development Kit |
 | `pudel-core` | AGPLv3 + Exception | Bot core |
-| `pudel-model` | AGPLv3 | AI/ML components |
 
 The **Plugin Exception** allows proprietary plugins using only `pudel-api` to interact with `pudel-core`.
 
@@ -155,4 +166,4 @@ See [Getting Started](./getting-started) for detailed setup.
 
 ---
 
-*Last updated: 2026-05-17 for Pudel v2.3.1*
+*Last updated: 2026-07-10 for Pudel v2.3.2*

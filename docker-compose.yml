@@ -28,7 +28,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pudel}
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:

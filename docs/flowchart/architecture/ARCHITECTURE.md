@@ -16,6 +16,7 @@ This document describes the complete architecture of Pudel Discord Bot — refle
 - [REST API (Vue Dashboard)](#rest-api-vue-dashboard)
   - [OpenAPI / Swagger UI](#openapi--swagger-ui)
 - [Database Schema](#database-schema)
+- [Schema Management (schema-as-code)](#schema-management-schema-as-code)
 - [Configuration](#configuration)
 - [Authentication Architecture](#authentication-architecture)
   - [Security Filter Chain](#security-filter-chain)
@@ -103,13 +104,6 @@ pudel/
 │   ├── audio/                   # Voice/Audio API (DAVE support)
 │   ├── agent/                   # Agent Tools API
 │   └── database/                # Plugin database API
-│
-├── pudel-model/        # AI/Brain Module (AGPL-3.0)
-│   ├── PudelModelService.java
-│   ├── ollama/
-│   ├── embedding/
-│   ├── analyzer/
-│   └── agent/
 │
 ├── pudel-core/         # Main Bot Application (AGPL-3.0)
 │   ├── Pudel.java               # Entry point
@@ -199,10 +193,7 @@ pudel/
 │       └── ...
 │
 ├── plugins/            # Hot-reload directory for plugin JARs
-├── database/           # SQL Scripts
-│   ├── init.sql
-│   └── migrations/
-└── keys/               # JWT + Admin RSA keys
+└── keys/               # JWT + Admin RSA keys + mTLS client certs
 ```
 
 See: [ModuleStructure.mermaid](./ModuleStructure.mermaid)
@@ -384,8 +375,9 @@ The `/settings` command opens a single ephemeral message with a rich interactive
 │       ├── ⚙ General ──► Prefix (modal), Cooldown (modal), Verbosity (btns)    │
 │       ├── 🤖 AI ──► Toggle, Nickname/Language/Personality/Biography (modals)  │
 │       │              Response Length (btns), Formality (btns),                │
-│       │              Emote Usage (btns)                                       │
-│       ├── 📢 Channels ──► Log/Bot channel (EntitySelectMenu modal),           │
+│       │              Emote Usage (btns), 🔧 AI Advanced (prefs, quirks,       │
+│       │              system-prompt prefix, topics)                            │
+│       ├── 📢 Channels ──► Log/Bot channel (EntitySelectMenu modal),           |
 │       │                    Ignore/Unignore (EntitySelectMenu modal)           │
 │       ├── 📝 Commands ──► Paginated toggle buttons per text command           │
 │       └── 🧩 Plugins ──► Paginated toggle buttons per plugin                  │
@@ -393,7 +385,7 @@ The `/settings` command opens a single ephemeral message with a rich interactive
 │                                                                               │
 │  Pattern:                                                                     │
 │  ├── SettingsSession (per-user, ConcurrentHashMap<userId, Session>)           │
-│  ├── SettingsView enum: MAIN, GENERAL, AI, CHANNELS, COMMANDS, PLUGINS        │
+│  ├── SettingsView enum: MAIN, GENERAL, AI, AI_ADVANCED, CHANNELS, COMMANDS, PLUGINS │
 │  ├── View builders return Container.of(children).withAccentColor(color)       │
 │  ├── @ButtonHandler("settings:") routes all button clicks                     │
 │  ├── @ModalHandler("settings:modal:") routes text/channel inputs              │
@@ -507,27 +499,95 @@ Toggle via environment: `SWAGGER_ENABLED=true/false` (default: `true`)
 
 ## Database Schema
 
-```
-public schema (shared)
-├── users                   # Discord user profiles
-├── guild_settings          # Per-guild config + disabled_plugins CSV
-├── user_guilds             # User-guild membership
-├── subscriptions           # Subscription tiers
-├── plugin_metadata         # Loaded plugin info (name, version, jar_path)
-├── plugin_kv_store         # Plugin key-value storage
-├── plugin_database_registry # Plugin table registry
-├── admin_whitelist         # Admin RSA public keys
-├── market_plugins          # Plugin marketplace
-└── bot_users               # Bot user records
+Pudel uses **two layers** of schema management:
 
-guild_{id} schema (per-guild isolation)
-├── conversation_history    # Chat history per channel
-├── memory_embeddings       # pgvector semantic memory
-├── agent_*                 # Agent-created tables
-└── plugin_*                # Plugin-created tables
+1. **Global `public` schema** — owned by Hibernate (`spring.jpa.hibernate.ddl-auto: update`). The JPA `@Entity` classes (users, guild_settings, subscriptions, plugin_metadata, …) auto-create/evolve here. No SQL file is needed.
+2. **Per-guild / per-user schemas** (`guild_{id}`, `user_{id}`) — owned by `SchemaManagementService`, a **schema-as-code, self-reconciling** layer. The full table layout is declared once in Java; on startup (and whenever a guild/user is created) the bot reconciles the live DB against that declaration, creating missing tables, columns, and indexes, and repairing existing schemas. This makes `init.sql` obsolete (the file was deleted).
+
+> See [SCHEMA_MANAGEMENT.md](../../SCHEMA_MANAGEMENT.md) and
+> [SchemaManagement.mermaid](./SchemaManagement.mermaid) for the full design.
+
+### Global `public` schema (shared)
+
+```
+users                   # Discord user profiles
+guild_settings          # Per-guild config + disabled_plugins CSV
+user_guilds             # User-guild membership
+subscriptions           # Subscription tiers
+plugin_metadata         # Loaded plugin info (name, version, jar_path)
+plugin_kv_store         # Plugin key-value storage
+plugin_database_registry # Plugin table registry
+admin_whitelist         # Admin RSA public keys
+market_plugins          # Plugin marketplace
+bot_users               # Bot user records
+```
+
+### Per-guild schema `guild_{id}` (isolation)
+
+```
+dialogue_history    # Conversation turns (user_message, bot_response, respond_to, attachment_urls)
+passive_context     # Observed messages w/ entity extraction (message_id UNIQUE, entities JSONB,
+                    #   attachment_urls TEXT[], forwarded_content JSONB)
+forwarded_messages  # Forwarded-message refs (passive_context_id FK → passive_context.id ON DELETE CASCADE)
+user_preferences    # Per-guild user prefs (preferred_name, custom_settings JSONB)
+memory             # Key/value memory store (key UNIQUE)
+memory_embeddings  # pgvector semantic memory (created when pgvector available)
+dialogue_embeddings # pgvector dialogue embeddings (created when pgvector available)
+```
+
+### Per-user schema `user_{id}` (isolation)
+
+```
+pudel_settings     # Biography / personality / preferences / dialogue_style
+dialogue_history   # DM conversation turns
+memory             # Key/value memory store (key UNIQUE)
+memory_embeddings  # pgvector semantic memory (created when pgvector available)
+dialogue_embeddings # pgvector dialogue embeddings (created when pgvector available)
 ```
 
 See: [DatabaseSchema.mermaid](./DatabaseSchema.mermaid)
+
+---
+
+## Schema Management (schema-as-code)
+
+`SchemaManagementService` is the single source of truth for per-guild/per-user
+schemas. It replaces the old `init.sql` + scattered `CREATE TABLE IF NOT EXISTS`
+calls (e.g. `PassiveContextProcessor.ensurePassiveContextTable`,
+`MemoryEmbeddingService.createGuildEmbeddingTables`) with one declarative model.
+
+**Declarative model.** Tables are described by an in-code `TableDefinition`
+(name, columns, FK clauses, indexes, unique-constraint columns). `buildGuildTables()`,
+`buildUserTables()`, and `buildEmbeddingTables()` return the full layout.
+
+**Reconcile flow (idempotent, never destructive):**
+
+```
+reconcileSchema(schema, tables, embeddingsOnly)
+  └─ for each TableDefinition:
+       CREATE TABLE IF NOT EXISTS …          (no-op if present)
+       for each column:
+         ALTER TABLE … ADD COLUMN IF NOT EXISTS (guarded by column-existence check)
+       CREATE INDEX IF NOT EXISTS …          (no-op if present)
+       for each unique-constraint column:
+         CREATE UNIQUE INDEX IF NOT EXISTS uq_<table>_<col> …  (no-op if present)
+```
+
+- **Safe migrations only.** It never runs `DROP`/`RENAME`/`ALTER TYPE`. Adding a
+  table or column is just an edit to the declaration; on the next boot every
+  existing schema is auto-repaired.
+- **Unique indexes can't be added via `ADD COLUMN`**, so they are reconciled
+  separately (e.g. `passive_context.message_id` → `uq_passive_context_message_id`),
+  which is what makes the `INSERT … ON CONFLICT (message_id)` upsert work.
+- **pgvector embedding tables** (`memory_embeddings`, `dialogue_embeddings`) are
+  created only when pgvector is detected and embeddings are enabled; the vector
+  dimension is injected from config. `MemoryEmbeddingService` now delegates table
+  provisioning to this service instead of owning duplicate DDL.
+- **Trigger points.** `SchemaBootstrapRunner` runs on startup (after JDA ready)
+  and reconciles every guild the bot is in, plus embedding tables. New guilds
+  joining later are handled by the guild-join path in `GuildInitializationService`.
+
+See: [SchemaManagement.mermaid](./SchemaManagement.mermaid)
 
 ---
 
@@ -546,7 +606,7 @@ POSTGRES_PASSWORD=password
 
 # AI
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=phi3:mini
+OLLAMA_MODEL=qwen3:8b
 
 # JWT (for user authentication)
 JWT_PRIVATE_KEY_PATH=./keys/pv.key
@@ -718,4 +778,4 @@ See: [AdminMutualAuth.mermaid](./AdminMutualAuth.mermaid)
 
 ---
 
-*Last updated: 2026-05-17 for Pudel v2.3.1*
+*Last updated: 2026-07-10 — schema is now defined in Java (schema-as-code / self-reconciling); `init.sql` removed.*

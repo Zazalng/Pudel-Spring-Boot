@@ -30,7 +30,10 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      # update = Hibernate auto-creates/evolves the global public tables.
+      # Per-guild/per-user schemas are managed separately by SchemaManagementService
+      # (schema-as-code); see SCHEMA_MANAGEMENT.md.
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -70,8 +73,8 @@ pudel:
     # Ollama server URL
     base-url: http://localhost:11434
     
-    # Model to use (phi3:mini, gemma:2b, llama3.2:1b)
-    model: phi3:mini
+    # Model to use (qwen3:8b default; phi3:mini, gemma:2b, llama3.2:1b also work)
+    model: qwen3:8b
     
     # Request timeout in seconds
     timeout-seconds: 60
@@ -89,8 +92,8 @@ pudel:
       # Enable vector embeddings for semantic search
       enabled: true
       
-      # Vector dimension (match your ONNX model)
-      dimension: 384
+      # Vector dimension — MUST match the embedding model (qwen3-embedding:8b = 1024)
+      dimension: 1024
       
       # IVFFlat index settings for pgvector
       ivfProbes: 10    # Higher = more accurate, slower
@@ -335,7 +338,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # No init.sql mount: Pudel reconciles its schema from Java on startup.
 
   ollama:
     image: ollama/ollama

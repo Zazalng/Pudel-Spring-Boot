@@ -1,8 +1,7 @@
-%% Pudel Database Schema v2.1.1
+%% Pudel Database Schema — schema-as-code (managed in Java)
 
 erDiagram
-    %% Public Schema (Shared)
-
+    %% Public Schema (Hibernate-managed JPA entities)
     USERS {
         bigint id PK
         string discord_id UK
@@ -13,7 +12,6 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-
     GUILD_SETTINGS {
         bigint id PK
         string guild_id UK
@@ -43,7 +41,6 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-
     USER_GUILDS {
         bigint id PK
         bigint user_id FK
@@ -53,7 +50,6 @@ erDiagram
         boolean is_admin
         timestamp joined_at
     }
-
     SUBSCRIPTIONS {
         bigint id PK
         string subscriber_id UK
@@ -64,7 +60,6 @@ erDiagram
         boolean is_active
         json features
     }
-
     PLUGIN_METADATA {
         bigint id PK
         string plugin_id UK
@@ -78,7 +73,6 @@ erDiagram
         timestamp loaded_at
         timestamp updated_at
     }
-
     PLUGIN_KV_STORE {
         bigint id PK
         string plugin_id
@@ -88,7 +82,6 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-
     PLUGIN_DATABASE_REGISTRY {
         bigint id PK
         string plugin_id
@@ -96,7 +89,6 @@ erDiagram
         string schema_name
         timestamp created_at
     }
-
     ADMIN_WHITELIST {
         bigint id PK
         string discord_user_id UK
@@ -106,7 +98,6 @@ erDiagram
         timestamp last_login
         timestamp created_at
     }
-
     MARKET_PLUGINS {
         bigint id PK
         string plugin_name UK
@@ -121,7 +112,6 @@ erDiagram
         timestamp published_at
         timestamp updated_at
     }
-
     BOT_USERS {
         bigint id PK
         string discord_id UK
@@ -130,50 +120,106 @@ erDiagram
         timestamp last_seen
     }
 
-    %% Guild Schema (Per-guild isolation: guild_{id})
-
-    CONVERSATION_HISTORY {
+    %% Per-guild schema (guild_{id}) — SchemaManagementService reconciled
+    %% (dialogue_history, passive_context, forwarded_messages, user_preferences,
+    %%  memory) + pgvector (memory_embeddings, dialogue_embeddings)
+    DIALOGUE_HISTORY {
         bigint id PK
-        string user_id
-        string channel_id
-        string role
-        text content
-        json metadata
+        bigint user_id
+        bigint channel_id
+        text user_message
+        text bot_response
+        string intent
+        bigint respond_to
+        text[] attachment_urls
         timestamp created_at
     }
-
+    PASSIVE_CONTEXT {
+        bigint id PK
+        bigint message_id UK "UNIQUE -> ON CONFLICT upsert"
+        bigint user_id
+        bigint channel_id
+        text content
+        jsonb entities
+        text[] attachment_urls
+        jsonb forwarded_content
+        timestamp created_at
+    }
+    FORWARDED_MESSAGES {
+        bigint id PK
+        bigint passive_context_id FK
+        bigint message_id
+        bigint author_id
+        string author_name
+        text content
+        timestamp created_at
+    }
+    USER_PREFERENCES {
+        bigint user_id PK
+        string preferred_name
+        jsonb custom_settings
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    MEMORY {
+        bigint id PK
+        string key UK
+        text value
+        string category
+        bigint created_by
+        timestamp created_at
+        timestamp updated_at
+    }
     MEMORY_EMBEDDINGS {
         bigint id PK
-        string user_id
-        text content
-        vector embedding "pgvector"
-        json metadata
-        float importance
+        bigint memory_id FK
+        vector embedding "pgvector (optional)"
         timestamp created_at
-        timestamp last_accessed
     }
-
-    AGENT_TABLES {
+    DIALOGUE_EMBEDDINGS {
         bigint id PK
-        string table_name
-        text description
-        json schema
-        string created_by
+        bigint dialogue_id FK
+        vector embedding "pgvector (optional)"
         timestamp created_at
     }
 
-    PLUGIN_TABLES {
+    %% Per-user schema (user_{id}) — SchemaManagementService reconciled
+    PUDEL_SETTINGS {
         bigint id PK
-        string plugin_id
-        string table_name
-        json data
+        text biography
+        text personality
+        text preferences
+        text dialogue_style
+        timestamp created_at
+        timestamp updated_at
+    }
+    USER_DIALOGUE_HISTORY {
+        bigint id PK
+        text user_message
+        text bot_response
+        string intent
+        bigint respond_to
+        text[] attachment_urls
+        timestamp created_at
+    }
+    USER_MEMORY {
+        bigint id PK
+        string key UK
+        text value
+        string category
         timestamp created_at
         timestamp updated_at
     }
 
     %% Relationships
     USERS ||--o{ USER_GUILDS : has
-    GUILD_SETTINGS ||--o{ CONVERSATION_HISTORY : "guild schema"
-    GUILD_SETTINGS ||--o{ MEMORY_EMBEDDINGS : "guild schema"
+    GUILD_SETTINGS ||--o{ DIALOGUE_HISTORY : "guild schema"
+    GUILD_SETTINGS ||--o{ PASSIVE_CONTEXT : "guild schema"
     PLUGIN_METADATA ||--o{ PLUGIN_KV_STORE : stores
     PLUGIN_METADATA ||--o{ PLUGIN_DATABASE_REGISTRY : owns
+    PASSIVE_CONTEXT ||--o{ FORWARDED_MESSAGES : "passive_context_id -> id ON DELETE CASCADE"
+    MEMORY ||--o{ MEMORY_EMBEDDINGS : "memory_id -> id"
+    DIALOGUE_HISTORY ||--o{ DIALOGUE_EMBEDDINGS : "dialogue_id -> id"
+    USER_MEMORY ||--o{ MEMORY_EMBEDDINGS : "user schema"
+    USER_DIALOGUE_HISTORY ||--o{ DIALOGUE_EMBEDDINGS : "user schema"

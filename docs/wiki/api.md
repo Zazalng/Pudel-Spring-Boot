@@ -360,9 +360,9 @@ Get AI system status.
 ```json
 {
   "ollamaAvailable": true,
-  "ollamaModel": "phi3:mini",
+  "ollamaModel": "qwen3:8b",
   "embeddingEnabled": true,
-  "embeddingDimension": 384
+  "embeddingDimension": 1024
 }
 ```
 
