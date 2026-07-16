@@ -73,6 +73,7 @@ public class SecurityConfiguration {
                         // Public
                         .requestMatchers(
                                 "/api/auth/discord/**",
+                                "/api/auth/refresh",
                                 "/api/bot/**",
                                 "/api/plugins",
                                 "/api/plugins/*",

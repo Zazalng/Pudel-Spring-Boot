@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>group.worldstandard</groupId>
     <artifactId>pudel</artifactId>
-    <version>2.3.2</version>
+    <version>2.4.0</version>
     <packaging>pom</packaging>
 
     <name>Pudel</name>
@@ -55,14 +55,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
         <maven.deploy.skip>true</maven.deploy.skip>
-        <pudel.version>2.3.2</pudel.version>
+        <pudel.version>2.4.0</pudel.version>
 
         <!--JDA Version Control-->
         <jda.version>6.5.0</jda.version>
 
         <!--Indirect Version Control-->
-        <tomcat.version>11.0.23</tomcat.version>
-        <logback.version>1.5.37</logback.version>
+        <tomcat.version>11.0.24</tomcat.version>
+        <logback.version>1.5.38</logback.version>
 
         <!--Maven Plugin Version Control-->
         <mvn.compiler.version>3.15.0</mvn.compiler.version>
@@ -91,7 +91,7 @@
             <dependency>
                 <groupId>tools.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
-                <version>3.2.0</version>
+                <version>3.2.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -105,7 +105,7 @@
             <dependency>
                 <groupId>org.apache.tomcat</groupId>
                 <artifactId>tomcat</artifactId>
-                <version>11.0.23</version>
+                <version>11.0.24</version>
                 <type>pom</type>
                 <scope>provided</scope>
             </dependency>

@@ -64,12 +64,23 @@ public record PassiveContextEntry(
 
     /**
      * Reference to a forwarded message.
-     * Note: MessageSnapshot doesn't contain author info, only the forwarded content.
+     * <p>
+     * Discord {@link net.dv8tion.jda.api.entities.messages.MessageSnapshot} does not expose the
+     * original message author or id, so {@code messageId} is best-effort (0 when unknown) and
+     * {@code authorId}/{@code authorName} are intentionally left empty. Forwarded messages are
+     * recorded in the dedicated {@code forwarded_messages} table; this record only carries the
+     * extracted content for inline display and retrieval.
      *
-     * @param content the forwarded message's content
+     * @param messageId the forwarded message's id if known (0 when Discord does not expose it)
+     * @param content   the forwarded message's content
      */
     public record ForwardedMessageRef(
+            long messageId,
             String content
-    ) {}
+    ) {
+        public ForwardedMessageRef(String content) {
+            this(0L, content);
+        }
+    }
 }
 

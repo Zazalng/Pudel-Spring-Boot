@@ -408,6 +408,34 @@ public class PluginAnnotationProcessor {
         return data;
     }
 
+    private CommandData buildContextMenuCommandData(ContextMenu annotation, Command.Type type) {
+        CommandData data;
+        if (type == Command.Type.USER) {
+            data = Commands.user(annotation.name());
+        } else {
+            data = Commands.message(annotation.name());
+        }
+
+        // Add default member permissions (controls visibility/usage)
+        if (annotation.permissions().length > 0) {
+            data.setDefaultPermissions(DefaultMemberPermissions.enabledFor(annotation.permissions()));
+        }
+
+        data.setNSFW(annotation.nsfw());
+
+        // Add IntegrationType
+        if (annotation.integrationTo().length > 0) {
+            data.setIntegrationTypes(annotation.integrationTo());
+        }
+
+        // Add InteractionContextType
+        if (annotation.integrationContext().length > 0) {
+            data.setContexts(annotation.integrationContext());
+        }
+
+        return data;
+    }
+
     private OptionData buildOptionData(CommandOption opt) {
         OptionType type = opt.type();
 
@@ -754,11 +782,7 @@ public class PluginAnnotationProcessor {
             ContextMenuHandler handler = new ContextMenuHandler() {
                 @Override
                 public CommandData getCommandData() {
-                    if (expectedType == Command.Type.USER) {
-                        return Commands.user(annotation.name());
-                    } else {
-                        return Commands.message(annotation.name());
-                    }
+                    return buildContextMenuCommandData(annotation, expectedType);
                 }
 
                 @Override

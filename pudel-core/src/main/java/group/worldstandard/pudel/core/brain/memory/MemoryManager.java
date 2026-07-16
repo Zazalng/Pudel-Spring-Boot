@@ -109,7 +109,7 @@ public class MemoryManager {
      * <p>
      * NOTE: This legacy method is kept for backward compatibility but the new
      * PassiveContextProcessor handles all passive context storage with the
-     * updated schema (message_id, attachment_urls, forwarded_content).
+     * updated schema (message_id, attachment_urls, forwarded_message_id).
      */
     @Deprecated
     public void storePassiveContext(String message, long userId, long channelId,
@@ -326,7 +326,7 @@ public class MemoryManager {
                     "sentiment VARCHAR(20), " +
                     "entities JSONB, " +
                     "attachment_urls TEXT[], " +
-                    "forwarded_content JSONB, " +
+                    "forwarded_message_id BIGINT, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")";
             jdbcTemplate.execute(sql);

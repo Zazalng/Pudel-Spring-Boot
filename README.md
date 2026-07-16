@@ -327,7 +327,6 @@ Mount the plugins directory as a volume. When you copy a new JAR to `./plugins/`
 |--------|---------|---------|
 | `pudel-core` | AGPLv3 + Plugin Exception | Bot core |
 | `pudel-api` | MIT | Plugin Development Kit |
-| `pudel-model` | AGPLv3 | AI/ML components |
 
 ### Plugin Exception
 
@@ -350,7 +349,7 @@ Are **NOT considered derivative works** of Pudel. This allows proprietary and co
 
 ## Status
 
-**Version**: 2.3.2 (Stable)
+**Version**: 2.4.0 (Stable)
 
 **Note**: Only changes or bug fixes originating from the API qualify for a semantic version update.
 
