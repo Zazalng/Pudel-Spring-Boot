@@ -54,7 +54,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h2>With Permissions, IntegrationType & InteractionContextType:</h2>
+ * <h2>With Permissions, IntegrationType &amp; InteractionContextType:</h2>
  * <pre>{@code
  * @ContextMenu(
  *     name = "Ban User",
@@ -124,7 +124,7 @@ public @interface ContextMenu {
      * Indicates whether the context menu is NSFW (Not Safe For Work).
      * If set to true, the menu will only be available in channels marked as NSFW.
      * Defaults to {@code true}.
-     * <p>
+     *
      * @return {@code true} if the context menu is NSFW, {@code false} otherwise
      */
     boolean nsfw() default true;
