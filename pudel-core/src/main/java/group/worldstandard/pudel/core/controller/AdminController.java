@@ -969,8 +969,9 @@ public class AdminController {
         // Try Authorization header first, fall back to query-parameter token
         AdminSessionData session = validateAdminSession(authHeader);
         if (session == null && queryToken != null && !queryToken.isBlank()) {
-            // Wrap the raw token so validateAdminSession can parse it
-            session = validateAdminSession("Bearer " + queryToken);
+            // Wrap the raw token with the DPoP scheme: admin sessions are DPoP-bound,
+            // so validateAdminSession requires the "DPoP " prefix (it rejects "Bearer ").
+            session = validateAdminSession("DPoP " + queryToken);
         }
         if (session == null) {
             SseEmitter emitter = new SseEmitter(0L);
