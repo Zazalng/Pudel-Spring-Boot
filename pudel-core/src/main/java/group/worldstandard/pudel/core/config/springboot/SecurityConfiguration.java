@@ -85,6 +85,9 @@ public class SecurityConfiguration {
                                 "/api/dpop/public-key",
                                 "/api/dpop/thumbprint",
                                 "/api/dpop/sign",
+                                // Key deletion is safe to permitAll if presenter's X-DPoP-Key-Id
+                                "/api/dpop/key",
+                                "/api/dpop/keys",
                                 // Admin public endpoints (for challenge/key fetching)
                                 "/api/admin/challenge",
                                 "/api/admin/public-key",
