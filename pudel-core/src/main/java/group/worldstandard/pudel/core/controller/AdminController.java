@@ -635,7 +635,7 @@ public class AdminController {
             adminClaims.put("canManageAdmins", admin.canManageAdmins());
 
             String adminToken = jwtUtil.generateDPoPBoundToken(
-                    admin.getDiscordUserId(), adminClaims, presentedThumbprint);
+                    "pudel-admin-session", adminClaims, presentedThumbprint);
 
             activeSessions.put(sessionId, new AdminSessionData(
                     sessionId,
