@@ -101,8 +101,8 @@ ENV OLLAMA_URL=http://localhost:11434
 ENV OLLAMA_MODEL=qwen3:8b
 
 # Embedding Configuration
-ENV EMBEDDING_ENABLED=true
 ENV EMBEDDING_MODEL=qwen3-embedding:8b
+ENV EMBEDDING_DIMENSION=1024
 
 # Server Configuration
 ENV SERVER_PORT=8080
