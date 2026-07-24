@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
@@ -141,7 +142,7 @@ public class OllamaClient {
                     })
                     .doOnError(error -> {
                         logger.error("Ollama streaming error: {}", error.getMessage());
-                        if (error instanceof org.springframework.web.reactive.function.client.WebClientResponseException wce) {
+                        if (error instanceof WebClientResponseException wce) {
                             logger.error("Ollama error response body: {}", wce.getResponseBodyAsString());
                         }
                         // Return whatever we have so far
@@ -261,10 +262,10 @@ public class OllamaClient {
         try {
             ObjectNode requestBody = MAPPER.createObjectNode();
             requestBody.put("model", embeddingModel);
-            requestBody.put("prompt", text);
+            requestBody.put("input", text);
 
             String response = webClient.post()
-                    .uri("/api/embeddings")
+                    .uri("/api/embed")
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody.toString())
                     .retrieve()
