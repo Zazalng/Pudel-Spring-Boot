@@ -400,8 +400,10 @@ public class SchemaManagementService {
             int dim = embeddingDimension();
             ensureEmbeddingDimension(schemaName, "memory_embeddings", dim);
             ensureEmbeddingDimension(schemaName, "dialogue_embeddings", dim);
+            ensureEmbeddingDimension(schemaName, "passive_context_embeddings", dim);
             createEmbeddingIndexes(schemaName, "memory_embeddings", "embedding");
             createEmbeddingIndexes(schemaName, "dialogue_embeddings", "embedding");
+            createEmbeddingIndexes(schemaName, "passive_context_embeddings", "embedding");
         } catch (Exception e) {
             logger.warn("Could not ensure guild embedding tables for {}: {}", guildId, e.getMessage());
         }
