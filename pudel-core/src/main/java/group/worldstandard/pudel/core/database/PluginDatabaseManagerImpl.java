@@ -219,17 +219,17 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
         sql.append("    id BIGSERIAL PRIMARY KEY,\n");
 
         // Add user-defined columns
-        for (TableSchema.ColumnDefinition col : schema.getColumns()) {
-            sql.append("    ").append(col.name()).append(" ");
-            sql.append(col.type().getSqlType(col.size()));
-            if (!col.nullable()) {
-                sql.append(" NOT NULL");
-            }
-            if (col.defaultValue() != null) {
-                sql.append(" DEFAULT ").append(col.defaultValue());
-            }
-            sql.append(",\n");
-        }
+                for (TableSchema.ColumnDefinition col : schema.getColumns()) {
+                    sql.append("    ").append(col.name()).append(" ");
+                    sql.append(col.type().getSqlType(col.size()));
+                    if (!col.nullable()) {
+                        sql.append(" NOT NULL");
+                    }
+                    if (col.defaultValue() != null) {
+                        sql.append(" DEFAULT ").append(formatDefaultValue(col.defaultValue(), col.type()));
+                    }
+                    sql.append(",\n");
+                }
 
         // Add timestamp columns
         sql.append("    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,\n");
@@ -662,23 +662,23 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
                         .collect(Collectors.toSet());
 
                 // Add missing columns
-                for (TableSchema.ColumnDefinition desiredCol : desiredSchema.getColumns()) {
-                    if (!existingColumnNames.contains(desiredCol.name())) {
-                        StringBuilder alterSql = new StringBuilder();
-                        alterSql.append("ALTER TABLE ").append(fullTableName);
-                        alterSql.append(" ADD COLUMN IF NOT EXISTS ").append(desiredCol.name()).append(" ");
-                        alterSql.append(desiredCol.type().getSqlType(desiredCol.size()));
-                        if (!desiredCol.nullable()) {
-                            alterSql.append(" NOT NULL");
-                        }
-                        if (desiredCol.defaultValue() != null) {
-                            alterSql.append(" DEFAULT ").append(desiredCol.defaultValue());
-                        }
-                        jdbcTemplate.execute(alterSql.toString());
-                        logger.info("Added column {} to table {}", desiredCol.name(), tableName);
-                        anyChanged = true;
-                    }
-                }
+                                for (TableSchema.ColumnDefinition desiredCol : desiredSchema.getColumns()) {
+                                    if (!existingColumnNames.contains(desiredCol.name())) {
+                                        StringBuilder alterSql = new StringBuilder();
+                                        alterSql.append("ALTER TABLE ").append(fullTableName);
+                                        alterSql.append(" ADD COLUMN IF NOT EXISTS ").append(desiredCol.name()).append(" ");
+                                        alterSql.append(desiredCol.type().getSqlType(desiredCol.size()));
+                                        if (!desiredCol.nullable()) {
+                                            alterSql.append(" NOT NULL");
+                                        }
+                                        if (desiredCol.defaultValue() != null) {
+                                            alterSql.append(" DEFAULT ").append(formatDefaultValue(desiredCol.defaultValue(), desiredCol.type()));
+                                        }
+                                        jdbcTemplate.execute(alterSql.toString());
+                                        logger.info("Added column {} to table {}", desiredCol.name(), tableName);
+                                        anyChanged = true;
+                                    }
+                                }
 
                 // Get current indexes
                 String indexSql = """
@@ -723,27 +723,59 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
             }
 
             /**
-             * Maps PostgreSQL data type to ColumnType.
-             */
-            private ColumnType mapPostgresTypeToColumnType(String pgType, Integer charMaxLength) {
-                return switch (pgType.toLowerCase()) {
-                    case "bigint" -> ColumnType.BIGINT;
-                    case "integer", "int" -> ColumnType.INTEGER;
-                    case "smallint" -> ColumnType.SMALLINT;
-                    case "boolean", "bool" -> ColumnType.BOOLEAN;
-                    case "character varying", "varchar" -> ColumnType.STRING;
-                    case "text" -> ColumnType.TEXT;
-                    case "timestamp with time zone", "timestamptz" -> ColumnType.TIMESTAMP;
-                    case "timestamp without time zone", "timestamp" -> ColumnType.TIMESTAMP;
-                    case "date" -> ColumnType.DATE;
-                    case "time without time zone", "time" -> ColumnType.TIME;
-                    case "numeric" -> ColumnType.DECIMAL;
-                    case "double precision" -> ColumnType.DOUBLE;
-                    case "real" -> ColumnType.FLOAT;
-                    case "jsonb" -> ColumnType.JSON;
-                    case "bytea" -> ColumnType.BINARY;
-                    case "uuid" -> ColumnType.UUID;
-                    default -> null;
-                };
-            }
-        }
+                         * Maps PostgreSQL data type to ColumnType.
+                         */
+                        private ColumnType mapPostgresTypeToColumnType(String pgType, Integer charMaxLength) {
+                            return switch (pgType.toLowerCase()) {
+                                case "bigint" -> ColumnType.BIGINT;
+                                case "integer", "int" -> ColumnType.INTEGER;
+                                case "smallint" -> ColumnType.SMALLINT;
+                                case "boolean", "bool" -> ColumnType.BOOLEAN;
+                                case "character varying", "varchar" -> ColumnType.STRING;
+                                case "text" -> ColumnType.TEXT;
+                                case "timestamp with time zone", "timestamptz" -> ColumnType.TIMESTAMP;
+                                case "timestamp without time zone", "timestamp" -> ColumnType.TIMESTAMP;
+                                case "date" -> ColumnType.DATE;
+                                case "time without time zone", "time" -> ColumnType.TIME;
+                                case "numeric" -> ColumnType.DECIMAL;
+                                case "double precision" -> ColumnType.DOUBLE;
+                                case "real" -> ColumnType.FLOAT;
+                                case "jsonb" -> ColumnType.JSON;
+                                case "bytea" -> ColumnType.BINARY;
+                                case "uuid" -> ColumnType.UUID;
+                                default -> null;
+                            };
+                        }
+
+                        /**
+                         * Formats a default value for SQL based on the column type.
+                         * String types get single-quoted, other types are used as-is.
+                         */
+                        private String formatDefaultValue(String defaultValue, ColumnType type) {
+                            // Keywords that should not be quoted
+                            String upper = defaultValue.trim().toUpperCase();
+                            if (upper.equals("CURRENT_TIMESTAMP") 
+                                || upper.equals("CURRENT_DATE") 
+                                || upper.equals("CURRENT_TIME")
+                                || upper.equals("NOW()")
+                                || upper.equals("DEFAULT")
+                                || upper.equals("NULL")
+                                || upper.equals("TRUE")
+                                || upper.equals("FALSE")
+                                || upper.startsWith("NEXTVAL(")
+                                || upper.startsWith("GEN_RANDOM_UUID()")
+                                || upper.startsWith("UUID_GENERATE_V4()")) {
+                                return defaultValue;
+                            }
+                
+                            // For string/text types, wrap in single quotes and escape existing single quotes
+                            if (type == ColumnType.STRING || type == ColumnType.TEXT 
+                                || type == ColumnType.UUID || type == ColumnType.JSON) {
+                                String escaped = defaultValue.replace("'", "''");
+                                return "'" + escaped + "'";
+                            }
+                
+                            // For other types (numeric, boolean, etc.), use as-is
+                            return defaultValue;
+                        }
+                    }
