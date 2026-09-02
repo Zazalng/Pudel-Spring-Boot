@@ -163,52 +163,65 @@ public interface PluginDatabaseManager {
     boolean migrate(int targetVersion, PluginMigration migration);
 
     /**
-         * Get database statistics for this plugin.
-         *
-         * @return database stats
-         */
-        DatabaseStats getStats();
+     * Get database statistics for this plugin.
+     *
+     * @return database stats
+     */
+    DatabaseStats getStats();
 
-        /**
-         * Automatically migrate tables to match the given entity classes.
-         * <p>
-         * This method compares the current database schema with the schema derived
-         * from the entity classes and applies necessary changes (add columns, create indexes, etc.).
-         * It does not drop columns or tables - only additive changes for safety.
-         * <p>
-         * Example:
-         * <pre>
-         * {@code
-         * dbManager.autoMigrate(UserSetting.class, GuildConfig.class);
-         * }
-         * </pre>
-         *
-         * @param entityClasses the entity classes to migrate to
-         * @return true if any migrations were applied, false if already up to date
-         */
-        boolean autoMigrate(Class<?>... entityClasses);
+    /**
+     * Automatically migrate tables to match the given entity classes.
+     * <p>
+     * This method compares the current database schema with the schema derived
+     * from the entity classes and applies necessary changes (add columns, create indexes, etc.).
+     * It does not drop columns or tables - only additive changes for safety.
+     * <p>
+     * The target table name for each entity is resolved in this order:
+     * <ol>
+     *   <li>An explicit {@code @Entity(tableName = "...")} attribute on the class.</li>
+     *   <li>Otherwise the class name converted from PascalCase to snake_case
+     *       (with a trailing {@code Entity} suffix stripped).</li>
+     * </ol>
+     * Use the explicit form whenever the table is also managed by a manual
+     * migration script so the auto-migrator and the manual script target the
+     * same physical table.
+     * <p>
+     * Example:
+     * <pre>
+     * {@code
+     * dbManager.autoMigrate(UserSetting.class, GuildConfig.class);
+     * }
+     * </pre>
+     *
+     * @param entityClasses the entity classes to migrate to
+     * @return true if any migrations were applied, false if already up to date
+     */
+    boolean autoMigrate(Class<?>... entityClasses);
 
-        /**
-         * Create or update a table from an entity class.
-         * <p>
-         * This is a convenience method that creates the table if it doesn't exist,
-         * or adds missing columns/indexes if it does exist.
-         *
-         * @param entityClass the entity class annotated with @Entity
-         * @return true if table was created or modified, false if already up to date
-         */
-        <T> boolean createOrUpdateTable(Class<T> entityClass);
+    /**
+     * Create or update a table from an entity class.
+     * <p>
+     * This is a convenience method that creates the table if it doesn't exist,
+     * or adds missing columns/indexes if it does exist.
+     * <p>
+     * The table name is resolved from {@code @Entity(tableName = "...")} when
+     * present, otherwise from the class name (PascalCase → snake_case).
+     *
+     * @param entityClass the entity class annotated with @Entity
+     * @return true if table was created or modified, false if already up to date
+     */
+    <T> boolean createOrUpdateTable(Class<T> entityClass);
 
-        /**
-         * Get the current table schema for a table (for comparison/debugging).
-         *
-         * @param tableName the table name (without prefix)
-         * @return current table schema, or null if table doesn't exist
-         */
-        TableSchema getTableSchema(String tableName);
+/**
+     * Get the current table schema for a table (for comparison/debugging).
+     *
+     * @param tableName the table name (without prefix)
+     * @return current table schema, or null if table doesn't exist
+     */
+    TableSchema getTableSchema(String tableName);
 
-        /**
-         * Database statistics.
+    /**
+     * Database statistics.
      *
      * @param pluginId      the identifier of the plugin the statistics belong to
      * @param schemaName    the name of the database schema
