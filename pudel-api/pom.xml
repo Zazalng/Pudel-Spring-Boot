@@ -63,7 +63,6 @@
 
     <build>
         <plugins>
-            <!-- Attach sources (needed locally + for Central) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -75,12 +74,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--
-              Javadoc jar generation is a Maven Central PUBLISH requirement only.
-              It is bound to the 'central' profile (see below) so it does NOT run
-              on normal local builds (package/install), which would otherwise fail
-              the build whenever javadoc cannot be generated in the local env.
-            -->
         </plugins>
     </build>
 
@@ -93,7 +86,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>flatten-maven-plugin</artifactId>
-                        <version>1.7.3</version>
+                        <version>1.8.0</version>
                         <configuration>
                             <updatePomFile>true</updatePomFile>
                             <flattenMode>ossrh</flattenMode>
@@ -139,9 +132,6 @@
                             <publishingServerId>central</publishingServerId>
                         </configuration>
                     </plugin>
-                    <!-- Javadoc jar (Maven Central PUBLISH requirement).
-                         Bound here (not in the main build) so local package/install
-                         builds do not fail when javadoc cannot be generated. -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>

@@ -58,7 +58,7 @@
         <pudel.version>2.5.0</pudel.version>
 
         <!--JDA Version Control-->
-        <jda.version>6.5.0</jda.version>
+        <jda.version>6.6.0</jda.version>
 
         <!--Indirect Version Control-->
         <tomcat.version>11.0.25</tomcat.version>

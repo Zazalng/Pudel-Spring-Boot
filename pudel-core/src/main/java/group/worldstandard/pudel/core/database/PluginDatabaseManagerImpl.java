@@ -311,6 +311,43 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
     }
 
     /**
+     * Get a repository for CRUD operations on a table, deriving the table name
+     * from the entity's {@code @Entity} annotation.
+     * <p>
+     * The table name is resolved in this order:
+     * <ol>
+     *   <li>An explicit {@code @Entity(tableName = "...")} attribute on the class.</li>
+     *   <li>Otherwise the class name converted from PascalCase to snake_case
+     *       (with a trailing {@code Entity} suffix stripped).</li>
+     * </ol>
+     * This is the same resolution order used by
+     * {@link #autoMigrate(Class[])} and {@link #createOrUpdateTable(Class)},
+     * so an entity mapped via {@code @Entity(tableName = "user_settings")} and a
+     * manual migration script that creates {@code user_settings} all line up to
+     * the same physical table.
+     * <p>
+     * The returned repository is cached against the resolved table name, so
+     * repeated calls with the same entity class (and calls that also pass the
+     * same table name explicitly) reuse a single instance.
+     *
+     * @param entityClass the entity class annotated with {@code @Entity}
+     * @param <T> the entity type
+     * @return a repository instance for the resolved table
+     * @throws IllegalArgumentException if {@code entityClass} is not annotated with
+     *     {@code @Entity}, or if {@code @Entity(tableName = "...")} is set but
+     *     violates the table-name naming rules
+     */
+    @Override
+    public <T> PluginRepository<T> getRepository(Class<T> entityClass) {
+        // Resolve table name from @Entity(tableName=...) or derive from class name.
+        // getTableNameFromEntity() enforces the @Entity presence + tableName
+        // naming convention, so any failure surfaces here with a clear message
+        // pointing at the offending entity, not deep inside a SQL exception.
+        String tableName = getTableNameFromEntity(entityClass);
+        return getRepository(tableName, entityClass);
+    }
+
+    /**
      * Returns the key-value store associated with this plugin database manager.
      * If the key-value store has not been initialized yet, this method ensures
      * that the underlying key-value table exists and then creates a new instance
@@ -564,6 +601,68 @@ public class PluginDatabaseManagerImpl implements PluginDatabaseManager {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Creates or updates a table from an entity class, using an explicit
+     * table name.
+     * <p>
+     * This is the legacy-smooth-migration overload: callers who used to do
+     * {@code createTable(TableSchema.builder("user_settings")...)} can swap to
+     * {@code createOrUpdateTable("user_settings", UserSettingEntity.class)} without
+     * first having to annotate their POJO with
+     * {@code @Entity(tableName = "user_settings")}. Once the migration is complete,
+     * they can drop the explicit name and switch to the single-arg
+     * {@link #createOrUpdateTable(Class)} form.
+     * <p>
+     * The explicit {@code tableName} overrides any
+     * {@code @Entity(tableName = "...")} attribute on the class — the value here
+     * is what the table will be named in the database, and the annotation is
+     * ignored for this call. The name is validated against the same naming rules
+     * as {@code TableSchema.Builder} (lowercase, starts with a letter, max 50 chars)
+     * so a bad value fails fast with a clear message at the call site rather than
+     * producing a confusing SQL syntax error later.
+     *
+     * @param tableName the explicit database table name to use (overrides
+     *     {@code @Entity(tableName = "...")} for this call)
+     * @param entityClass the entity class annotated with {@code @Entity}
+     * @param <T> the entity type
+     * @return true if the table was created or modified
+     * @throws IllegalArgumentException if {@code entityClass} is not annotated with
+     *     {@code @Entity}, or if {@code tableName} violates the table-name naming rules
+     */
+    @Override
+    @Transactional
+    public <T> boolean createOrUpdateTable(String tableName, Class<T> entityClass) {
+        // Verify @Entity annotation up front — a missing annotation would
+        // otherwise surface much later as a confusing "no @Column fields found"
+        // error from TableSchema.Builder.fromEntity().
+        if (!entityClass.isAnnotationPresent(Entity.class)) {
+            throw new IllegalArgumentException(
+                    "Class must be annotated with @Entity: " + entityClass.getName());
+        }
+
+        // Validate the explicit table name using the same rules as
+        // TableSchema.Builder.validateTableName, so a bad name is rejected here
+        // with a clear "@Entity tableName ..." message rather than producing a
+        // SQL syntax error deep inside createTable().
+        String resolvedTableName = validateExplicitTableName(tableName);
+
+        // Build desired schema from entity using the explicit name, NOT whatever
+        // @Entity(tableName=...) would say — the caller's explicit choice wins
+        // for this call. The annotation is ignored here, which is the whole point
+        // of having an explicit-name overload: callers can opt in to entity-driven
+        // schema without yet having annotated their POJO.
+        TableSchema desiredSchema = TableSchema.builder(resolvedTableName)
+                .fromEntity(entityClass)
+                .build();
+
+        // Same create-or-update branching as the single-arg form.
+        if (!tableExistsInternal(resolvedTableName)) {
+            return createTable(desiredSchema);
+        } else {
+            return updateTableFromSchema(desiredSchema);
+        }
     }
 
     /**
