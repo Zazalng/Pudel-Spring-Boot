@@ -122,6 +122,15 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             field.setAccessible(true);
             Object value = field.get(entity);
 
+            // If the field is null and the column has a SQL DEFAULT defined,
+            // skip it from the INSERT so the DB applies the default instead
+            if (value == null) {
+                Column colAnnot = field.getAnnotation(Column.class);
+                if (colAnnot != null && !colAnnot.defaultValue().isEmpty()) {
+                    continue;
+                }
+            }
+
             columns.add(columnName);
             values.add(convertToJdbcValue(value));
         }
