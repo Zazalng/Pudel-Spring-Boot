@@ -109,6 +109,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
     private T insert(T entity) throws Exception {
         List<String> columns = new ArrayList<>();
         List<Object> values = new ArrayList<>();
+        List<String> defaultedColumns = new ArrayList<>();
 
         for (Map.Entry<String, String> entry : fieldToColumn.entrySet()) {
             String fieldName = entry.getKey();
@@ -127,6 +128,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             if (value == null) {
                 Column colAnnot = field.getAnnotation(Column.class);
                 if (colAnnot != null && !colAnnot.defaultValue().isEmpty()) {
+                    defaultedColumns.add(columnName);
                     continue;
                 }
             }
@@ -135,13 +137,20 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             values.add(convertToJdbcValue(value));
         }
 
+        // Build RETURNING clause: always id + timestamps + any defaulted columns
+        List<String> returning = new ArrayList<>();
+        returning.add("id");
+        returning.add("created_at");
+        returning.add("updated_at");
+        returning.addAll(defaultedColumns);
+
         String sql = "INSERT INTO " + fullTableName + " (" + String.join(", ", columns) + ") " +
                 "VALUES (" + columns.stream().map(c -> "?").collect(Collectors.joining(", ")) + ") " +
-                "RETURNING id, created_at, updated_at";
+                "RETURNING " + String.join(", ", returning);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id", "created_at", "updated_at"});
+            PreparedStatement ps = connection.prepareStatement(sql, returning.toArray(new String[0]));
             for (int i = 0; i < values.size(); i++) {
                 setParameterValue(ps, i + 1, values.get(i));
             }
@@ -156,6 +165,9 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             }
             readGeneratedTimestamp(entity, keys, "created_at");
             readGeneratedTimestamp(entity, keys, "updated_at");
+            for (String colName : defaultedColumns) {
+                readGeneratedColumn(entity, keys, colName);
+            }
         }
 
         return entity;
@@ -230,6 +242,37 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
             field.set(entity, instant);
         } else {
             field.set(entity, value);
+        }
+    }
+
+    private void readGeneratedColumn(T entity, Map<String, Object> keys, String colName) throws Exception {
+        Object value = keys.get(colName);
+        if (value == null) return;
+        Field field = columnToField.get(colName);
+        if (field == null) return;
+        field.setAccessible(true);
+        if (field.getType().isInstance(value)) {
+            field.set(entity, value);
+        } else {
+            // Attempt type coercion for numeric widening/narrowing
+            if (value instanceof Number num) {
+                Class<?> ft = field.getType();
+                if (ft == Long.class || ft == long.class) {
+                    field.set(entity, num.longValue());
+                } else if (ft == Integer.class || ft == int.class) {
+                    field.set(entity, num.intValue());
+                } else if (ft == Short.class || ft == short.class) {
+                    field.set(entity, num.shortValue());
+                } else if (ft == Double.class || ft == double.class) {
+                    field.set(entity, num.doubleValue());
+                } else if (ft == Float.class || ft == float.class) {
+                    field.set(entity, num.floatValue());
+                } else {
+                    field.set(entity, value);
+                }
+            } else {
+                field.set(entity, value);
+            }
         }
     }
 
