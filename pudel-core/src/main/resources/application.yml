@@ -123,7 +123,6 @@ pudel:
   session:
     cookie-name: ${SESSION_NAME:pudel_session}
     cookie-secret: ${SESSION_KEY:}
-    #Start with "keys/"
     cookie-key-path: ${SESSION_KEYFILE:cookie.key}
 
   # ===========================================
