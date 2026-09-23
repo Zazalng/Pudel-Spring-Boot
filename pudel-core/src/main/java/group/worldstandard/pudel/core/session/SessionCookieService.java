@@ -79,8 +79,8 @@ public class SessionCookieService {
 
     public SessionCookieService(ObjectMapper objectMapper,
                                 @Value("${pudel.session.cookie-name:pudel_session}") String cookieName,
-                                @Value("${pudel.session.cookie-secret:${PUDEL_SESSION_COOKIE_SECRET:}}") String configuredSecret,
-                                @Value("${pudel.session.cookie-key-path:keys/session-cookie.key}") String keyPath,
+                                @Value("${pudel.session.cookie-secret:}") String configuredSecret,
+                                @Value("${pudel.session.cookie-key-path:}") String keyPath,
                                 @Value("${pudel.jwt.expiration:604800000}") long jwtExpirationMillis) {
         this.objectMapper = objectMapper;
         this.cookieName = cookieName;

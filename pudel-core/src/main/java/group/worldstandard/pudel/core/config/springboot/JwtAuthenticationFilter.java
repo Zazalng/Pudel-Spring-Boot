@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     public static final String SESSION_KEY_ID_ATTRIBUTE =
-            group.worldstandard.pudel.core.session.SessionAuthenticationService.KEY_ID_ATTRIBUTE;
+            SessionAuthenticationService.KEY_ID_ATTRIBUTE;
 
     private final SessionAuthenticationService sessionAuthenticationService;
 

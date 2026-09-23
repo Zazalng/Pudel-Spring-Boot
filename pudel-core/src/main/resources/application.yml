@@ -120,6 +120,12 @@ pudel:
     initial-owner: ${PUDEL_ADMIN_INITIAL_OWNER:}
     owner-public-key-path: ${PUDEL_ADMIN_OWNER_PUBLIC_KEY_PATH:keys/owner_pb.key}
 
+  session:
+    cookie-name: ${SESSION_NAME:pudel_session}
+    cookie-secret: ${SESSION_KEY:}
+    #Start with "keys/"
+    cookie-key-path: ${SESSION_KEYFILE:cookie.key}
+
   # ===========================================
   # Subscription Tiers Configuration
   # Hosters can customize these values for their SaaS model
