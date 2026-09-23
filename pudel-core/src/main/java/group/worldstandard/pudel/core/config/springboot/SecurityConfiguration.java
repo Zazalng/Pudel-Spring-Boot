@@ -72,27 +72,20 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         // Public
                         .requestMatchers(
+                                "/api/session/bootstrap",
                                 "/api/auth/discord/**",
                                 "/api/auth/refresh",
+                                "/api/auth/logout",
                                 "/api/bot/**",
                                 "/api/plugins",
                                 "/api/plugins/*",
                                 "/api/plugins/installed",
                                 "/api/plugins/installed/*",
                                 "/api/plugins/enabled",
-                                // DPoP public endpoints (needed before auth for DPoP initialization)
-                                "/api/dpop/key",
-                                "/api/dpop/public-key",
-                                "/api/dpop/thumbprint",
-                                "/api/dpop/sign",
-                                // Key deletion is safe to permitAll if presenter's X-DPoP-Key-Id
-                                "/api/dpop/key",
-                                "/api/dpop/keys",
-                                // Admin public endpoints (for challenge/key fetching)
                                 "/api/admin/challenge",
                                 "/api/admin/public-key",
-                                // SSE log stream (uses query param token auth internally)
-                                "/api/admin/logs/stream",
+                                // WebSocket handshake authenticates the session cookie and strict origin
+                                "/ws/admin/logs",
                                 // OpenAPI / Swagger UI (permitAll at Spring Security level;
                                 // SwaggerAccessFilter gates actual access via admin crypto challenge cookie)
                                 "/v3/api-docs/**",
@@ -147,9 +140,9 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "DPoP", "X-DPoP-Key-Id"));
-        configuration.setExposedHeaders(Arrays.asList("DPoP-Nonce", "WWW-Authenticate"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Content-Type"));
+        configuration.setExposedHeaders(List.of("WWW-Authenticate"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
