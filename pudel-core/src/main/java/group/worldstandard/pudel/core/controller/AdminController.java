@@ -52,7 +52,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -123,9 +122,6 @@ public class AdminController {
         cleanExpiredChallenges();
     }
 
-    @Value("${pudel.jwt.private-key-path:keys/pv.key}")
-    private String privateKeyPath;
-
     @Value("${pudel.jwt.public-key-path:keys/pb.key}")
     private String publicKeyPath;
 
@@ -190,47 +186,19 @@ public class AdminController {
     // =====================================================
 
     /**
-     * Load RSA keys lazily.
+     * Load keys lazily.
      */
     private void ensureKeysLoaded() {
         if (privateKey == null || publicKey == null) {
             try {
-                privateKey = loadPrivateKey(privateKeyPath);
-                publicKey = loadPublicKey(publicKeyPath);
-                log.info("RSA keys loaded successfully for admin authentication");
+                privateKey = jwtUtil.getPrivateKey();
+                publicKey = jwtUtil.getPublicKey();
+                log.info("Keys loaded successfully for admin authentication");
             } catch (Exception e) {
-                log.error("Failed to load RSA keys: {}", e.getMessage());
-                throw new RuntimeException("Admin authentication not available: RSA keys not configured", e);
+                log.error("Failed to load keys: {}", e.getMessage());
+                throw new RuntimeException("Admin authentication not available: Keys not configured", e);
             }
         }
-    }
-
-    private PrivateKey loadPrivateKey(String path) throws Exception {
-        byte[] keyBytes = Files.readAllBytes(Path.of(path));
-        String keyContent = new String(keyBytes)
-                .replace("-----BEGIN PRIVATE KEY-----", "")
-                .replace("-----END PRIVATE KEY-----", "")
-                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-                .replace("-----END RSA PRIVATE KEY-----", "")
-                .replaceAll("\\s", "");
-
-        byte[] decoded = Base64.getDecoder().decode(keyContent);
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePrivate(spec);
-    }
-
-    private PublicKey loadPublicKey(String path) throws Exception {
-        byte[] keyBytes = Files.readAllBytes(Path.of(path));
-        String keyContent = new String(keyBytes)
-                .replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
-                .replaceAll("\\s", "");
-
-        byte[] decoded = Base64.getDecoder().decode(keyContent);
-        X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);
-        KeyFactory kf = KeyFactory.getInstance("RSA");
-        return kf.generatePublic(spec);
     }
 
     // =====================================================
@@ -249,7 +217,7 @@ public class AdminController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("publicKey", publicKeyPem);
-            response.put("algorithm", "RSA");
+            response.put("algorithm", "EdDSA");
             response.put("usage", "Use this key to verify challenge signatures from Pudel");
 
             return ResponseEntity.ok(response);
@@ -287,7 +255,7 @@ public class AdminController {
                     .claim("nonce", challengeNonce)
                     .claim("timestamp", timestamp)
                     .expiration(new Date(expiry))
-                    .signWith(privateKey, Jwts.SIG.RS256)
+                    .signWith(privateKey, Jwts.SIG.EdDSA)
                     .compact();
 
             // Store challenge
@@ -337,8 +305,7 @@ public class AdminController {
             ensureInitialOwner();
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !(authentication.getPrincipal() instanceof String discordUserId)
-                    || discordUserId == null) {
+            if (authentication == null || !(authentication.getPrincipal() instanceof String discordUserId)) {
                 return ResponseEntity.ok(Map.of(
                         "isAdmin", false,
                         "reason", "Not authenticated"
@@ -506,9 +473,6 @@ public class AdminController {
             pendingChallenges.remove(request.challengeId);
 
             admin.setLastLogin(Instant.now());
-            if (discordUsername != null) {
-                admin.setDiscordUsername(discordUsername);
-            }
             adminWhitelistRepository.save(admin);
 
             // Generate AdminJWT session token — DPoP-bound to the caller's key (RFC 9449).
@@ -696,7 +660,7 @@ public class AdminController {
                     .claim("sessionId", session.sessionId)
                     .issuedAt(new Date())
                     .expiration(new Date(System.currentTimeMillis() + expiry))
-                    .signWith(privateKey, Jwts.SIG.RS256)
+                    .signWith(privateKey, Jwts.SIG.EdDSA)
                     .compact();
 
             // Build HttpOnly cookie — Secure flag is set only when the request
@@ -736,7 +700,7 @@ public class AdminController {
                         .claim("sessionId", session.sessionId)
                         .issuedAt(new Date())
                         .expiration(new Date(System.currentTimeMillis() + queryExpiry))
-                        .signWith(privateKey, Jwts.SIG.RS256)
+                        .signWith(privateKey, Jwts.SIG.EdDSA)
                         .compact();
                 response.put("queryToken", queryParamToken);
                 response.put("queryTokenExpiresIn", queryExpiry / 1000);
@@ -1659,7 +1623,7 @@ public class AdminController {
             List<Map<String, Object>> files = new ArrayList<>();
 
             if (dir.exists() && dir.isDirectory()) {
-                File[] jarFiles = dir.listFiles((d, n) -> n.toLowerCase().endsWith(".jar"));
+                File[] jarFiles = dir.listFiles((_, n) -> n.toLowerCase().endsWith(".jar"));
                 if (jarFiles != null) {
                     for (File file : jarFiles) {
                         Map<String, Object> fileInfo = new HashMap<>();
