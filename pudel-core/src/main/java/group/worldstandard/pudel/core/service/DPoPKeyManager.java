@@ -201,6 +201,7 @@ public class DPoPKeyManager {
      * Signs an internal DPoP proof for a request that has already authenticated through
      * the encrypted cookie. This is not a client-callable proof oracle.
      */
+    @Transactional
     public String signDPoPProof(String payloadJson, String keyId) {
         try {
             DPoPKey dpopKey = requireActiveSession(keyId);
