@@ -96,6 +96,7 @@ ENV JWT_EXPIRATION=604800000
 ENV SESSION_NAME=pudel_session
 ENV SESSION_KEY=
 ENV SESSION_KEYFILE=
+ENV SESSION_DOMAIN=
 
 # CORS Configuration
 ENV CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost

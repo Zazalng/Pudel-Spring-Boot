@@ -137,6 +137,7 @@ pudel:
     cookie-name: ${SESSION_NAME:pudel_session}
     cookie-secret: ${SESSION_KEY:}
     cookie-key-path: ${SESSION_KEYFILE:cookie.key}
+    cookie-domain: ${SESSION_DOMAIN:localhost}
 
   # ===========================================
   # Subscription Tiers Configuration

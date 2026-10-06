@@ -73,21 +73,24 @@ public class SessionCookieService {
 
     private final ObjectMapper objectMapper;
     private final String cookieName;
+    private final String cookieDomain;
     private final SecretKeySpec encryptionKey;
     private final long maxAgeSeconds;
     private final SecureRandom random = new SecureRandom();
 
     public SessionCookieService(ObjectMapper objectMapper,
                                 @Value("${pudel.session.cookie-name:pudel_session}") String cookieName,
+                                @Value("${pudel.session.cookie-domain:}") String cookieDomain,
                                 @Value("${pudel.session.cookie-secret:}") String configuredSecret,
                                 @Value("${pudel.session.cookie-key-path:}") String keyPath,
                                 @Value("${pudel.jwt.expiration:604800000}") long jwtExpirationMillis) {
         this.objectMapper = objectMapper;
         this.cookieName = cookieName;
+        this.cookieDomain = cookieDomain;
         this.maxAgeSeconds = Math.max(60L, jwtExpirationMillis / 1000L);
         this.encryptionKey = new SecretKeySpec(loadOrCreateKey(configuredSecret, keyPath), "AES");
-        log.info("Initialized encrypted session cookie service (cookie={}, maxAgeSeconds={})",
-                cookieName, maxAgeSeconds);
+        log.info("Initialized encrypted session cookie service (cookie={}, domain={}, maxAgeSeconds={})",
+                cookieName, cookieDomain, maxAgeSeconds);
     }
 
     private byte[] loadOrCreateKey(String configuredSecret, String keyPath) {
@@ -206,7 +209,8 @@ public class SessionCookieService {
         ResponseCookie cookie = ResponseCookie.from(cookieName, encrypt(keyId, expiresAt))
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("Lax")
+                .domain(cookieDomain)
                 .path("/")
                 .maxAge(maxAgeSeconds)
                 .build();
@@ -217,7 +221,8 @@ public class SessionCookieService {
         ResponseCookie cookie = ResponseCookie.from(cookieName, "")
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("Strict")
+                .sameSite("Lax")
+                .domain(cookieDomain)
                 .path("/")
                 .maxAge(0)
                 .build();
