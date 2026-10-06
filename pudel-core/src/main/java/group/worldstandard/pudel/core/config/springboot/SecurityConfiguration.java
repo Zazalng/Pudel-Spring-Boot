@@ -52,7 +52,7 @@ public class SecurityConfiguration {
      * amount of refreshing clears it. A small value bounds the blast radius of a bad
      * deploy or a misconfigured reverse proxy to minutes rather than an hour.
      */
-    @Value("${pudel.cors.max-age-seconds:600}")
+    @Value("${pudel.cors.max-age-seconds:3600}")
     private long maxAgeSeconds;
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -113,7 +113,6 @@ public class SecurityConfiguration {
 
                         // Deprecated auth endpoints - return 410 GONE but allow access
                         .requestMatchers("/api/admin/auth", "/api/admin/auth/oauth").permitAll()
-
 
                         // Admin endpoints - require authentication
                         .requestMatchers("/api/admin/**").authenticated()

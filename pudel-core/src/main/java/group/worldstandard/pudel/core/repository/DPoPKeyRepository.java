@@ -74,18 +74,22 @@ public interface DPoPKeyRepository extends JpaRepository<DPoPKey, Long> {
     int deactivateByTokenThumbprint(@Param("tokenThumbprint") String tokenThumbprint);
 
     /**
-     * Delete expired DPoP keys (for cleanup).
+     * Delete DPoP keys whose retention window has closed.
+     * <p>
+     * This is the ONLY retention rule for this table: {@code is_active} is
+     * deliberately ignored. Without a refresh token, a still-active key that
+     * outlived {@code pudel.jwt.expiration} is dead weight, and a deactivated key
+     * is already rejected at request time and must stay rejected until it expires.
      */
     @Modifying
-    @Query("DELETE FROM DPoPKey d WHERE d.expiresAt < :now")
+    @Query("DELETE FROM DPoPKey d WHERE d.expiresAt <= :now")
     int deleteExpiredKeys(@Param("now") Instant now);
 
     /**
-     * Delete inactive DPoP keys older than the specified date.
+     * Count keys past their retention window, for monitoring.
      */
-    @Modifying
-    @Query("DELETE FROM DPoPKey d WHERE d.isActive = false AND d.lastUsedAt < :before")
-    int deleteInactiveKeysOlderThan(@Param("before") Instant before);
+    @Query("SELECT COUNT(d) FROM DPoPKey d WHERE d.expiresAt <= :now")
+    long countExpiredKeys(@Param("now") Instant now);
 
     /**
      * Count active keys for a user.
