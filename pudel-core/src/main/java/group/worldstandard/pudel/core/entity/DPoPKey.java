@@ -36,7 +36,9 @@ import java.time.Instant;
 @Table(name = "dpop_keys", indexes = {
     @Index(name = "idx_dpop_key_id", columnList = "keyId", unique = true),
     @Index(name = "idx_dpop_user_id", columnList = "userId"),
-    @Index(name = "idx_dpop_token_thumbprint", columnList = "tokenThumbprint")
+    @Index(name = "idx_dpop_token_thumbprint", columnList = "tokenThumbprint"),
+    // Supports the daily retention sweep; without it the DELETE scans the whole table.
+    @Index(name = "idx_dpop_expires_at", columnList = "expiresAt")
 })
 public class DPoPKey {
 
@@ -122,8 +124,11 @@ public class DPoPKey {
     private Instant expiresAt;
 
     /**
-     * Whether this key is still active.
-     * Keys can be revoked without deleting them for audit purposes.
+     * Whether this key is still usable.
+     * Flipped to false on explicit logout, admin revocation, or key-cap eviction.
+     * This is an authorization signal, NOT a retention signal: deactivated rows are
+     * still rejected by {@link group.worldstandard.pudel.core.service.DPoPKeyManager}
+     * and are deleted only once {@link #expiresAt} is reached.
      */
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;

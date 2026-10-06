@@ -27,6 +27,11 @@
         </license>
     </licenses>
 
+    <organization>
+        <name>World Standard Group</name>
+        <url>https://github.com/World-Standard-Group</url>
+    </organization>
+
     <developers>
         <developer>
             <id>zazalng</id>
