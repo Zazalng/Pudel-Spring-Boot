@@ -25,6 +25,7 @@ import group.worldstandard.pudel.core.repository.PluginMetadataRepository;
 import net.dv8tion.jda.api.JDA;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -51,6 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 @Transactional
+@DependsOn({"jda", "pluginMetadataRepository"})
 public class PluginService extends BaseService {
     private static final Logger logger = LoggerFactory.getLogger(PluginService.class);
 

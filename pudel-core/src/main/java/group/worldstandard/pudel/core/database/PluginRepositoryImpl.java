@@ -18,6 +18,7 @@ import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -61,7 +62,7 @@ public class PluginRepositoryImpl<T> implements PluginRepository<T> {
         conversionService.addConverter(Timestamp.class, LocalDateTime.class, Timestamp::toLocalDateTime);
 
         conversionService.addConverter(Timestamp.class, OffsetDateTime.class,
-            ts -> ts.toInstant().atOffset(java.time.ZoneOffset.UTC));
+            ts -> ts.toInstant().atOffset(ZoneOffset.UTC));
 
         return conversionService;
     }

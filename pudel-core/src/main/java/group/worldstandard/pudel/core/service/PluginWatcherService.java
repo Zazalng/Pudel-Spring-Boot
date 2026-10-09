@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import group.worldstandard.pudel.api.PluginInfo;
@@ -52,6 +53,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - Docker-compatible with bind-mounted plugin directories
  */
 @Service
+@DependsOn({"pluginService"})
 public class PluginWatcherService {
     private static final Logger logger = LoggerFactory.getLogger(PluginWatcherService.class);
     private static final long UPDATE_CHECK_INTERVAL_MS = 60_000; // 1 minute
@@ -300,6 +302,7 @@ public class PluginWatcherService {
      * Performs the actual cleanup of resources.
      * Thread-safe - will only run once.
      */
+    @PreDestroy
     private void performCleanup() {
         if (cleanupCompleted.compareAndSet(false, true)) {
             logger.info("Performing plugin cleanup...");
